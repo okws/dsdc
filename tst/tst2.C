@@ -78,6 +78,7 @@ usage ()
 static void
 rdline (dsdc_smartcli_t *sc, str ln, int err)
 {
+  // parse line and do an action
 
 }
 

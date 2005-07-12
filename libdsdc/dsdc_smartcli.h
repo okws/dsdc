@@ -121,6 +121,12 @@ public:
 		    ptr<dsdc_lookup_res_t> res, clnt_stat err);
 protected:
 
+  //---------------------------------------------------------------------
+  // change cache code
+
+  // cc_t - temporary object useful for changing the cache by
+  // issuing updates or deletes. see the next 4 functions
+  // for where it's used.  should not be used anywhere else
   template<class T>
   struct cc_t {
     cc_t () {}
@@ -139,7 +145,6 @@ protected:
     ptr<int> res;
   };
 
-
   template<class T> void 
   change_cache (const dsdc_key_t &k, ptr<T> arg, int, cbi::ptr, bool);
 
@@ -147,6 +152,31 @@ protected:
   template<class T> void change_cache_cb_2 (ptr<cc_t<T> > cc, clnt_stat err);
   template<class T> void change_cache_cb_1 (ptr<cc_t<T> > cc, ptr<aclnt> cli);
 
+  //
+  // end change cache code
+  //---------------------------------------------------------------------
+
+  //-----------------------------------------------------------------------
+  // init code
+  //   required semantics: first master wins, but if all masters
+  //   fail, then we're required to say that
+  //
+  struct init_t {
+    init_t (cbb c) : _cb (c), _success (false) {}
+    ~init_t () { if (!_success) (*_cb) (false); }
+
+    // assure that _cb can only be triggered once
+    void success () 
+    { 
+      if (!_success) {
+	_success = true; 
+	(*_cb) (true); 
+      }
+    }
+    cbb _cb;
+    bool _success;
+  };
+  void init_cb (ptr<init_t> i, dsdci_master_t *m, bool b);
 private:
   dsdci_master_t *_curr_master;
 

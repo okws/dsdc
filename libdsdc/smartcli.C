@@ -218,9 +218,21 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
 }
 
 void
+dsdc_smartcli_t::init_cb (ptr<init_t> i, dsdci_master_t *m, bool b)
+{
+  // in this case, it's the first success
+  if (b && !_curr_master) {
+    _curr_master = m;
+    i->success ();
+  }
+}
+
+void
 dsdc_smartcli_t::init (cbb::ptr cb)
 {
-  (*cb) (false);
-
+  ptr<init_t> i = New refcounted<init_t> (cb);
+  for (dsdci_master_t *m = _masters.first; m; m = _masters.next (m)) {
+    m->connect (wrap (this, &dsdc_smartcli_t::init_cb, i, m));
+  }
 }
 
