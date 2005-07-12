@@ -108,11 +108,24 @@ dsdc_smartcli_t::lookup (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb)
 {
   dsdc_ring_node_t *n = _hash_ring.successor (*k);
   if (!n) {
-    (*cb) (New refcounted<dsdc_lookup_res_t> (DSDC_NOTFOUND));
+    (*cb) (New refcounted<dsdc_lookup_res_t> (DSDC_NONODE));
     return;
   }
   n->get_aclnt_wrap ()
     ->get_aclnt (wrap (this, &dsdc_smartcli_t::lookup_cb_1, k, cb));
+}
+
+
+void
+dsdc_smartcli_t::insert (ptr<dsdc_insert_arg_t> arg, bool safe, cbi::ptr cb)
+{
+  change_cache<dsdc_insert_arg_t> (arg->key, arg, int (DSDC_INSERT), cb, safe);
+}
+
+void
+dsdc_smartcli_t::remove (ptr<dsdc_key_t> key, bool safe, cbi::ptr cb)
+{
+  change_cache<dsdc_key_t> (*key, key, int (DSDC_REMOVE), cb, safe);
 }
 
 void
@@ -172,12 +185,6 @@ dsdci_srv_t::connect (cbb cb)
 }
 
 void
-dsdc_smartcli_t::insert (ptr<dsdc_insert_arg_t> arg, bool safe, cbi::ptr cb)
-{
-
-}
-
-void
 dsdci_srv_t::get_aclnt_cb (aclnt_cb_t cb, bool b)
 {
   (*cb) (_cli);
@@ -190,6 +197,5 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
     (*cb) (_cli);
     return;
   }
-
   connect (wrap (this, &dsdci_srv_t::get_aclnt_cb, cb));
 }

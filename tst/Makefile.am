@@ -1,8 +1,7 @@
 
 $(PROGRAMS): $(LDEPS)
 
-noinst_HEADERS = tst
-noinst_PROGRAMS = tst
+noinst_PROGRAMS = tst tst2
 tst_SOURCES = tst_prot.C tst.C
 
 

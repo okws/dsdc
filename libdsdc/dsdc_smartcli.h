@@ -98,7 +98,7 @@ public:
 
   void insert (ptr<dsdc_insert_arg_t> arg, bool safe, cbi::ptr cb);
   void lookup (ptr<dsdc_key_t> key, dsdc_lookup_res_cb_t cb);
-  void remove (ptr<dsdc_key_t> key, cbi::ptr cb);
+  void remove (ptr<dsdc_key_t> key, bool safe, cbi::ptr cb);
   
   // fulfill the virtual interface of dsdc_system_cache_t
   ptr<aclnt> get_primary ();
@@ -112,6 +112,33 @@ public:
 		    ptr<aclnt> cli);
   void lookup_cb_2 (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb,
 		    ptr<dsdc_lookup_res_t> res, clnt_stat err);
+protected:
+
+  template<class T>
+  struct cc_t {
+    cc_t () {}
+    cc_t (const dsdc_key_t &k, ptr<T> a, int p, cbi::ptr c)
+      : key (k), arg (a), proc (p), cb (c), res (New refcounted<int> ()) {}
+
+    ~cc_t () { if (cb) (*cb) (*res); }
+
+    void set_res (int i) { *res = i; }
+
+    dsdc_key_t key;
+    ptr<T> arg;
+    int proc;
+    cbi::ptr cb;
+    ptr<aclnt> cli;
+    ptr<int> res;
+  };
+
+
+  template<class T> void 
+  change_cache (const dsdc_key_t &k, ptr<T> arg, int, cbi::ptr, bool);
+
+  template<class T> void change_cache (ptr<cc_t<T> > cc, bool safe);
+  template<class T> void change_cache_cb_2 (ptr<cc_t<T> > cc, clnt_stat err);
+  template<class T> void change_cache_cb_1 (ptr<cc_t<T> > cc, ptr<aclnt> cli);
 
 private:
   dsdci_master_t *_curr_master;
@@ -123,6 +150,56 @@ private:
   fhash<str, dsdci_slave_t, &dsdci_slave_t::_hlnk> _slaves_hash;
   bhash<str> _slaves_hash_tmp;
 };
+
+
+template<class T> void 
+dsdc_smartcli_t::change_cache (const dsdc_key_t &k, ptr<T> arg, 
+			       int proc, cbi::ptr cb, bool safe)
+{
+  change_cache<T> (New refcounted<cc_t<T> > (k, arg, proc, cb), safe);
+}
+
+template<class T> void
+dsdc_smartcli_t::change_cache_cb_2 (ptr<cc_t<T> > cc, clnt_stat err)
+{
+  if (err) {
+    if (show_debug (1)) {
+      warn << "RPC error in proc=" << cc->proc << ": " << err << "\n";
+    }
+    cc->set_res (DSDC_RPC_ERROR);
+  }
+}
+
+template<class T> void
+dsdc_smartcli_t::change_cache_cb_1 (ptr<cc_t<T> > cc, ptr<aclnt> cli)
+{
+  if (!cli) {
+    cc->set_res (DSDC_NONODE);
+    return;
+  }
+
+  cli->call (cc->proc, cc->arg, cc->res,
+	     wrap (this, &dsdc_smartcli_t::change_cache_cb_2<T>, cc));
+}
+
+
+template<class T> void
+dsdc_smartcli_t::change_cache (ptr<cc_t<T> > cc, bool safe)
+{
+  if (safe) {
+    change_cache_cb_1 (cc, get_primary ());
+  } else {
+
+    dsdc_ring_node_t *n = _hash_ring.successor (cc->key);
+    if (!n) {
+      cc->set_res (DSDC_NONODE);
+      return;
+    }
+    n->get_aclnt_wrap ()
+      ->get_aclnt (wrap (this, &dsdc_smartcli_t::change_cache_cb_1<T>, cc));
+  }
+}
+
 
 
 #endif /* _DSDC_SMARTCLI_H */
