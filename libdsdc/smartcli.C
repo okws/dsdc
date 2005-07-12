@@ -6,8 +6,24 @@ dsdci_srv_t::dsdci_srv_t (const str &h, int p)
   : _key (strbuf ("%s:%d", h.cstr (), p)),
     _hostname (h),
     _port (p),
-    _fd (-1) 
-{}
+    _fd (-1),
+    _destroyed (New refcounted<bool> (false))
+{ }
+
+void
+dsdci_srv_t::hit_eof (ptr<bool> df)
+{
+  if (*df)
+    return;
+
+  if (show_debug (1))
+    warn << "EOF from remote peer: " << key () << "\n";
+
+  _fd = -1;
+  _cli = NULL;
+  _x = NULL;
+}
+
 
 bool
 dsdc_smartcli_t::add_master (const str &hostname, int port)
@@ -54,8 +70,8 @@ dsdci_srv_t::is_dead ()
   if (_fd < 0)
     return false;
 
-  if (_x->ateof ()) {
-    _fd = -1;
+  if (!_x || _x->ateof ()) {
+    hit_eof (_destroyed);
     return false;
   }
   return true;
@@ -170,6 +186,7 @@ dsdci_srv_t::connect_cb (cbb cb, int f)
     }
     assert ((_x = axprt_stream::alloc (_fd, dsdc_packet_sz)));
     _cli = aclnt::alloc (_x, dsdc_prog_1);
+    _cli->seteofcb (wrap (this, &dsdci_srv_t::hit_eof, _destroyed));
   }
   (*cb) (true);
 } 
@@ -199,3 +216,11 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
   }
   connect (wrap (this, &dsdci_srv_t::get_aclnt_cb, cb));
 }
+
+void
+dsdc_smartcli_t::init (cbb::ptr cb)
+{
+  (*cb) (false);
+
+}
+

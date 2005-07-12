@@ -25,9 +25,13 @@ typedef callback<void, ptr<dsdc_lookup_res_t> >::ref dsdc_lookup_res_cb_t;
 class dsdci_srv_t : public aclnt_wrap_t {
 public:
   dsdci_srv_t (const str &h, int p) ;
+  virtual ~dsdci_srv_t () { *_destroyed = true; }
+
   const str &key () const { return _key; }
   void connect (cbb cb);
   void connect_cb (cbb cb, int f);
+
+  void hit_eof (ptr<bool> df); // call this when there is an EOF
 
   // for aclnt_wrap_t virtual interface
   ptr<aclnt> get_aclnt () { return _cli; }
@@ -44,6 +48,7 @@ private:
 
   ptr<axprt> _x;
   ptr<aclnt> _cli;
+  ptr<bool> _destroyed;
 };
 
 
@@ -93,6 +98,8 @@ template<> struct keyfn<dsdci_slave_t, str> {
 class dsdc_smartcli_t : public dsdc_system_state_cache_t {
 public:
   dsdc_smartcli_t () : _curr_master (NULL) {}
+
+  void init (cbb::ptr cb);
 
   bool add_master (const str &hostname, int port);
 

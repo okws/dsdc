@@ -4,6 +4,8 @@ $(PROGRAMS): $(LDEPS)
 noinst_PROGRAMS = tst tst2
 tst_SOURCES = tst_prot.C tst.C
 
+tst2_SOURCES = tst2.C tst_prot.C
+
 
 tst_prot.C: $(srcdir)/tst_prot.x tst_prot.h
 	@rm -f $@

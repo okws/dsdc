@@ -126,9 +126,10 @@ sfstag = @sfstag@
 sfstagdir = @sfstagdir@
 sfsuser = @sfsuser@
 
-noinst_HEADERS = tst
-noinst_PROGRAMS = tst
+noinst_PROGRAMS = tst tst2
 tst_SOURCES = tst_prot.C tst.C
+
+tst2_SOURCES = tst2.C tst_prot.C
 
 CLEANFILES = core *.core *~
 EXTRA_DIST = .cvsignore
@@ -137,7 +138,7 @@ subdir = tst
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
-noinst_PROGRAMS = tst$(EXEEXT)
+noinst_PROGRAMS = tst$(EXEEXT) tst2$(EXEEXT)
 PROGRAMS = $(noinst_PROGRAMS)
 
 am_tst_OBJECTS = tst_prot.$(OBJEXT) tst.$(OBJEXT)
@@ -145,6 +146,11 @@ tst_OBJECTS = $(am_tst_OBJECTS)
 tst_LDADD = $(LDADD)
 tst_DEPENDENCIES =
 tst_LDFLAGS =
+am_tst2_OBJECTS = tst2.$(OBJEXT) tst_prot.$(OBJEXT)
+tst2_OBJECTS = $(am_tst2_OBJECTS)
+tst2_LDADD = $(LDADD)
+tst2_DEPENDENCIES =
+tst2_LDFLAGS =
 
 DEFS = @DEFS@
 DEFAULT_INCLUDES =  -I. -I$(srcdir) -I$(top_builddir)
@@ -152,7 +158,8 @@ CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
-@AMDEP_TRUE@DEP_FILES = $(DEPDIR)/tst.Po $(DEPDIR)/tst_prot.Po
+@AMDEP_TRUE@DEP_FILES = $(DEPDIR)/tst.Po $(DEPDIR)/tst2.Po \
+@AMDEP_TRUE@	$(DEPDIR)/tst_prot.Po
 CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 LTCXXCOMPILE = $(LIBTOOL) --mode=compile $(CXX) $(DEFS) \
@@ -162,11 +169,9 @@ CXXLD = $(CXX)
 CXXLINK = $(LIBTOOL) --mode=link $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 CXXFLAGS = @CXXFLAGS@
-DIST_SOURCES = $(tst_SOURCES)
-HEADERS = $(noinst_HEADERS)
-
-DIST_COMMON = $(noinst_HEADERS) Makefile.am Makefile.in
-SOURCES = $(tst_SOURCES)
+DIST_SOURCES = $(tst_SOURCES) $(tst2_SOURCES)
+DIST_COMMON = Makefile.am Makefile.in
+SOURCES = $(tst_SOURCES) $(tst2_SOURCES)
 
 all: all-am
 
@@ -194,6 +199,9 @@ clean-noinstPROGRAMS:
 tst$(EXEEXT): $(tst_OBJECTS) $(tst_DEPENDENCIES) 
 	@rm -f tst$(EXEEXT)
 	$(CXXLINK) $(tst_LDFLAGS) $(tst_OBJECTS) $(tst_LDADD) $(LIBS)
+tst2$(EXEEXT): $(tst2_OBJECTS) $(tst2_DEPENDENCIES) 
+	@rm -f tst2$(EXEEXT)
+	$(CXXLINK) $(tst2_LDFLAGS) $(tst2_OBJECTS) $(tst2_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT) core *.core
@@ -202,6 +210,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/tst.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/tst2.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/tst_prot.Po@am__quote@
 
 distclean-depend:
@@ -282,7 +291,7 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(PROGRAMS) $(HEADERS)
+all-am: Makefile $(PROGRAMS)
 
 installdirs:
 
