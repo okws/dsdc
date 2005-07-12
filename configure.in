@@ -1,0 +1,98 @@
+dnl $Id$
+dnl
+dnl Process this file with autoconf to produce a configure script.
+dnl
+
+AC_INIT(config.h.in)
+AM_INIT_AUTOMAKE(dsdc, 0.2)
+AM_CONFIG_HEADER(config.h)
+
+AC_CANONICAL_HOST
+
+dnl Checks for programs.
+AC_PROG_CC
+AC_PROG_CPP
+AC_PROG_CXX
+SFS_WFLAGS
+SFS_PATH_CPP
+AC_PROG_INSTALL_C
+AC_PROG_LN_S
+AC_PATH_PROG(PERL, perl, perl)
+AC_PATH_PROGS(M4, gm4 gnum4 m4, '$(top_srcdir)/missing')
+AC_PATH_PROGS(UPTIME, uptime, '$(top_srcdir)/missing')
+
+test "$RPCC" || RPCC='/usr/local/bin/rpcc'
+dnl
+dnl OKWS_TAG might set "with_sfs", so it should come before
+dnl SFS_SFS, which will reset it if needs be
+dnl
+SFS_TAG
+
+# XXX - next line seems to be required for some autoconf/-make/libtool versions
+test -z "$target" && target=NONE
+AC_DISABLE_SHARED
+AM_PROG_LIBTOOL
+
+AM_CONDITIONAL(STATIC, test "$enable_shared" != yes)
+
+SFS_SFS
+SFS_FIND_RESOLV
+
+if test -z "$sfslibdir"; then
+   sfslibdirp='${pkglibdir}-${VERSION}'
+   sfslibdir='${pkglibdir}-${VERSION}${sfstagdir}'
+fi
+if test -z "$sfsincludedir"; then
+   sfsincludedirp='${pkgincludedir}-${VERSION}'
+   sfsincludedir='${pkgincludedir}-${VERSION}${sfstagdir}'
+fi
+sfsexecdir="$sfslibdir"
+CPPFLAG="$CPPFLAGS -DEXECDIR="'\"$(sfsexecdir)\"'
+
+if test -z "$sfstag" -o "${sfs_systembin+set}" = "set" ; then
+	sfsbindir='${prefix}/bin'
+else
+	sfsbindir="$sfslibdir"
+fi  
+AC_SUBST(sfsincludedir)
+AC_SUBST(sfsincludedirp)
+AC_SUBST(sfslibdir)
+AC_SUBST(sfsbindir)
+AC_SUBST(sfslibdirp)
+AC_SUBST(sfsexecdir)
+
+SFS_CFLAGS
+
+CPPFLAGS="$CPPFLAGS -I"'$(top_srcdir)'
+
+dnl
+dnl for .x files, need header in build directory
+dnl
+for lib in libdsdc; do
+    CPPFLAGS="$CPPFLAGS -I"'$(top_builddir)'"/$lib"
+done
+
+dnl
+dnl library directories
+dnl
+for lib in libdsdc; do
+    CPPFLAGS="$CPPFLAGS -I"'$(top_srcdir)'"/$lib"
+done
+
+dnl
+dnl when compiling the PUB program, do not link againgst libahttp
+dnl
+LIBDSDC='$(top_builddir)/libdsdc/libdsdc.la'
+LDADD='$(LIBDSDC) '"$LDADD"
+if test "$enable_shared" = yes; then
+   LDEPS=
+else
+   LDEPS='$(LIBDSDC) '"$LDEPS"
+fi
+
+
+ETAGS_ARGS='-C /dev/null'
+
+AC_SUBST(LIBDSDC)
+
+AC_OUTPUT(libdsdc/Makefile dsdc/Makefile tst/Makefile Makefile)

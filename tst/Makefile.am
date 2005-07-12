@@ -1,0 +1,20 @@
+
+$(PROGRAMS): $(LDEPS)
+
+noinst_HEADERS = tst
+noinst_PROGRAMS = tst
+tst_SOURCES = tst_prot.C tst.C
+
+
+tst_prot.C: $(srcdir)/tst_prot.x tst_prot.h
+	@rm -f $@
+	-$(RPCC) -c $(srcdir)/tst_prot.x || rm -f $@
+
+tst_prot.h: $(srcdir)/tst_prot.x
+	@rm -f $@
+	-$(RPCC) -h $(srcdir)/tst_prot.x || rm -f $@
+
+
+CLEANFILES = core *.core *~
+EXTRA_DIST = .cvsignore
+MAINTAINERCLEANFILES = Makefile.in
