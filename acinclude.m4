@@ -1736,8 +1736,12 @@ if test "$enable_static" = yes -a -z "${NOPAGING+set}"; then
     esac
 fi
 
-sfslibdir='$(libdir)/sfs'
-sfsincludedir='$(libdir)/include'
+if test -z "$sfslibdir"; then
+	sfslibdir='$(libdir)/sfs'	
+fi
+if test -z "$sfsincludedir"; then
+	sfsincludedir='$(libdir)/include'
+fi
 AC_SUBST(sfslibdir)
 AC_SUBST(sfsincludedir)
 

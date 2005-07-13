@@ -38,14 +38,11 @@ AM_CONDITIONAL(STATIC, test "$enable_shared" != yes)
 SFS_SFS
 SFS_FIND_RESOLV
 
-if test -z "$sfslibdir"; then
-   sfslibdirp='${pkglibdir}-${VERSION}'
-   sfslibdir='${pkglibdir}-${VERSION}${sfstagdir}'
-fi
-if test -z "$sfsincludedir"; then
-   sfsincludedirp='${pkgincludedir}-${VERSION}'
-   sfsincludedir='${pkgincludedir}-${VERSION}${sfstagdir}'
-fi
+dnl
+dnl  sfslibdir and sfsinclude dir are set in SFS_SFS with the appropriate
+dnl  sfslite-style tag, if required.
+dnl
+
 sfsexecdir="$sfslibdir"
 CPPFLAG="$CPPFLAGS -DEXECDIR="'\"$(sfsexecdir)\"'
 
@@ -54,11 +51,7 @@ if test -z "$sfstag" -o "${sfs_systembin+set}" = "set" ; then
 else
 	sfsbindir="$sfslibdir"
 fi  
-AC_SUBST(sfsincludedir)
-AC_SUBST(sfsincludedirp)
-AC_SUBST(sfslibdir)
 AC_SUBST(sfsbindir)
-AC_SUBST(sfslibdirp)
 AC_SUBST(sfsexecdir)
 
 SFS_CFLAGS
