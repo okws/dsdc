@@ -124,7 +124,7 @@ public:
   void handle_put (svccb *b);
   void handle_getstate (svccb *b);
 
-  void broadcast_newnode (const dsdc_keyset_t &k, dsdcm_slave_t *skip);
+  void broadcast_newnode (const dsdcx_slave_t &x, dsdcm_slave_t *skip);
 
   // manage the system state
   void reset_system_state ();

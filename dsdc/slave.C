@@ -266,6 +266,13 @@ dsdc_slave_t::lru_remove_obj (dsdc_cache_obj_t *o, bool del)
 {
   if (!o) {
     o = _lru.first;
+
+    // it could be that what's inserted is bigger than the whole cache
+    // size allotment.  in this case, we'll bend the rules a little
+    // bit and allow only it to be inserted.
+    if (!o)
+      return 0;
+
     if (show_debug (2)) 
       warn ("LRU Delete triggered: %s\n", key_to_str (o->_key).cstr ());
   }
@@ -313,7 +320,10 @@ dsdc_slave_t::lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o)
   co->set (k, o);
 
   size_t sz = co->size ();
-  while (sz + _lrusz > _maxsz) {
+  
+  // stop looping when either (1) we've made enough room or
+  // (2) there is nothing more to delete!
+  while (_lrusz && sz + _lrusz > _maxsz) {
     lru_remove_obj (NULL, true);
   }
 

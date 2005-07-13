@@ -130,6 +130,8 @@ dsdc_master_t::reset_system_state ()
 {
   _system_state = NULL;
   _system_state_hash = NULL;
+  if (show_debug (3))
+    warn << "system state reset\n";
 }
 
 void
@@ -275,7 +277,7 @@ handle_vanilla_cb (ptr<int> res, svccb *sbp, clnt_stat err)
   if (sbp->getsrv ()->xprt ()->ateof ())
     return;
   if (err) 
-    *res =  DSDC_RPC_ERROR;
+    *res = DSDC_RPC_ERROR;
   sbp->reply (res);
 }
 
@@ -334,39 +336,12 @@ ignore_cb (ptr<int> res, clnt_stat err)
 // this is the right thing to do.
 //
 void
-dsdc_master_t::broadcast_newnode (const dsdc_keyset_t &k, dsdcm_slave_t *skip)
-{
-  dsdcx_slave_t arg;
-
-  //
-  // XXX eventually let's fill in hostname port so that other nodes can
-  // move data to the new node.  This will increase cache hits, especially
-  // after a node join.  For now, let's keep it simple.
-  //
-  arg.keys = k;
-  arg.hostname = "not used";
-  arg.port = 0;
-
-  for (dsdcm_slave_t *p = _slaves.first; p; p = _slaves.next (p)) {
-    if (p != skip && !p->is_dead ()) {
-      ptr<int> res = New refcounted<int> ();
-      p->get_aclnt ()->call (DSDC_NEWNODE, &arg, res, 
-			     wrap (ignore_cb, res));
-    }
-  }
-}
-
-//
-// broadcast_deletes; now depricated, in favor of reconciling membership
-// when new nodes are added.
-//
-void
-dsdc_master_t::broadcast_deletes (const dsdc_key_t &k, dsdcm_slave_t *skip)
+dsdc_master_t::broadcast_newnode (const dsdcx_slave_t &x, dsdcm_slave_t *skip)
 {
   for (dsdcm_slave_t *p = _slaves.first; p; p = _slaves.next (p)) {
     if (p != skip && !p->is_dead ()) {
       ptr<int> res = New refcounted<int> ();
-      p->get_aclnt ()->call (DSDC_REMOVE, &k, res, 
+      p->get_aclnt ()->call (DSDC_NEWNODE, &x, res, 
 			     wrap (ignore_cb, res));
     }
   }
