@@ -1,0 +1,20 @@
+- 2 Round registration protocol ?
+- Mget 
+- Slave groups
+- Mget Custom
+- Master gossip
+- Code refactor: separate clients from slaves in both protocol and also
+  class hierarchy
+X clients get data directly from slaves
+- move data on new node addition
+   X this will require each slave to listen on a TCP port for 
+     incoming connections.
+- statistics!  who is up; hit ratios, etc..
+- some data can be stored more than once, for redundancy.  store on
+  predecessors.  kind of assumes effective data movement though.
+
+
+Nits
+-----
+- don't memcpy data on lookups.
+
