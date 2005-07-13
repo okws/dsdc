@@ -120,7 +120,7 @@ dsdc_smartcli_t::post_construct ()
 }
 
 void
-dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb, bool safe)
+dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb, bool safe)
 {
   ptr<aclnt> cli;
   if (safe) {
@@ -150,7 +150,7 @@ dsdc_smartcli_t::remove (ptr<dsdc_key_t> key, cbi::ptr cb, bool safe)
 }
 
 void
-dsdc_smartcli_t::get_cb_2 (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb,
+dsdc_smartcli_t::get_cb_2 (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
 			   ptr<dsdc_get_res_t> res, clnt_stat err)
 {
   if (err) {
@@ -164,7 +164,7 @@ dsdc_smartcli_t::get_cb_2 (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb,
 }
 
 void
-dsdc_smartcli_t::get_cb_1 (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb,
+dsdc_smartcli_t::get_cb_1 (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
 			   ptr<aclnt> cli)
 {
   if (!cli) {

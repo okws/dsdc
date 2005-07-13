@@ -12,7 +12,6 @@
 #include "dsdc_state.h"
 #include "qhash.h"
 
-typedef callback<void, ptr<dsdc_get_res_t> >::ref dsdc_lookup_res_cb_t;
 
 //
 // dsdci_srv_t
@@ -89,24 +88,50 @@ template<> struct keyfn<dsdci_slave_t, str> {
   const str &operator () (dsdci_slave_t *i) const { return i->key (); }
 };
 
+// callback type for returning from get() calls below
+typedef callback<void, ptr<dsdc_get_res_t> >::ref dsdc_get_res_cb_t;
+
 //
 // dsdc smart client: 
+//
 //   while "dumb" clients go through the master for lookups and inserts,
 //   smart clients maintain a version of the ring and can therefore 
 //   route their own lookups, saving latency and load on the master
+//
+//   the API to this class is with the 6 or so public functions below.
 //
 class dsdc_smartcli_t : public dsdc_system_state_cache_t {
 public:
   dsdc_smartcli_t () : _curr_master (NULL) {}
 
-  void init (cbb::ptr cb);
-
+  // add a new master server to the smart client.
+  // returns true if the insert succeeded (if the master is not
+  // a duplicate) and false otherwise.
   bool add_master (const str &hostname, int port);
 
+  // initialize the smart client; get a callback with a "true" result
+  // as soon as one master connection succeeds, or with a "false" result
+  // after all connections fail.
+  void init (cbb::ptr cb);
+
+  //
+  // put/get/remove objects into the ring. 
+  //
+  //   for put/remove, the callback is optional, and give it NULL if
+  //   you don't care about the result. 
+  // 
+  //   specify the "safe" flag for extra safety.  that is, if you
+  //   want to push/pull data through the masters, with some added
+  //   assurence of consistency.  for most operations, do not supply
+  //   the safe flag, and rely on the smart client's knowledge
+  //   of the cache state.
+  //
   void put (ptr<dsdc_put_arg_t> arg, cbi::ptr cb = NULL, bool safe = false);
-  void get (ptr<dsdc_key_t> key, dsdc_lookup_res_cb_t cb, bool safe = false);
+  void get (ptr<dsdc_key_t> key, dsdc_get_res_cb_t cb, bool safe = false);
   void remove (ptr<dsdc_key_t> key, cbi::ptr cb = NULL, bool safe = false);
-  
+
+protected:
+
   // fulfill the virtual interface of dsdc_system_cache_t
   ptr<aclnt> get_primary ();
   aclnt_wrap_t *new_wrap (const str &h, int p);
@@ -115,11 +140,11 @@ public:
   void post_construct ();
 
 
-  void get_cb_1 (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb, 
+  void get_cb_1 (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb, 
 		    ptr<aclnt> cli);
-  void get_cb_2 (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb,
+  void get_cb_2 (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
 		 ptr<dsdc_get_res_t> res, clnt_stat err);
-protected:
+
 
   //---------------------------------------------------------------------
   // change cache code
@@ -177,6 +202,10 @@ protected:
     bool _success;
   };
   void init_cb (ptr<init_t> i, dsdci_master_t *m, bool b);
+  //
+  // end init code
+  //-----------------------------------------------------------------------
+
 private:
   dsdci_master_t *_curr_master;
 
