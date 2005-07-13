@@ -242,7 +242,7 @@ dsdc_slave_t::handle_put (svccb *sbp)
 {
   dsdc_put_arg_t *a = sbp->Xtmpl getarg<dsdc_put_arg_t> ();
   bool rc = lru_insert (a->key, a->obj);
-  dsdc_res_t res = rc ? DSDC_REPLACED : DSDC_PUTED;
+  dsdc_res_t res = rc ? DSDC_REPLACED : DSDC_INSERTED;
   if (show_debug (1)) {
     warn ("insert issued (rc=%d): %s\n", res, key_to_str (a->key).cstr ());
   }

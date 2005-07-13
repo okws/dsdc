@@ -15,7 +15,7 @@ struct dsdc_key_template_t {
 enum dsdc_res_t {
 	DSDC_OK = 0,
 	DSDC_REPLACED = 1,
-	DSDC_PUTED = 2,
+	DSDC_INSERTED = 2,
 	DSDC_NOTFOUND = 3,
 	DSDC_NONODE = 4,
 	DSDC_ALREADY_REGISTERED = 5,

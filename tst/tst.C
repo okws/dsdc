@@ -159,7 +159,7 @@ put_cli_t::do_cmd_cb (ptr<int> res, str mapping, clnt_stat err)
   if (err) {
     warn << "RPC error: " << err << "\n";
     exit (1);
-  } else if (*res != DSDC_REPLACED && *res != DSDC_PUTED) {
+  } else if (*res != DSDC_REPLACED && *res != DSDC_INSERTED) {
     warn << "DSDC error: " << *res << "\n";
     exit (1);
   } else {
