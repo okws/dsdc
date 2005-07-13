@@ -24,8 +24,7 @@ dsdc_system_state_cache_t::handle_refresh (const dsdc_getstate_res_t &res)
 void
 dsdc_system_state_cache_t::construct_tree ()
 {
-  //_hash_ring.deleteall_correct ();
-  _hash_ring.deleteall (); // XXX for time being
+  _hash_ring.deleteall_correct ();
   for (u_int i = 0; i < _system_state.slaves.size (); i++) {
     const dsdcx_slave_t &sl = _system_state.slaves[i];
     aclnt_wrap_t *w = new_wrap (sl.hostname, sl.port);
@@ -45,8 +44,7 @@ dsdc_system_state_cache_t::dsdc_system_state_cache_t ()
 dsdc_system_state_cache_t::~dsdc_system_state_cache_t ()
 {
   *_destroyed = true;
-  //_hash_ring.deleteall_correct ();
-  _hash_ring.deleteall (); // XXX for the time being
+  _hash_ring.deleteall_correct ();
 }
 
 void

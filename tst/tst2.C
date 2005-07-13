@@ -85,7 +85,7 @@ put_cb (str mapping, int res)
   if (res != DSDC_REPLACED && res != DSDC_INSERTED) {
     warn << "** PUT:  DSDC Error " << res << " in insert: " << mapping << "\n";
   } else {
-    aout << "GET: " << mapping << " (rc=" << res << ")\n";
+    aout << "PUT: " << mapping << " (rc=" << res << ")\n";
   }
   cb_done ();
 }
@@ -146,8 +146,8 @@ static void
 get (dsdc_smartcli_t *sc, tst_key_t k, bool safe)
 {
   ptr<dsdc_key_t> outkey = New refcounted<dsdc_key_t> ();
-  strbuf key_str ("%d (%s)", k, key_to_str (*outkey).cstr ());
   hash_key (k, outkey);
+  strbuf key_str ("%d (%s)", k, key_to_str (*outkey).cstr ());
   sc->get (outkey,  wrap (get_cb, strbuf (key_str)), safe);
 }
 
@@ -161,9 +161,12 @@ remove (tst_key_t k, bool safe)
 static void
 rdline (dsdc_smartcli_t *sc, str ln, int err)
 {
+  static rxx splrxx ("\\s+");
+  vec<str> args;
+
   static rxx lnrx ("([pgrd])(-?)\\s+([0-9]+)?(\\s+([a-zA-Z0-9_-]+))?");
   char com;
-  bool safe;
+  bool safe = false;
   str val;
   tst_key_t key = 0;
 
@@ -173,11 +176,20 @@ rdline (dsdc_smartcli_t *sc, str ln, int err)
     tst2_exit ();
     return;
   }
-  if (!lnrx.search (ln)) 
+  if (!split (&args, splrxx, ln))
     goto done;
 
-  com = lnrx[1].cstr () [0];
-  safe = lnrx[2];
+  if (args.size () < 1)
+    goto done;
+
+  com = args[0][0];
+  if (args[0].len () == 2) {
+    if (args[0][1] == '-')
+      safe = true;
+    else
+      goto done;
+  } else if (args[0].len () != 1)
+    goto done;
 
   if (lnrx[3] && !convertint (lnrx[3], &key)) 
     goto done;
@@ -186,19 +198,23 @@ rdline (dsdc_smartcli_t *sc, str ln, int err)
 
   switch (com) {
   case 'p': 
-    if (key && val) 
+    if (args.size () == 3 && convertint (args[1], &key)) {
+      val = args[2];
       put (sc, key, val, safe);
+    }
     break;
   case 'r':
-    generate_kv (&key, &val);
-    put (sc, key, val, safe);
+    if (args.size () == 1) {
+      generate_kv (&key, &val);
+      put (sc, key, val, safe);
+    }
     break;
   case 'g':
-    if (key)
+    if (args.size () == 2 && convertint (args[1], &key))
       get (sc, key, safe);
     break;
   case 'd':
-    if (key)
+    if (args.size () == 2 && convertint (args[1], &key))
       remove (key, safe);
     break;
   default:

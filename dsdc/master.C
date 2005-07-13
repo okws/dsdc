@@ -61,6 +61,13 @@ dsdcm_client_t::dispatch (svccb *sbp)
     // important for generating correct results
     delete this;  
 
+    // clear out the state fields since they are no longer correct
+    // if we're dealing with smart clients, we need to braodcast this
+    // change, since otherwise, their ring will not be in good shape;
+    // perhaps, we should keep one version for the slaves, and another
+    // for smart clients
+    _master->reset_system_state ();
+
     return;
   }
 

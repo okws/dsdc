@@ -68,13 +68,13 @@ bool
 dsdci_srv_t::is_dead ()
 {
   if (_fd < 0)
-    return false;
+    return true;
 
   if (!_x || _x->ateof ()) {
     hit_eof (_destroyed);
-    return false;
+    return true;
   }
-  return true;
+  return false;
 }
 
 void
@@ -229,6 +229,9 @@ dsdc_smartcli_t::init_cb (ptr<init_t> i, dsdci_master_t *m, bool b)
   if (b && !_curr_master) {
     _curr_master = m;
     i->success ();
+
+    // initialize our hash ring
+    refresh (_destroyed);
   }
 }
 
