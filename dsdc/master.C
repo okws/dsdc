@@ -65,14 +65,14 @@ dsdcm_client_t::dispatch (svccb *sbp)
   }
 
   switch (sbp->proc ()) {
-  case DSDC_LOOKUP:
-    _master->handle_lookup (sbp);
+  case DSDC_GET:
+    _master->handle_get (sbp);
     break;
   case DSDC_REMOVE:
     _master->handle_remove (sbp);
     break;
-  case DSDC_INSERT:
-    _master->handle_insert (sbp);
+  case DSDC_PUT:
+    _master->handle_put (sbp);
     break;
   case DSDC_REGISTER:
     handle_register (sbp);
@@ -253,7 +253,7 @@ dsdcm_slave_t::is_dead ()
 }
 
 static void 
-handle_lookup_cb (ptr<dsdc_lookup_res_t> res, svccb *sbp, clnt_stat err)
+handle_get_cb (ptr<dsdc_get_res_t> res, svccb *sbp, clnt_stat err)
 {
   if (sbp->getsrv ()->xprt ()->ateof ())
     return;
@@ -273,10 +273,10 @@ handle_vanilla_cb (ptr<int> res, svccb *sbp, clnt_stat err)
 }
 
 void
-dsdc_master_t::handle_lookup (svccb *sbp)
+dsdc_master_t::handle_get (svccb *sbp)
 {
   dsdc_key_t *k = sbp->Xtmpl getarg<dsdc_key_t> ();
-  ptr<dsdc_lookup_res_t> res = New refcounted<dsdc_lookup_res_t> ();
+  ptr<dsdc_get_res_t> res = New refcounted<dsdc_get_res_t> ();
   ptr<aclnt> cli;
 
   dsdc_res_t r = get_aclnt (*k, &cli);
@@ -284,7 +284,7 @@ dsdc_master_t::handle_lookup (svccb *sbp)
     res->set_status (r);
     sbp->reply (res);
   } else 
-    cli->call (DSDC_LOOKUP, k, res, wrap (handle_lookup_cb, res, sbp));
+    cli->call (DSDC_GET, k, res, wrap (handle_get_cb, res, sbp));
 }
 
 void
@@ -302,16 +302,16 @@ dsdc_master_t::handle_remove (svccb *sbp)
 }
 
 void
-dsdc_master_t::handle_insert (svccb *sbp)
+dsdc_master_t::handle_put (svccb *sbp)
 {
-  dsdc_insert_arg_t *arg = sbp->Xtmpl getarg<dsdc_insert_arg_t> ();
+  dsdc_put_arg_t *arg = sbp->Xtmpl getarg<dsdc_put_arg_t> ();
   ptr<aclnt> cli;
   dsdc_res_t r = get_aclnt (arg->key, &cli);
   if (r != DSDC_OK) {
     sbp->replyref (r);
   } else {
     ptr<int> res = New refcounted<int> ();
-    cli->call (DSDC_INSERT, arg, res, wrap (handle_vanilla_cb, res, sbp));
+    cli->call (DSDC_PUT, arg, res, wrap (handle_vanilla_cb, res, sbp));
   }
 }
 

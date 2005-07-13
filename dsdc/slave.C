@@ -142,11 +142,11 @@ void
 dsdc_slave_t::dispatch (svccb *sbp)
 {
   switch (sbp->proc ()) {
-  case DSDC_LOOKUP:
-    handle_lookup (sbp);
+  case DSDC_GET:
+    handle_get (sbp);
     break;
-  case DSDC_INSERT:
-    handle_insert (sbp);
+  case DSDC_PUT:
+    handle_put (sbp);
     break;
   case DSDC_REMOVE:
     handle_remove (sbp);
@@ -207,11 +207,11 @@ dsdcs_master_t::schedule_retry ()
 }
 
 void
-dsdc_slave_t::handle_lookup (svccb *sbp)
+dsdc_slave_t::handle_get (svccb *sbp)
 {
   dsdc_key_t *k = sbp->Xtmpl getarg<dsdc_key_t> ();
   dsdc_obj_t *o = lru_lookup (*k);
-  dsdc_lookup_res_t res;
+  dsdc_get_res_t res;
   if (o) {
     res.set_status (DSDC_OK);
     *res.obj = *o; // XXX might need to copy
@@ -238,11 +238,11 @@ dsdc_slave_t::handle_remove (svccb *sbp)
 }
 
 void
-dsdc_slave_t::handle_insert (svccb *sbp)
+dsdc_slave_t::handle_put (svccb *sbp)
 {
-  dsdc_insert_arg_t *a = sbp->Xtmpl getarg<dsdc_insert_arg_t> ();
+  dsdc_put_arg_t *a = sbp->Xtmpl getarg<dsdc_put_arg_t> ();
   bool rc = lru_insert (a->key, a->obj);
-  dsdc_res_t res = rc ? DSDC_REPLACED : DSDC_INSERTED;
+  dsdc_res_t res = rc ? DSDC_REPLACED : DSDC_PUTED;
   if (show_debug (1)) {
     warn ("insert issued (rc=%d): %s\n", res, key_to_str (a->key).cstr ());
   }

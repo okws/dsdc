@@ -15,7 +15,7 @@ struct dsdc_key_template_t {
 enum dsdc_res_t {
 	DSDC_OK = 0,
 	DSDC_REPLACED = 1,
-	DSDC_INSERTED = 2,
+	DSDC_PUTED = 2,
 	DSDC_NOTFOUND = 3,
 	DSDC_NONODE = 4,
 	DSDC_ALREADY_REGISTERED = 5,
@@ -25,12 +25,12 @@ enum dsdc_res_t {
 
 typedef opaque dsdc_obj_t<>;
 
-struct dsdc_insert_arg_t {
+struct dsdc_put_arg_t {
 	dsdc_key_t key;
 	dsdc_obj_t obj;
 };
 
-union dsdc_lookup_res_t switch (dsdc_res_t status) {
+union dsdc_get_res_t switch (dsdc_res_t status) {
 case DSDC_OK:
   dsdc_obj_t obj;
 case DSDC_RPC_ERROR:
@@ -76,13 +76,13 @@ program DSDC_PROG
  * 
  */
 		dsdc_res_t
-		DSDC_INSERT (dsdc_insert_arg_t) = 1;
+		DSDC_PUT (dsdc_put_arg_t) = 1;
 
 		dsdc_res_t
 		DSDC_REMOVE (dsdc_key_t) = 2;
 		
-		dsdc_lookup_res_t
-		DSDC_LOOKUP (dsdc_key_t) = 3;
+		dsdc_get_res_t
+		DSDC_GET (dsdc_key_t) = 3;
 
 /*
  * the following two calls are for internal management, that dsdc

@@ -119,9 +119,9 @@ public:
   // host
   dsdc_res_t get_aclnt (const dsdc_key_t &k, ptr<aclnt> *cli);
 
-  void handle_lookup (svccb *b);
+  void handle_get (svccb *b);
   void handle_remove (svccb *b);
-  void handle_insert (svccb *b);
+  void handle_put (svccb *b);
   void handle_getstate (svccb *b);
 
   void broadcast_newnode (const dsdc_keyset_t &k, dsdcm_slave_t *skip);

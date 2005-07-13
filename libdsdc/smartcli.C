@@ -120,33 +120,38 @@ dsdc_smartcli_t::post_construct ()
 }
 
 void
-dsdc_smartcli_t::lookup (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb)
+dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb, bool safe)
 {
-  dsdc_ring_node_t *n = _hash_ring.successor (*k);
-  if (!n) {
-    (*cb) (New refcounted<dsdc_lookup_res_t> (DSDC_NONODE));
-    return;
+  ptr<aclnt> cli;
+  if (safe) {
+    get_cb_1 (k, cb, get_primary ());
+  } else {
+    dsdc_ring_node_t *n = _hash_ring.successor (*k);
+    if (!n) {
+      (*cb) (New refcounted<dsdc_get_res_t> (DSDC_NONODE));
+      return;
+    }
+    n->get_aclnt_wrap ()
+      ->get_aclnt (wrap (this, &dsdc_smartcli_t::get_cb_1, k, cb));
   }
-  n->get_aclnt_wrap ()
-    ->get_aclnt (wrap (this, &dsdc_smartcli_t::lookup_cb_1, k, cb));
 }
 
 
 void
-dsdc_smartcli_t::insert (ptr<dsdc_insert_arg_t> arg, bool safe, cbi::ptr cb)
+dsdc_smartcli_t::put (ptr<dsdc_put_arg_t> arg, cbi::ptr cb, bool safe)
 {
-  change_cache<dsdc_insert_arg_t> (arg->key, arg, int (DSDC_INSERT), cb, safe);
+  change_cache<dsdc_put_arg_t> (arg->key, arg, int (DSDC_PUT), cb, safe);
 }
 
 void
-dsdc_smartcli_t::remove (ptr<dsdc_key_t> key, bool safe, cbi::ptr cb)
+dsdc_smartcli_t::remove (ptr<dsdc_key_t> key, cbi::ptr cb, bool safe)
 {
   change_cache<dsdc_key_t> (*key, key, int (DSDC_REMOVE), cb, safe);
 }
 
 void
-dsdc_smartcli_t::lookup_cb_2 (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb,
-			      ptr<dsdc_lookup_res_t> res, clnt_stat err)
+dsdc_smartcli_t::get_cb_2 (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb,
+			   ptr<dsdc_get_res_t> res, clnt_stat err)
 {
   if (err) {
     if (show_debug (1)) {
@@ -159,16 +164,16 @@ dsdc_smartcli_t::lookup_cb_2 (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb,
 }
 
 void
-dsdc_smartcli_t::lookup_cb_1 (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb,
-			      ptr<aclnt> cli)
+dsdc_smartcli_t::get_cb_1 (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb,
+			   ptr<aclnt> cli)
 {
   if (!cli) {
-    (*cb) (New refcounted<dsdc_lookup_res_t> (DSDC_DEAD));
+    (*cb) (New refcounted<dsdc_get_res_t> (DSDC_DEAD));
     return;
   }
-  ptr<dsdc_lookup_res_t> res = New refcounted<dsdc_lookup_res_t> ();
-  cli->call (DSDC_LOOKUP, k, res,
-	     wrap (this, &dsdc_smartcli_t::lookup_cb_2, k, cb, res));
+  ptr<dsdc_get_res_t> res = New refcounted<dsdc_get_res_t> ();
+  cli->call (DSDC_GET, k, res,
+	     wrap (this, &dsdc_smartcli_t::get_cb_2, k, cb, res));
 }
 
 void

@@ -110,8 +110,8 @@ public:
   void get_xdr_repr (dsdcx_slave_t *x);
 
   void dispatch (svccb *sbp);
-  void handle_lookup (svccb *sbp);
-  void handle_insert (svccb *sbp);
+  void handle_get (svccb *sbp);
+  void handle_put (svccb *sbp);
   void handle_remove (svccb *sbp);
 
 protected:

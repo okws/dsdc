@@ -93,7 +93,7 @@ class get_cli_t : public tst_cli_t {
 public:
   get_cli_t (const tst_key_t &k) : tst_cli_t (), _key (k) {}
   void do_cmd ();
-  void do_cmd_cb (ptr<dsdc_lookup_res_t> res, clnt_stat err);
+  void do_cmd_cb (ptr<dsdc_get_res_t> res, clnt_stat err);
 private:
   const tst_key_t _key;
 };
@@ -130,7 +130,7 @@ tst_cli_t::connect_cb (int f)
 }
 
 void
-get_cli_t::do_cmd_cb (ptr<dsdc_lookup_res_t> res, clnt_stat err)
+get_cli_t::do_cmd_cb (ptr<dsdc_get_res_t> res, clnt_stat err)
 {
   if (err) {
     warn << "RPC error: " << err << "\n";
@@ -159,7 +159,7 @@ put_cli_t::do_cmd_cb (ptr<int> res, str mapping, clnt_stat err)
   if (err) {
     warn << "RPC error: " << err << "\n";
     exit (1);
-  } else if (*res != DSDC_REPLACED && *res != DSDC_INSERTED) {
+  } else if (*res != DSDC_REPLACED && *res != DSDC_PUTED) {
     warn << "DSDC error: " << *res << "\n";
     exit (1);
   } else {
@@ -173,7 +173,7 @@ void
 put_cli_t::do_cmd ()
 {
   dsdc_key_t outkey;
-  dsdc_insert_arg_t arg;
+  dsdc_put_arg_t arg;
   hash_key (_key, &arg.key);
 
   tst_obj_checked_t obj;
@@ -192,7 +192,7 @@ put_cli_t::do_cmd ()
 		  key_to_str (obj.checksum).cstr ());
 
   ptr<int> res = New refcounted<int> ();
-  _cli->call (DSDC_INSERT, &arg, res,
+  _cli->call (DSDC_PUT, &arg, res,
 	      wrap (this, &put_cli_t::do_cmd_cb, res, str (mapping)));
 }
 
@@ -202,8 +202,8 @@ get_cli_t::do_cmd ()
   dsdc_key_t outkey;
   hash_key (_key, &outkey);
   
-  ptr<dsdc_lookup_res_t> res = New refcounted<dsdc_lookup_res_t> ();
-  _cli->call (DSDC_LOOKUP, &outkey, res,
+  ptr<dsdc_get_res_t> res = New refcounted<dsdc_get_res_t> ();
+  _cli->call (DSDC_GET, &outkey, res,
 	      wrap (this, &get_cli_t::do_cmd_cb, res));
 }
 

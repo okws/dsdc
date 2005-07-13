@@ -12,7 +12,7 @@
 #include "dsdc_state.h"
 #include "qhash.h"
 
-typedef callback<void, ptr<dsdc_lookup_res_t> >::ref dsdc_lookup_res_cb_t;
+typedef callback<void, ptr<dsdc_get_res_t> >::ref dsdc_lookup_res_cb_t;
 
 //
 // dsdci_srv_t
@@ -103,9 +103,9 @@ public:
 
   bool add_master (const str &hostname, int port);
 
-  void insert (ptr<dsdc_insert_arg_t> arg, bool safe, cbi::ptr cb);
-  void lookup (ptr<dsdc_key_t> key, dsdc_lookup_res_cb_t cb);
-  void remove (ptr<dsdc_key_t> key, bool safe, cbi::ptr cb);
+  void put (ptr<dsdc_put_arg_t> arg, cbi::ptr cb = NULL, bool safe = false);
+  void get (ptr<dsdc_key_t> key, dsdc_lookup_res_cb_t cb, bool safe = false);
+  void remove (ptr<dsdc_key_t> key, cbi::ptr cb = NULL, bool safe = false);
   
   // fulfill the virtual interface of dsdc_system_cache_t
   ptr<aclnt> get_primary ();
@@ -115,10 +115,10 @@ public:
   void post_construct ();
 
 
-  void lookup_cb_1 (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb, 
+  void get_cb_1 (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb, 
 		    ptr<aclnt> cli);
-  void lookup_cb_2 (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb,
-		    ptr<dsdc_lookup_res_t> res, clnt_stat err);
+  void get_cb_2 (ptr<dsdc_key_t> k, dsdc_lookup_res_cb_t cb,
+		 ptr<dsdc_get_res_t> res, clnt_stat err);
 protected:
 
   //---------------------------------------------------------------------
