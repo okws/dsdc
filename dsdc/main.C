@@ -177,7 +177,9 @@ int
 main (int argc, char *argv[])
 {
   setprogname (argv[0]);
+
   dsdc_app_t *app = NULL;
+
   if (!parseargs (argc, argv, &app))
     return -1;
   if (!app)
@@ -186,10 +188,10 @@ main (int argc, char *argv[])
   if (!app->init ())
     return -1;
 
-  if (app->daemonize ()) {
+  if (app->daemonize ()) 
     daemonize ();
-    setprogpid (getpid ());
-  }
+
+  setprogname (const_cast<char *> (app->progname (argv[0]).cstr ()));
 
   if (app->daemonize () || show_debug (1)) {
     str sm = app->startup_msg ();

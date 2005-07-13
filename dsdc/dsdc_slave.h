@@ -115,6 +115,7 @@ public:
   void handle_remove (svccb *sbp);
 
   str startup_msg () const ;
+  str progname_xtra () const { return "-S"; }
 
 protected:
 

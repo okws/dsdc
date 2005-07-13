@@ -56,3 +56,15 @@ parse_hn (const str &in, str *host, int *port)
   }
   return true;
 }
+
+str
+dsdc_app_t::progname (const str &in) const
+{
+  strbuf b (in);
+  if (progname_xtra ())
+    b << progname_xtra ();
+  if (_daemonize) 
+    b.fmt ("[%d]", getpid ());
+  return b;
+}
+

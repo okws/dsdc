@@ -48,6 +48,8 @@ public:
   bool daemonize () const { return _daemonize; }
   void set_daemon_mode (bool m) { _daemonize = m; }
   virtual str startup_msg () const { return NULL; }
+  virtual str progname (const str &in) const ;
+  virtual str progname_xtra () const { return NULL; }
 private:
   bool _daemonize;
   
