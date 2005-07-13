@@ -43,8 +43,14 @@ public:
 
 class dsdc_app_t {
 public:
+  dsdc_app_t () : _daemonize (false) {}
   virtual bool init () = 0;
+  bool daemonize () const { return _daemonize; }
+  void set_daemon_mode (bool m) { _daemonize = m; }
   virtual str startup_msg () const { return NULL; }
+private:
+  bool _daemonize;
+  
 };
 
 typedef enum { DSDC_MODE_NONE = 0,

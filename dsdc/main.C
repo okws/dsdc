@@ -65,8 +65,9 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   int port = -1;
   str hostname;
   int dbg_lev = 0;
+  bool daemon_mode = false;
 
-  while ((ch = getopt (argc, argv, "dMSp:n:s:h:P:")) != -1) {
+  while ((ch = getopt (argc, argv, "qdMSp:n:s:h:P:")) != -1) {
     switch (ch) {
     case 'M':
       if (mode != DSDC_MODE_NONE)
@@ -100,6 +101,9 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
       if (!convertint (optarg, &dsdc_packet_sz))
 	usage ();
       break;
+    case 'q':
+      daemon_mode = true;
+      break;
     default:
       usage ();
       break;
@@ -107,6 +111,7 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   }
   
   set_debug (dbg_lev);
+  *app = NULL;
 
   bool ret = true;
   switch (mode) {
@@ -119,10 +124,6 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
 	nnodes = dsdc_slave_nnodes;
       if (port == -1)
 	port = dsdc_slave_port;
-      if (show_debug (1)) {
-	warn ("starting slave with nnodes=%d and maxsz=0x%x\n", 
-	      nnodes, maxsz);
-      }
       s = New dsdc_slave_t (nnodes, maxsz, port);
       bool added = false;
       for (int i = optind; i < argc; i++) {
@@ -166,6 +167,9 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   if (!dsdc_hostname)
     ret = false;
 
+  if (*app) 
+    (*app)->set_daemon_mode (daemon_mode);
+
   return ret;
 }
 
@@ -173,20 +177,27 @@ int
 main (int argc, char *argv[])
 {
   setprogname (argv[0]);
-  dsdc_app_t *app;
+  dsdc_app_t *app = NULL;
   if (!parseargs (argc, argv, &app))
     return -1;
+  if (!app)
+    return -1;
+
   if (!app->init ())
     return -1;
 
-  if (show_debug (1)) {
+  if (app->daemonize ()) {
+    daemonize ();
+    setprogpid (getpid ());
+  }
+
+  if (app->daemonize () || show_debug (1)) {
     str sm = app->startup_msg ();
-    warn << "starting up (pid " << getpid () << ")";
+    warn << "starting up";
     if (sm)
       warnx << ": " << sm ;
     warnx << "\n";
   }
-
   
   amain ();
   return 0;

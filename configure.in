@@ -58,18 +58,21 @@ SFS_CFLAGS
 
 CPPFLAGS="$CPPFLAGS -I"'$(top_srcdir)'
 
+
 dnl
-dnl for .x files, need header in build directory
+dnl for .x files, need header in build directory; add new includes FIRST;
+dnl otherwise, compiling from source after an install will look for the
+dnl files in installed directory --- not what we want
 dnl
 for lib in libdsdc; do
-    CPPFLAGS="$CPPFLAGS -I"'$(top_builddir)'"/$lib"
+    CPPFLAGS=" -I"'$(top_builddir)'"/$lib $CPPFLAGS"
 done
 
 dnl
 dnl library directories
 dnl
 for lib in libdsdc; do
-    CPPFLAGS="$CPPFLAGS -I"'$(top_srcdir)'"/$lib"
+    CPPFLAGS="-I"'$(top_srcdir)'"/$lib $CPPFLAGS"
 done
 
 dnl

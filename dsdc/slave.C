@@ -390,7 +390,6 @@ dsdc_slave_t::get_port ()
   }
   if (_lfd > 0) {
     if (show_debug (1)) 
-      warn ("using port=%d for incoming connections\n", _port);
     close_on_exec (_lfd);
     listen (_lfd, 256);
     fdcb (_lfd, selread, wrap (this, &dsdc_slave_t::new_connection));
@@ -400,6 +399,16 @@ dsdc_slave_t::get_port ()
 	 << "; all failed\n";
     return false;
   }
+}
+
+str
+dsdc_slave_t::startup_msg () const
+{
+  strbuf b ("slave listening on %s:%d", dsdc_hostname.cstr (), _port);
+  if (show_debug (2)) 
+    b.fmt ("starting slave with nnodes=%d and maxsz=0x%x\n", 
+	    _n_nodes, _maxsz);
+  return b;
 }
 
 

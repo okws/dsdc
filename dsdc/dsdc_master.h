@@ -132,7 +132,7 @@ public:
 
   str startup_msg () const 
   {
-    return strbuf ("listening on %s:%d", dsdc_hostname.cstr (), _port);
+    return strbuf ("master listening on %s:%d", dsdc_hostname.cstr (), _port);
   }
 
 private:

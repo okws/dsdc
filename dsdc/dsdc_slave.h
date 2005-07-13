@@ -114,6 +114,8 @@ public:
   void handle_put (svccb *sbp);
   void handle_remove (svccb *sbp);
 
+  str startup_msg () const ;
+
 protected:
 
   bool get_port ();
