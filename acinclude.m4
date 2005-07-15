@@ -2051,4 +2051,13 @@ fi
 ac_cv_path_install_c=$INSTALL
 ])
 ])
-
+dnl
+dnl allow files to be dumped into normal bin directories
+dnl
+AC_DEFUN([DSDC_SYSTEMBIN],
+[AC_ARG_WITH(systembin,
+--with-systembin	Install execs to systemwide bin despite tag)
+if test "$with_systembin" -a "$with_systembin" != "no"; then
+	dsdc_systembin=yes
+fi
+])

@@ -46,7 +46,14 @@ dnl
 sfsexecdir="$sfslibdir"
 CPPFLAG="$CPPFLAGS -DEXECDIR="'\"$(sfsexecdir)\"'
 
-if test -z "$sfstag" -o "${sfs_systembin+set}" = "set" ; then
+dnl
+dnl allow executables to be dumped into system bin, despite a non-standard
+dnl tag situation
+dnl
+DSDC_SYSTEMBIN
+
+
+if test -z "$sfstag" -o "$dsdc_systembin" = "yes" ; then
 	sfsbindir='${prefix}/bin'
 else
 	sfsbindir="$sfslibdir"
