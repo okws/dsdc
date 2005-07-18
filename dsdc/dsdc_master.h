@@ -5,7 +5,7 @@
 #define _DSDC_MASTER_H
 
 #include "dsdc_prot.h"  // protocol file definitions
-#include "dsdc.h"       // elements common to master and slave
+#include "dsdc_util.h"  // elements common to master and slave
 #include "dsdc_const.h" // constants
 #include "dsdc_ring.h"  // the consistent hash ring
 

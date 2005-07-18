@@ -1,5 +1,5 @@
 
-#include "dsdc.h"
+#include "dsdc_util.h"
 #include "tst_prot.h"
 #include "async.h"
 #include "crypt.h"

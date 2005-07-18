@@ -4,7 +4,7 @@
 //
 
 #include "parseopt.h"
-#include "dsdc.h"
+#include "dsdc_util.h"
 #include "dsdc_slave.h"
 #include "dsdc_master.h"
 #include "rxx.h"

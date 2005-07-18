@@ -8,7 +8,7 @@
 #include "dsdc_ring.h"
 #include "dsdc_state.h"
 #include "dsdc_const.h"
-#include "dsdc.h"
+#include "dsdc_util.h"
 #include "ihash.h"
 #include "list.h"
 #include "async.h"

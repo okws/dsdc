@@ -1,4 +1,5 @@
 
+#include "dsdc_util.h"
 #include "dsdc.h"
 #include "tst_prot.h"
 #include "async.h"
@@ -8,7 +9,6 @@
 #include "dsdc_prot.h"
 #include "dsdc_const.h"
 #include "aios.h"
-#include "dsdc_smartcli.h"
 
 typedef enum { NONE = 0,
 	       GET = 1,

@@ -4,7 +4,7 @@
 #ifndef _DSDC_HASHRING_H
 #define _DSDC_HASHRING_H
 
-#include "dsdc.h"
+#include "dsdc_util.h"
 
 #include "itree.h"
 #include "ihash.h"

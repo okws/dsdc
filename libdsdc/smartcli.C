@@ -1,5 +1,5 @@
 
-#include "dsdc_smartcli.h"
+#include "dsdc.h"
 #include "dsdc_const.h"
 
 dsdci_srv_t::dsdci_srv_t (const str &h, int p)
@@ -24,6 +24,15 @@ dsdci_srv_t::hit_eof (ptr<bool> df)
   _x = NULL;
 }
 
+bool
+dsdc_smartcli_t::add_master (const str &m)
+{
+  str hostname = "127.0.0.1";
+  int port = dsdc_port;
+  if (!parse_hn (m, &hostname, &port))
+    return false;
+  return add_master (hostname, port);
+}
 
 bool
 dsdc_smartcli_t::add_master (const str &hostname, int port)
