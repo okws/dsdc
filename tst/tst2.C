@@ -106,10 +106,9 @@ put (dsdc_smartcli_t *sc, tst_key_t k, str v, bool safe)
     exit (1);
   }
 
-  strbuf mapping ("%d (%s) -> %s", 
-		  k,
-		  key_to_str (arg->key).cstr (), 
-		  key_to_str (obj.checksum).cstr ());
+  str tmp1 = key_to_str (arg->key);
+  str tmp2 = key_to_str (obj.checksum);
+  strbuf mapping ("%d (%s) -> %s", k, tmp1.cstr (), tmp2.cstr ());
  
   tst2_cbct++;
   sc->put (arg, wrap (put_cb, str (mapping)), safe);

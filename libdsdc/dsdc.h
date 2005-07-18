@@ -135,12 +135,12 @@ public:
 
   // slightly more automated versions of the above; call xdr2str/str2xdr
   // automatically, and therefore less code for the app designer
-  template<class T> void put (const dsdc_key_t &k, const T &obj, 
-			      cbi::ptr cb = NULL, bool safe = false);
+  template<class T> void put2 (const dsdc_key_t &k, const T &obj, 
+			       cbi::ptr cb = NULL, bool safe = false);
   template<class T> 
-  void get (ptr<dsdc_key_t> k, 
-	    typename callback<void, dsdc_res_t, ptr<T> >::ref cb,
-	    bool safe = false);
+  void get2 (ptr<dsdc_key_t> k, 
+	     typename callback<void, dsdc_res_t, ptr<T> >::ref cb,
+	     bool safe = false);
 
 protected:
 
@@ -240,14 +240,23 @@ private:
 
 // give an XDR object, find its key
 template<class T> ptr<dsdc_key_t> 
-key_obj (const T &obj)
+mkkey_ptr (const T &obj)
 {
   ptr<dsdc_key_t> ret = New refcounted<dsdc_key_t> ();
-  key_obj (ret, obj);
+  mkkey (ret, obj);
   return ret;
 }
+
+template<class T> dsdc_key_t
+mkkey (const T &obj)
+{
+  dsdc_key_t ret;
+  mkkey (&ret, obj);
+  return ret;
+}
+
 template<class T> void
-key_obj (dsdc_key_t *k, const T &obj)
+mkkey (dsdc_key_t *k, const T &obj)
 {
   sha1_hashxdr (k->base (), obj);
 }
@@ -331,20 +340,20 @@ dsdc_smartcli_t::get2_cb_1 (typename callback<void, dsdc_res_t,
 }
 
 template<class T> void
-dsdc_smartcli_t::get (ptr<dsdc_key_t> k, 
-		      typename callback<void, dsdc_res_t, ptr<T> >::ref cb, 
-		      bool safe)
+dsdc_smartcli_t::get2 (ptr<dsdc_key_t> k, 
+		       typename callback<void, dsdc_res_t, ptr<T> >::ref cb, 
+		       bool safe)
 {
-  get (k, wrap (this, &dsdc_smartcli_t::get2_cb_1, cb), safe);
+  get (k, wrap (this, &dsdc_smartcli_t::get2_cb_1<T>, cb), safe);
 }
 
 template<class T> void
-dsdc_smartcli_t::put (const dsdc_key_t &k, const T &obj,
+dsdc_smartcli_t::put2 (const dsdc_key_t &k, const T &obj,
 		      cbi::ptr cb, bool safe)
 {
   ptr<dsdc_put_arg_t> arg = New refcounted<dsdc_put_arg_t> ();
   arg->key = k;
-  xdr2bytes (obj, arg->obj);
+  xdr2bytes (arg->obj, obj);
   put (arg, cb, false);
 }
 

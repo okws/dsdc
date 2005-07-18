@@ -404,9 +404,9 @@ dsdc_slave_t::get_port ()
 str
 dsdc_slave_t::startup_msg () const
 {
-  strbuf b ("slave listening on %s:%d", dsdc_hostname.cstr (), _port);
+  strbuf b ("listening on %s:%d", dsdc_hostname.cstr (), _port);
   if (show_debug (2)) 
-    b.fmt ("starting slave with nnodes=%d and maxsz=0x%x\n", 
+    b.fmt ("; nnodes=%d, maxsz=0x%x", 
 	    _n_nodes, _maxsz);
   return b;
 }
