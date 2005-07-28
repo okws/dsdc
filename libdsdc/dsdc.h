@@ -90,6 +90,30 @@ template<> struct keyfn<dsdci_slave_t, str> {
 // callback type for returning from get() calls below
 typedef callback<void, ptr<dsdc_get_res_t> >::ref dsdc_get_res_cb_t;
 
+class dsdc_smartcli_t;
+
+
+//
+// a convenience class so that we only need to specify the
+// templated parameters once.
+//
+template<class K, class V>
+class dsdc_iface_t {
+public:
+  dsdc_iface_t (dsdc_smartcli_t *c) : _cli (c) {}
+
+  void get (const K &k, 
+	    typename callback<void, dsdc_res_t, ptr<V> >::ref cb,
+	    bool safe = false );
+  void put (const K &k, const V &obj, cbi::ptr cb = NULL,
+	    bool safe = false);
+  void remove (const K &k, cbi::ptr cb = NULL, bool safe = false);
+
+private:
+  dsdc_smartcli_t *_cli;
+
+};
+
 //
 // dsdc smart client: 
 //
@@ -141,6 +165,22 @@ public:
   void get2 (ptr<dsdc_key_t> k, 
 	     typename callback<void, dsdc_res_t, ptr<T> >::ref cb,
 	     bool safe = false);
+
+  // even more convenient version of the above!
+  template<class K, class V> void 
+  put3 (const K &k, const V &obj, cbi::ptr cb = NULL, 
+	bool safe = false);
+  template<class K, class V> void 
+  get3 (const K &k, typename callback<void, dsdc_res_t, ptr<V> >::ref cb,
+	bool safe = false);
+  template<class K> void
+  remove3 (const K &k, cbi::ptr cb = NULL, bool safe = false);
+
+
+  // an interface to wrap up the templated types in one place
+  template<class K, class O> 
+  ptr<dsdc_iface_t<K,O> >
+  make_interface () { return New refcounted<dsdc_iface_t<K,O> > (this); }
 
 protected:
 
@@ -356,6 +396,47 @@ dsdc_smartcli_t::put2 (const dsdc_key_t &k, const T &obj,
   xdr2bytes (arg->obj, obj);
   put (arg, cb, false);
 }
+
+//
+//-----------------------------------------------------------------------
+
+//-----------------------------------------------------------------------
+// even lazier!
+//
+template<class K, class V> void 
+dsdc_smartcli_t::get3 (const K &k, 
+		       typename callback<void, dsdc_res_t, ptr<V> >::ref cb,
+		       bool safe)
+{
+  get2<V> (mkkey_ptr (k), cb, safe);
+}
+  
+template<class K, class V> void 
+dsdc_smartcli_t::put3 (const K &k, const V &obj, cbi::ptr cb, bool safe)
+{
+  put2 (mkkey (k), obj, cb, safe);
+}
+
+template<class K> void
+dsdc_smartcli_t::remove3 (const K &k, cbi::ptr cb, bool safe)
+{
+  remove (mkkey_ptr (k), cb, safe);
+}
+
+
+template<class K, class V> void 
+dsdc_iface_t<K,V>::get (const K &k, 
+			typename callback<void, dsdc_res_t, ptr<V> >::ref cb,
+			bool safe)
+{ return _cli->template get3<K,V> (k, cb, safe); }
+
+template<class K, class V> void 
+dsdc_iface_t<K,V>::put (const K &k, const V &obj, cbi::ptr cb, bool safe)
+{ return _cli->put3 (k, obj, cb, safe); }
+
+template<class K, class V> void 
+dsdc_iface_t<K,V>::remove (const K &k, cbi::ptr cb, bool safe)
+{ return _cli->remove3 (k, cb, safe); }
 
 //
 //-----------------------------------------------------------------------
