@@ -151,6 +151,9 @@ dsdc_slave_t::dispatch (svccb *sbp)
   case DSDC_REMOVE:
     handle_remove (sbp);
     break;
+  case DSDC_CUSTOM:
+    handle_custom (sbp);
+    break;
   default:
     sbp->reject (PROC_UNAVAIL);
     break;
@@ -429,3 +432,10 @@ dsdc_slave_t::get_xdr_repr (dsdcx_slave_t *x)
   x->port = _port;
   x->hostname = dsdc_hostname;
 }
+
+void
+dsdc_slave_t::handle_custom (svccb *sbp)
+{
+  sbp->reject (PROC_UNAVAIL);
+}
+

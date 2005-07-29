@@ -6,6 +6,8 @@ typedef opaque dsdc_key_t[DSDC_KEYSIZE];
 
 typedef dsdc_key_t dsdc_keyset_t<>;
 
+typedef opaque dsdc_custom_t<>;
+
 struct dsdc_key_template_t {
 	unsigned id;
 	unsigned pid;
@@ -85,6 +87,13 @@ program DSDC_PROG
 		DSDC_GET (dsdc_key_t) = 3;
 
 /*
+ *  for extending DSDC for custom purposes (like doing computations 
+ *  and batch queries on the slaves).
+ */
+                dsdc_custom_t
+                DSDC_CUSTOM(dsdc_custom_t) = 4;
+
+/*
  * the following two calls are for internal management, that dsdc
  * uses for itself:
  *
@@ -101,14 +110,14 @@ program DSDC_PROG
 		 * to the other nodes in the ring.
 		 */
 		dsdc_res_t	
-		DSDC_REGISTER (dsdc_register_arg_t) = 4;
+		DSDC_REGISTER (dsdc_register_arg_t) = 10;
 
 		/*
  		 * heartbeat;  a slave must send a periodic heartbeat
 	  	 * message, otherwise, the master will think it's dead.
 		 */
 		void
-		DSDC_HEARTBEAT (void) = 5;
+		DSDC_HEARTBEAT (void) = 11;
 
 		/*
 		 * when a new node is inserted, the master broadcasts
@@ -117,14 +126,14 @@ program DSDC_PROG
 		 * data movement protocols.
 		 */
 		dsdc_res_t
-		DSDC_NEWNODE (dsdcx_slave_t) = 6;
+		DSDC_NEWNODE (dsdcx_slave_t) = 12;
 
 		/*
 		 * nodes should periodically get the complete system
 		 * state and clean out their caches accordingly.
 		 */
 		dsdc_getstate_res_t	
-		DSDC_GETSTATE (dsdc_key_t) = 7;
+		DSDC_GETSTATE (dsdc_key_t) = 13;
 
 	} = 1;
 } = 30002;

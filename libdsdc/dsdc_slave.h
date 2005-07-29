@@ -113,6 +113,7 @@ public:
   void handle_get (svccb *sbp);
   void handle_put (svccb *sbp);
   void handle_remove (svccb *sbp);
+  virtual void handle_custom (svccb *sbp);
 
   str startup_msg () const ;
   str progname_xtra () const { return "-S"; }
@@ -135,7 +136,6 @@ protected:
   ptr<aclnt> get_primary ();
   void clean_cache ();
 
-private:
   dsdc_keyset_t _keys;
   const u_int _n_nodes;
   const size_t _maxsz;
@@ -150,6 +150,7 @@ private:
 
   tailq<dsdc_cache_obj_t, &dsdc_cache_obj_t::_qlnk> _lru;
 
+private:
   bool _primary; // a flag that's used to add the primary master only once
   int _port;     // listen for p2p communication
   int _lfd;
