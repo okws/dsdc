@@ -26,6 +26,7 @@
 
 
 class dsdc_master_t;
+class dsdcm_slave_t;
 
 // one of these objects is allocated for each extern client served;
 // i.e., there is one per incoming TCP connection. when the
@@ -39,7 +40,7 @@ public:
   list_entry<dsdcm_client_t> _lnk;   // for insert into a list of clients
 
   dsdc_master_t *get_master () { return _master; }
-  const str &hostname () const { return _hostname; }
+  const str &remote_peer_id () const { return _hostname; }
 
 protected:
 
@@ -69,7 +70,7 @@ public:
   ptr<aclnt> get_aclnt () { return _clnt_to_slave; }
   void handle_heartbeat () { _last_heartbeat = timenow; }
   void init (const dsdcx_slave_t &keys);
-  const str &hostname () const { return _client->hostname (); }
+  const str &remote_peer_id () const { return _client->remote_peer_id (); }
 
   void get_xdr_repr (dsdcx_slave_t *o) { *o = _xdr_repr; }
 

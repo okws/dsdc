@@ -36,7 +36,9 @@ public:
   void get_aclnt (aclnt_cb_t cb);
   void get_aclnt_cb (aclnt_cb_t cb, bool b);
   bool is_dead () ;
-  const str &hostname () const { return _hostname; }
+
+  // a remote peer is identified by a <hostname>:<port>
+  const str &remote_peer_id () const { return _key; }
 
   const str _key;
 private:
@@ -261,7 +263,7 @@ protected:
   // end init code
   //-----------------------------------------------------------------------
 
-private:
+protected:
   dsdci_master_t *_curr_master;
 
   tailq<dsdci_master_t, &dsdci_master_t::_lnk> _masters;

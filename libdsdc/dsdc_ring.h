@@ -11,8 +11,6 @@
 #include "async.h"
 #include "arpc.h"
 
-class dsdcm_slave_t;
-
 typedef callback<void, ptr<aclnt> >::ref aclnt_cb_t;
 
 class aclnt_wrap_t {
@@ -21,7 +19,7 @@ public:
   virtual ptr<aclnt> get_aclnt () { return NULL; }
   virtual void get_aclnt (aclnt_cb_t cb) { (*cb) (get_aclnt ()); }
   virtual bool is_dead () = 0;
-  virtual const str & hostname () const = 0;
+  virtual const str & remote_peer_id () const = 0;
 };
 
 // a node in the consistent hash ring.  each slave process can register

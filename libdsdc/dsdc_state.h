@@ -8,6 +8,12 @@
 #include "dsdc_ring.h"
 #include "arpc.h"
 
+/**
+ * a class that caches the global state of the system; included is
+ * a mechanism to keep the cached copy of the state up-to-date
+ * with respect to known masters.
+ *
+ */
 class dsdc_system_state_cache_t {
 protected:
   dsdc_system_state_cache_t ();

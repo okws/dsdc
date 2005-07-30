@@ -52,7 +52,7 @@ dsdcm_client_t::dispatch (svccb *sbp)
 {
   if (!sbp) {
 
-    warn << "client " << hostname () << " gave EOF\n";
+    warn << "client " << remote_peer_id () << " gave EOF\n";
 
     // at the enf of a TCP connection, we get a NULL sbp from SFS.
     // at this point, we need to clean up state for this particular
@@ -206,7 +206,7 @@ dsdcm_slave_t::init (const dsdcx_slave_t &sl)
     if (show_debug (1)) {
       warn ("insert slave: %s -> %s(%p)\n", 
 	    key_to_str (sl.keys[i]).cstr (), 
-	    _client->hostname ().cstr (), this);
+	    _client->remote_peer_id ().cstr (), this);
     }
   }
 
@@ -224,7 +224,7 @@ dsdcm_slave_t::~dsdcm_slave_t ()
     if (show_debug (1)) {
       warn ("removing node %s -> %s (%p)\n",
 	    key_to_str (_nodes[i]->_key).cstr (),
-	    hostname ().cstr (), this);
+	    remote_peer_id ().cstr (), this);
     }
     delete _nodes[i];
   }
@@ -241,7 +241,7 @@ dsdc_master_t::get_aclnt (const dsdc_key_t &k, ptr<aclnt> *cli)
   assert (w);
   if (show_debug (2)) 
     warn ("resolved mapping: %s -> %s (%p)\n", 
-	  key_to_str (k).cstr (), w->hostname ().cstr (), w);
+	  key_to_str (k).cstr (), w->remote_peer_id ().cstr (), w);
   
   if (w->is_dead ()) {
     return DSDC_DEAD;
