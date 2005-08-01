@@ -9,9 +9,6 @@
 /* Define to 1 if you have the <arpa/nameser_compat.h> header file. */
 #undef HAVE_ARPA_NAMESER_COMPAT_H
 
-/* Define to 1 if you have the <dlfcn.h> header file. */
-#undef HAVE_DLFCN_H
-
 /* Define if gmp.h overloads C++ operators */
 #undef HAVE_GMP_CXX_OPS
 

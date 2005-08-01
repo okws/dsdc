@@ -1,12 +1,13 @@
 
 $(PROGRAMS): $(LDEPS)
 
-noinst_PROGRAMS = tst tst2 tst3 tst4
+noinst_PROGRAMS = tst tst2 tst3 tst4 tst5
 tst_SOURCES = tst_prot.C tst.C
 
 tst2_SOURCES = tst2.C tst_prot.C
 tst3_SOURCES = tst3.C tst_prot.C
 tst4_SOURCES = tst4.C tst_prot.C
+tst5_SOURCES = tst5.C tst_prot.C
 
 
 tst_prot.C: $(srcdir)/tst_prot.x tst_prot.h
