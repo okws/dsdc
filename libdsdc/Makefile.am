@@ -5,7 +5,7 @@ libdsdc_la_SOURCES = dsdc_prot.C dsdc_util.C state.C const.C ring.C \
 		     smartcli.C slave.C
 
 sfsinclude_HEADERS = dsdc_prot.h dsdc.h dsdc_ring.h dsdc_const.h \
-		     dsdc_prot.x dsdc_util.h dsdc_slave.h
+		     dsdc_prot.x dsdc_util.h dsdc_slave.h dsdc_state.h
 
 dsdc_prot.C: $(srcdir)/dsdc_prot.x dsdc_prot.h
 	@rm -f $@
