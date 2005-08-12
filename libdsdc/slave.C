@@ -145,6 +145,9 @@ dsdc_slave_t::dispatch (svccb *sbp)
   case DSDC_GET:
     handle_get (sbp);
     break;
+  case DSDC_MGET:
+    handle_mget (sbp);
+    break;
   case DSDC_PUT:
     handle_put (sbp);
     break;
@@ -207,6 +210,29 @@ dsdcs_master_t::schedule_retry ()
 {
   delaycb (dsdc_retry_wait_time, 0, 
 	   wrap (this, &dsdcs_master_t::retry));
+}
+
+void
+dsdc_slave_t::handle_mget (svccb *sbp)
+{
+  dsdc_mget_arg_t *arg = sbp->Xtmpl getarg<dsdc_mget_arg_t> ();
+  dsdc_mget_res_t res;
+  u_int sz = arg->size ();
+  res.setsize (sz);
+
+  for (u_int i = 0; i < sz; i++) {
+    dsdc_key_t k = (*arg)[i];
+    dsdc_obj_t *o = lru_lookup ( k );
+    res[i].key = k;
+    if (o) {
+      res[i].res.set_status (DSDC_OK);
+      *(res[i].res.obj) = *o;
+    } else {
+      res[i].res.set_status (DSDC_NOTFOUND);
+    }
+  }
+  sbp->replyref (res);
+
 }
 
 void

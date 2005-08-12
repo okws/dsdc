@@ -91,6 +91,7 @@ template<> struct keyfn<dsdci_slave_t, str> {
 
 // callback type for returning from get() calls below
 typedef callback<void, ptr<dsdc_get_res_t> >::ref dsdc_get_res_cb_t;
+typedef callback<void, ptr<dsdc_mget_res_t> >::ref dsdc_mget_res_cb_t;
 
 class dsdc_smartcli_t;
 
@@ -158,6 +159,7 @@ public:
   void put (ptr<dsdc_put_arg_t> arg, cbi::ptr cb = NULL, bool safe = false);
   void get (ptr<dsdc_key_t> key, dsdc_get_res_cb_t cb, bool safe = false);
   void remove (ptr<dsdc_key_t> key, cbi::ptr cb = NULL, bool safe = false);
+  void mget (ptr<vec<dsdc_key_t> > keys, dsdc_mget_res_cb_t cb);
 
   // slightly more automated versions of the above; call xdr2str/str2xdr
   // automatically, and therefore less code for the app designer

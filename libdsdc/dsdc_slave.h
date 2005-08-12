@@ -111,6 +111,7 @@ public:
 
   void dispatch (svccb *sbp);
   void handle_get (svccb *sbp);
+  void handle_mget (svccb *sbp);
   void handle_put (svccb *sbp);
   void handle_remove (svccb *sbp);
   virtual void handle_custom (svccb *sbp);

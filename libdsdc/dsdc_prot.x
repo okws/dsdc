@@ -41,6 +41,19 @@ default:
   void;
 };
 
+
+/**
+ * a series of name/value pairs for a multi-get (mget)
+ */
+struct dsdc_mget_1res_t {
+  dsdc_key_t key;
+  dsdc_get_res_t res;
+};
+
+typedef dsdc_mget_1res_t dsdc_mget_res_t<>;
+typedef dsdc_key_t       dsdc_mget_arg_t<>;
+
+
 struct dsdcx_slave_t {
  	dsdc_keyset_t keys;
 	string hostname<>;
@@ -86,12 +99,15 @@ program DSDC_PROG
 		dsdc_get_res_t
 		DSDC_GET (dsdc_key_t) = 3;
 
+		dsdc_mget_res_t
+		DSDC_MGET (dsdc_mget_arg_t) = 4;
+
 /*
  *  for extending DSDC for custom purposes (like doing computations 
  *  and batch queries on the slaves).
  */
                 dsdc_custom_t
-                DSDC_CUSTOM(dsdc_custom_t) = 4;
+                DSDC_CUSTOM(dsdc_custom_t) = 5;
 
 /*
  * the following two calls are for internal management, that dsdc

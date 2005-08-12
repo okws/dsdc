@@ -12,7 +12,7 @@ dsdc_ring_node_t::dsdc_ring_node_t (aclnt_wrap_t *w, const dsdc_key_t &k)
 // lookup a key in the consistent hash ring.
 
 dsdc_ring_node_t *
-dsdc_hash_ring_t::successor (const dsdc_key_t &k)
+dsdc_hash_ring_t::successor (const dsdc_key_t &k) const
 {
   dsdc_ring_node_t *ret = NULL;
   dsdc_ring_node_t *n = root ();

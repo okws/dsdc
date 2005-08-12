@@ -48,7 +48,7 @@ class dsdc_hash_ring_t :
   &dsdc_ring_node_t::_lnk, dsdck_compare_t> 
 {
 public:
-  dsdc_ring_node_t *successor (const dsdc_key_t &k);
+  dsdc_ring_node_t *successor (const dsdc_key_t &k) const;
 };
 
 #endif
