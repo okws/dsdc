@@ -12,14 +12,12 @@
 #include "dsdc_state.h"
 #include "qhash.h"
 
-//
-// dsdci_srv_t
-// 
-//  dsdci = dsdc intelligent, which is the prefix for smart clients
-//
-//  this class is a base class for any hostname/port pair that
-//  we will maintain for the smart client to connect to
-//  
+/**
+ * @brief dsdc intelligent, which is the prefix for smart clients
+ *
+ * this class is a base class for any hostname/port pair that
+ * we will maintain for the smart client to connect to
+ */
 class dsdci_srv_t : public aclnt_wrap_t {
 public:
   dsdci_srv_t (const str &h, int p) ;
@@ -31,13 +29,32 @@ public:
 
   void hit_eof (ptr<bool> df); // call this when there is an EOF
 
-  // for aclnt_wrap_t virtual interface
+  /**
+   * for aclnt_wrap virtual interface.  note that this interface is
+   * not reliable! if no RPC over TCP connection is currently active,
+   * then we cannot create a new TCP connection (since this function
+   * has no callback) and therefore NULL will just be returned. It
+   * is advised that the async version is always used, which is given 
+   * below.
+   *
+   * @ret the RPC client, if one was active. NULL if not
+   *
+   */
   ptr<aclnt> get_aclnt () { return _cli; }
+
+  /**
+   * call this function to get a new aclnt, so that you can make
+   * RPC connections to this particular slave.
+   *
+   * @param cb callback to call with the resulting ptr<aclnt>, or NULL on err
+   */
   void get_aclnt (aclnt_cb_t cb);
   void get_aclnt_cb (aclnt_cb_t cb, bool b);
   bool is_dead () ;
 
-  // a remote peer is identified by a <hostname>:<port>
+  /**
+   * a remote peer is identified by a <hostname>:<port>
+   */
   const str &remote_peer_id () const { return _key; }
 
   const str _key;
