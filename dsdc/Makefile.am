@@ -2,7 +2,7 @@
 $(PROGRAMS): $(LDEPS)
 
 noinst_HEADERS = dsdc_master.h 
-sfsbin_PROGRAMS = dsdc
+dsdcbin_PROGRAMS = dsdc
 dsdc_SOURCES = master.C main.C
 
 CLEANFILES = core *.core *~

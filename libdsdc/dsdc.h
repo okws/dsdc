@@ -90,6 +90,11 @@ public:
 //   to reconnect every time.
 //
 class dsdci_slave_t : public dsdci_srv_t {
+private:
+  void fill_datum(
+	u_int64_t userid,
+	matchd_qanswer_rows_t *user_questions,
+	matchd_frontd_match_datum_t &datum);
 public:
   dsdci_slave_t (const str &h, int p) : dsdci_srv_t (h, p) {}
   list_entry<dsdci_slave_t> _lnk;
@@ -291,6 +296,7 @@ protected:
   list<dsdci_slave_t, &dsdci_slave_t::_lnk> _slaves;
   fhash<str, dsdci_slave_t, &dsdci_slave_t::_hlnk> _slaves_hash;
   bhash<str> _slaves_hash_tmp;
+
 };
 
 //-----------------------------------------------------------------------
@@ -465,5 +471,7 @@ dsdc_iface_t<K,V>::remove (const K &k, cbi::ptr cb, bool safe)
 
 
 #endif /* _DSDC_SMARTCLI_H */
+
+
 
 

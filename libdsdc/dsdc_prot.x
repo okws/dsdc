@@ -1,3 +1,67 @@
+/*
+ * $Id$
+ */
+
+%#define MATCHD_FRONTD_FROBBER	0
+%#define MATCHD_FRONTD_USERCACHE_FROBBER	1
+
+/* %#include "userid_prot.h" */
+
+struct matchd_frontd_userkey_t {
+	int frobber;		/**< should always be MATCHD_FRONTD_FROBBER */
+	u_int64_t userid;	/**< user id */
+};
+
+/*
+ * Matchd question.  This matches the qanswers table in our database.
+ */
+struct matchd_qanswer_row_t {
+	int questionid;
+	int answer;		/**< actual answer 0-4 */
+	int match_answer;	/**< wanted answers mask */
+	int importance;		/**< importance */
+	int date_answered;	/**< time_t answered. */
+	int skipped;		/**< question skipped? */
+};
+
+typedef matchd_qanswer_row_t matchd_qanswer_rows_t<>;
+
+#if 0
+struct matchd_qanswer_compact_row_t {
+    int questionid;
+    int date_answered;
+    int data;	/* bits: 0-1 answer, 2-5 answer mask, 6-8 importance */
+}
+#endif
+
+/*
+ * This structure is passed to the DSDC backend for computing matches.
+ * it contains the questions for the user doing the comparison and the
+ * userids on the backend server to compare against.
+ */
+struct matchd_frontd_dcdc_arg_t {
+	matchd_qanswer_rows_t user_questions;
+	u_int64_t userids<>;
+};
+
+/*
+ * This is the per-user match result.
+ */
+struct matchd_frontd_match_datum_t {
+	u_int64_t userid;	/**< user id */
+	bool match_found;	/**< is median/deviation valid? */
+	int mpercent;		/**< match percentage. */
+	int fpercent;		/**< friend percentage. */
+	int epercent;		/**< enemy percentage. */
+};
+
+/*
+ * structure containing per-user match results.
+ */
+struct match_frontd_match_results_t {
+	matchd_frontd_match_datum_t results<>;
+};
+
 
 %#define DSDC_KEYSIZE 20
 %#define DSDC_DEFAULT_PORT 30002
@@ -106,8 +170,8 @@ program DSDC_PROG
  *  for extending DSDC for custom purposes (like doing computations 
  *  and batch queries on the slaves).
  */
-                dsdc_custom_t
-                DSDC_CUSTOM(dsdc_custom_t) = 5;
+		match_frontd_match_results_t
+                DSDC_COMPUTE_MATCHES(matchd_frontd_dcdc_arg_t) = 1000;
 
 /*
  * the following two calls are for internal management, that dsdc
@@ -126,14 +190,14 @@ program DSDC_PROG
 		 * to the other nodes in the ring.
 		 */
 		dsdc_res_t	
-		DSDC_REGISTER (dsdc_register_arg_t) = 10;
+		DSDC_REGISTER (dsdc_register_arg_t) = 2000;
 
 		/*
  		 * heartbeat;  a slave must send a periodic heartbeat
 	  	 * message, otherwise, the master will think it's dead.
 		 */
 		void
-		DSDC_HEARTBEAT (void) = 11;
+		DSDC_HEARTBEAT (void) = 2001;
 
 		/*
 		 * when a new node is inserted, the master broadcasts
@@ -142,14 +206,14 @@ program DSDC_PROG
 		 * data movement protocols.
 		 */
 		dsdc_res_t
-		DSDC_NEWNODE (dsdcx_slave_t) = 12;
+		DSDC_NEWNODE (dsdcx_slave_t) = 2002;
 
 		/*
 		 * nodes should periodically get the complete system
 		 * state and clean out their caches accordingly.
 		 */
 		dsdc_getstate_res_t	
-		DSDC_GETSTATE (dsdc_key_t) = 13;
+		DSDC_GETSTATE (dsdc_key_t) = 2003;
 
 	} = 1;
 } = 30002;

@@ -114,7 +114,8 @@ public:
   void handle_mget (svccb *sbp);
   void handle_put (svccb *sbp);
   void handle_remove (svccb *sbp);
-  virtual void handle_custom (svccb *sbp);
+  // Match function addition.
+  void handle_compute_matches (svccb *sbp);
 
   str startup_msg () const ;
   str progname_xtra () const { return "-S"; }
@@ -155,6 +156,11 @@ private:
   bool _primary; // a flag that's used to add the primary master only once
   int _port;     // listen for p2p communication
   int _lfd;
+private:
+  void fill_datum(
+	u_int64_t userid,
+	matchd_qanswer_rows_t *user_questions,
+	matchd_frontd_match_datum_t &datum);
 
 };
 

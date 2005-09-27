@@ -2061,3 +2061,42 @@ if test "$with_systembin" -a "$with_systembin" != "no"; then
 	dsdc_systembin=yes
 fi
 ])
+
+dnl
+dnl OKWS_MODULE
+dnl
+dnl  What to name this module; where to put it
+dnl
+AC_DEFUN(OKWS_MODULE,
+[AC_ARG_WITH(module,
+--with-module=MODULE		Specify a name for this OKWS module)
+AC_ARG_WITH(module_prefix,
+--with-module-prefix=PRFX	Specify an install prefix for this module)
+dnl
+dnl DEFAULTS:
+dnl
+dnl	prefix - /var/okws/modules
+dnl	name   - $PACKAGE
+dnl
+okm_prefix=/disk
+okm_name=$PACKAGE
+if test "${with_module+set}" = "set" ; then
+	okm_name="$with_module"
+fi
+if test "${with_module_prefix+set}" = "set" ; then
+	okm_prefix="$with_module_prefix"
+fi
+])
+
+dnl OKJAILDIR
+dnl
+AC_DEFUN(OKJAILDIR,
+[AC_ARG_WITH(jaildir,
+--with-jaildir[[=PATH]]	     specify location of jail directory)
+if test "$with_jaildir" = yes -o "$with_jaildir" = ""; then
+    with_jaildir="/disk/cupjail"
+fi
+okjaildir="$with_jaildir"
+AC_SUBST(okjaildir)
+])
+
