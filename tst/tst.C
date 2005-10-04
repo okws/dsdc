@@ -39,7 +39,7 @@ generate_kv (tst_key_t *k, str *v)
 
   mstr m (40);
   int shift = 0;
-  u_int32_t w;
+  u_int32_t w = 0;
   for (u_int i = 0 ; i < 40; i ++) {
     if (shift == 0) 
       w = rand ();

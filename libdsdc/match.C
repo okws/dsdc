@@ -11,7 +11,7 @@
 static int
 getImportance(const matchd_qanswer_row_t &answer)
 {
-    int result;
+    int result = 0;
     switch (answer.importance) {
         case 1:
             result = 250;

@@ -73,7 +73,7 @@ mget_state_t::go (const dsdc_hash_ring_t &r)
 void
 mget_batch_t::mget_cb2 (clnt_stat err)
 {
-  size_t sz;
+  size_t sz = positions.size ();
   dsdc_get_res_t err_res;
 
   if (err) {
