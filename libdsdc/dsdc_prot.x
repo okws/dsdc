@@ -86,7 +86,9 @@ enum dsdc_res_t {
 	DSDC_NONODE = 4,
 	DSDC_ALREADY_REGISTERED = 5,
 	DSDC_RPC_ERROR = 6,
-	DSDC_DEAD = 7
+	DSDC_DEAD = 7,
+	DSDC_LOCKED = 8,
+	DSDC_TIMEOUT = 9
 };
 
 typedef opaque dsdc_obj_t<>;
@@ -140,6 +142,27 @@ case false:
 	void;
 };
 
+union dsdc_lock_acquire_res_t switch (dsdc_res_t status) {
+case DSDC_OK:
+	unsigned lockid;
+default:
+	void;
+};
+
+struct dsdc_lock_acquire_arg_t {
+	dsdc_key_t key;           // a key into a lock-specific namespace
+	bool shared;              // whether the lock can be shared
+        bool writing;             // if shared lock, if needed for writing
+	bool block;               // whether to block or just fail
+};
+
+struct dsdc_lock_release_arg_t {
+	dsdc_key_t key;	          // original key that was locked
+	unsigned lockid;          // provide the lock-ID to catch bugs
+
+};
+
+
 program DSDC_PROG 
 {
 	version DSDC_VERS {
@@ -148,10 +171,10 @@ program DSDC_PROG
 		DSDC_NULL (void) = 0;
 
 /*
- * these are the only 3 calls that clients should use.  they should
+ * these are the only 4 calls that clients should use.  they should
  * issue them to the master nodes, who will deal with them:
  *
- *  INSERT / REMOVE / LOOKUP
+ *  PUT / REMOVE / GET / MGET
  * 
  */
 		dsdc_res_t
@@ -166,18 +189,12 @@ program DSDC_PROG
 		dsdc_mget_res_t
 		DSDC_MGET (dsdc_mget_arg_t) = 4;
 
-/*
- *  for extending DSDC for custom purposes (like doing computations 
- *  and batch queries on the slaves).
- */
-		match_frontd_match_results_t
-                DSDC_COMPUTE_MATCHES(matchd_frontd_dcdc_arg_t) = 1000;
 
 /*
- * the following two calls are for internal management, that dsdc
+ * the following 4 calls are for internal management, that dsdc
  * uses for itself:
  *
- *   REGISTER / HEARTBEAT
+ *   REGISTER / HEARTBEAT / NEWNODE / GETSTATE
  */
 
 		/*
@@ -190,14 +207,14 @@ program DSDC_PROG
 		 * to the other nodes in the ring.
 		 */
 		dsdc_res_t	
-		DSDC_REGISTER (dsdc_register_arg_t) = 2000;
+		DSDC_REGISTER (dsdc_register_arg_t) = 6;
 
 		/*
  		 * heartbeat;  a slave must send a periodic heartbeat
 	  	 * message, otherwise, the master will think it's dead.
 		 */
 		void
-		DSDC_HEARTBEAT (void) = 2001;
+		DSDC_HEARTBEAT (void) = 7;
 
 		/*
 		 * when a new node is inserted, the master broadcasts
@@ -206,14 +223,41 @@ program DSDC_PROG
 		 * data movement protocols.
 		 */
 		dsdc_res_t
-		DSDC_NEWNODE (dsdcx_slave_t) = 2002;
+		DSDC_NEWNODE (dsdcx_slave_t) = 8;
 
 		/*
 		 * nodes should periodically get the complete system
 		 * state and clean out their caches accordingly.
 		 */
 		dsdc_getstate_res_t	
-		DSDC_GETSTATE (dsdc_key_t) = 2003;
+		DSDC_GETSTATE (dsdc_key_t) = 9;
+
+
+/*
+ * Simple locking primitives for doing synchronization via dsdc
+ */
+
+		/*
+		 * Acquire a lock.
+		 */
+		dsdc_lock_acquire_res_t
+		DSDC_LOCK_ACQUIRE (dsdc_lock_acquire_arg_t) = 10;
+
+
+		/*
+		 * Relase a lock that was granted.
+ 		 */
+		dsdc_res_t
+		DSDC_LOCK_RELASE (dsdc_lock_release_arg_t) = 11;
+
+/*
+ *-----------------------------------------------------------------------
+ * Below are custom RPCs for matching and okcupid-related functions
+ * in particular (with procno > 100...)
+ *
+ */
+		match_frontd_match_results_t
+                DSDC_COMPUTE_MATCHES(matchd_frontd_dcdc_arg_t) = 100;
 
 	} = 1;
 } = 30002;
