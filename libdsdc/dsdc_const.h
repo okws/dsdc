@@ -14,3 +14,4 @@ extern u_int dsdc_slave_maxsz;
 
 extern u_int dsdc_packet_sz;
 extern u_int dsdcs_port_attempts;
+extern u_int dsdcl_default_timeout;

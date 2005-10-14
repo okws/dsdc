@@ -2,13 +2,13 @@
 dsdclib_LTLIBRARIES = libdsdc.la
 
 libdsdc_la_SOURCES = dsdc_prot.C dsdc_util.C state.C const.C ring.C \
-		     smartcli.C slave.C smartcli_mget.C match.C
+		     smartcli.C slave.C smartcli_mget.C match.C lock.C
 
 #userid_prot.C
 
 dsdcinclude_HEADERS = dsdc_prot.h dsdc.h dsdc_ring.h dsdc_const.h \
 		     dsdc_prot.x dsdc_util.h dsdc_slave.h dsdc_state.h \
-                     dsdc_match.h
+                     dsdc_match.h dsdc_lock.h
 
 #userid_prot.x userid_prot.h
 

@@ -55,13 +55,25 @@ dsdcs_master_t::ready_to_serve ()
     schedule_heartbeat ();
 }
 
+static void
+heartbeat_cb (ptr<int> i, clnt_stat e)
+{
+  if (e) {
+    warn << "RPC error in DSDC_HEARTBEAT: " << e << "\n";
+  } else if (*i != DSDC_OK) {
+    warn << "DSDC error in DSDC_HEARTBEAT: " << *i << "\n";
+  }
+}
+
+
 void
 dsdcs_master_t::heartbeat ()
 {
-    if (_status == MASTER_STATUS_OK && _cli) {
-        _cli->call (DSDC_HEARTBEAT, NULL, NULL, aclnt_cb_null);
-        schedule_heartbeat ();
-    }
+  if (_status == MASTER_STATUS_OK && _cli) {
+    ptr<int> i = New refcounted<int> ();
+    _cli->call (DSDC_HEARTBEAT, NULL, i, wrap (heartbeat_cb, i));
+    schedule_heartbeat ();
+  }
 }
 
 void
@@ -72,7 +84,7 @@ dsdcs_master_t::schedule_heartbeat ()
 }
 
 ptr<aclnt>
-dsdc_slave_t::get_primary ()
+dsdc_slave_app_t::get_primary ()
 {
     for (dsdcs_master_t *m = _masters.first; m ; m = _masters.next (m)) {
         if (m->status () == MASTER_STATUS_OK)
@@ -111,6 +123,7 @@ dsdcs_master_t::do_register ()
     dsdc_register_arg_t arg;
     _slave->get_xdr_repr (&arg.slave);
     arg.primary = _primary;
+    arg.lock_server = _slave->is_lock_server ();
     _cli->call (DSDC_REGISTER, &arg, res,
                 wrap (this, &dsdcs_master_t::do_register_cb, res));
 }
@@ -144,6 +157,22 @@ dsdcs_p2p_cli_t::dispatch (svccb *sbp)
 }
 
 void
+dsdcs_lockserver_t::dispatch (svccb *sbp)
+{
+  switch (sbp->proc ()) {
+  case DSDC_LOCK_ACQUIRE:
+    acquire (sbp);
+    break;
+  case DSDC_LOCK_RELEASE:
+    release (sbp);
+    break;
+  default:
+    sbp->reject (PROC_UNAVAIL);
+    break;
+  }
+}
+
+void
 dsdc_slave_t::dispatch (svccb *sbp)
 {
     switch (sbp->proc ()) {
@@ -170,7 +199,7 @@ dsdc_slave_t::dispatch (svccb *sbp)
 
 // XXX copy + paste from master.C
 void
-dsdc_slave_t::new_connection ()
+dsdc_slave_app_t::new_connection ()
 {
     sockaddr_in sin;
     bzero (&sin, sizeof (sin));
@@ -415,7 +444,7 @@ dsdc_slave_t::lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o)
 }
 
 void
-dsdc_slave_t::add_master (const str &h, int p)
+dsdc_slave_app_t::add_master (const str &h, int p)
 {
     dsdcs_master_t *m = New dsdcs_master_t (this, h, p, _primary);
     if (_primary)
@@ -443,20 +472,29 @@ dsdc_slave_t::genkeys ()
 }
 
 bool
-dsdc_slave_t::init ()
+dsdc_slave_app_t::init ()
 {
-    if (!get_port ())
-        return false;
-    genkeys ();
-    for (dsdcs_master_t *m = _masters.first; m ; m = _masters.next (m)) {
-        m->connect ();
-    }
-    schedule_refresh ();
-    return true;
+  if (!get_port ())
+    return false;
+  for (dsdcs_master_t *m = _masters.first; m ; m = _masters.next (m)) {
+    m->connect ();
+  }
+  return true;
 }
 
 bool
-dsdc_slave_t::get_port ()
+dsdc_slave_t::init ()
+{
+  if (!dsdc_slave_app_t::init ())
+    return false;
+
+  genkeys ();
+  schedule_refresh ();
+  return true;
+}
+
+bool
+dsdc_slave_app_t::get_port ()
 {
     _lfd = -1;
     int p_begin = _port;
@@ -482,31 +520,49 @@ dsdc_slave_t::get_port ()
 }
 
 str
-dsdc_slave_t::startup_msg () const
+dsdc_slave_app_t::startup_msg () const
 {
     strbuf b ("listening on %s:%d", dsdc_hostname.cstr (), _port);
-    if (show_debug (2)) 
-        b.fmt ("; nnodes=%d, maxsz=0x%x", 
-               _n_nodes, _maxsz);
+      startup_msg_v (&b);
     return b;
+}
+
+void
+dsdc_slave_t::startup_msg_v (strbuf *b) const
+{
+  if (show_debug (2)) 
+    b->fmt ("; nnodes=%d, maxsz=0x%x", _n_nodes, _maxsz);
 }
 
 
 dsdc_slave_t::dsdc_slave_t (u_int n, u_int s, int p)
-    : dsdc_app_t (), dsdc_system_state_cache_t (),
-      _lrusz (0),
-      _n_nodes (n ? n : dsdc_slave_nnodes),
-      _maxsz (s ? s : dsdc_slave_maxsz),
-      _primary (true),
-      _port (p),
-      _lfd (-1)
-{}
+  : dsdc_slave_app_t (p),
+    dsdc_system_state_cache_t (),
+    _lrusz (0),
+    _n_nodes (n ? n : dsdc_slave_nnodes),
+    _maxsz (s ? s : dsdc_slave_maxsz) {}
+
+dsdc_slave_app_t::dsdc_slave_app_t (int p)
+  : dsdc_app_t (),
+    _primary (false), _port (p < 0 ? dsdc_slave_port : p), _lfd (-1) {}
 
 void 
-dsdc_slave_t::get_xdr_repr (dsdcx_slave_t *x)
+dsdc_slave_app_t::get_xdr_repr (dsdcx_slave_t *x)
 {
-    x->keys = _keys;
     x->port = _port;
     x->hostname = dsdc_hostname;
 }
 
+void
+dsdc_slave_t::get_xdr_repr (dsdcx_slave_t *x)
+{
+  dsdc_slave_app_t::get_xdr_repr (x);
+  x->keys = _keys;
+}
+
+void
+dsdcs_lockserver_t::get_xdr_repr (dsdcx_slave_t *x)
+{
+  dsdc_slave_app_t::get_xdr_repr (x);
+  x->keys.setsize (0);
+}

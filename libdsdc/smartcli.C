@@ -49,6 +49,12 @@ dsdc_smartcli_t::add_master (const str &hostname, int port)
   return true;
 }
 
+dsdc_smartcli_t::~dsdc_smartcli_t ()
+{
+  _masters_hash.deleteall ();
+  _slaves_hash.deleteall ();
+}
+
 ptr<aclnt>
 dsdc_smartcli_t::get_primary ()
 {
@@ -93,14 +99,22 @@ dsdc_smartcli_t::pre_construct ()
 }
 
 aclnt_wrap_t *
+dsdc_smartcli_t::new_lockserver_wrap (const str &h, int p)
+{
+  return New dsdci_slave_t (h, p);
+}
+
+aclnt_wrap_t *
 dsdc_smartcli_t::new_wrap (const str &h, int p)
 {
   dsdci_slave_t *s = New dsdci_slave_t (h, p);
   dsdci_slave_t *ret = NULL;
   if ((ret = _slaves_hash[s->key ()])) {
+    // already there; no need to jostle the tree at all
     delete s;
   } else {
     _slaves_hash.insert (s);
+    _slaves.insert_head (s);
     ret = s;
   }
 
@@ -116,15 +130,25 @@ dsdc_smartcli_t::new_wrap (const str &h, int p)
 void
 dsdc_smartcli_t::post_construct ()
 {
-  for (dsdci_slave_t *s = _slaves.first; s; s = _slaves.next (s)) {
+  dsdci_slave_t *n;
+  for (dsdci_slave_t *s = _slaves.first; s; s = n) {
+    n = _slaves.next (s);
     if (! _slaves_hash_tmp[s->key ()]) {
       if (show_debug (2)) {
-	warn << "CLEAN: removing slave node: " << s->key () << "\n";
+	warn << "CLEAN: removing slave: " << s->key () << "\n";
       }
       _slaves.remove (s);
       _slaves_hash.remove (s);
       delete s;
     }
+  }
+
+  // Only on initialization do we need to do this.  We delay return to
+  // the caller until after we've initialized the hash ring via
+  // the standard state refresh mechanism.
+  if (poke_after_refresh) {
+    poke_after_refresh->success ();
+    poke_after_refresh = NULL;
   }
 }
 
@@ -237,9 +261,9 @@ dsdc_smartcli_t::init_cb (ptr<init_t> i, dsdci_master_t *m, bool b)
   // in this case, it's the first success
   if (b && !_curr_master) {
     _curr_master = m;
-    i->success ();
 
     // initialize our hash ring
+    poke_after_refresh = i;
     refresh (_destroyed);
   }
 }
@@ -253,3 +277,86 @@ dsdc_smartcli_t::init (cbb::ptr cb)
   }
 }
 
+//-----------------------------------------------------------------------
+// deal with lock acquiring and releasing
+//
+static void
+acquire_cb_2 (dsdc_lock_acquire_res_cb_t cb,
+	      ptr<dsdc_lock_acquire_res_t> res,
+	      clnt_stat err)
+{
+  if (err) {
+    if (show_debug (1)) {
+      warn << "Acquire failed with RPC error: " << err << "\n";
+    }
+    res->set_status (DSDC_RPC_ERROR);
+    *res->err = err;
+  }
+  (*cb) (res);
+}
+
+static void
+release_cb_2 (cbi::ptr cb, ptr<int> res, clnt_stat err)
+{
+  if (err) {
+    if (show_debug (1)) {
+      warn << "Acquire failed with RPC error: " << err << "\n";
+    }
+    *res = DSDC_RPC_ERROR;
+  }
+  (*cb) (*res);
+}
+
+static void
+acquire_cb_1 (ptr<dsdc_lock_acquire_arg_t> arg,
+	      dsdc_lock_acquire_res_cb_t cb,
+	      ptr<aclnt> cli)
+{
+  if (!cli) {
+    (*cb) (New refcounted<dsdc_lock_acquire_res_t> (DSDC_DEAD));
+  } else {
+    ptr<dsdc_lock_acquire_res_t> res =
+      New refcounted<dsdc_lock_acquire_res_t> ();
+    cli->call (DSDC_LOCK_ACQUIRE, arg, res, wrap (acquire_cb_2, cb, res));
+  }
+}
+
+static void
+release_cb_1 (ptr<dsdc_lock_release_arg_t> arg, cbi::ptr cb, ptr<aclnt> cli)
+{
+  if (!cli) {
+    (*cb) (DSDC_DEAD);
+  } else {
+    ptr<int> res = New refcounted<int> ();
+    cli->call (DSDC_LOCK_RELEASE, arg, res, wrap (release_cb_2, cb, res));
+  }
+}
+
+void
+dsdc_smartcli_t::lock_release (ptr<dsdc_lock_release_arg_t> arg,
+			       cbi::ptr cb, bool safe)
+{
+  if (safe) {
+    release_cb_1 (arg, cb, get_primary ());
+  } else if (!_lock_server) {
+    (*cb) (DSDC_NONODE);
+  } else {
+    _lock_server->get_aclnt (wrap (release_cb_1, arg, cb));
+  }
+}
+
+void
+dsdc_smartcli_t::lock_acquire (ptr<dsdc_lock_acquire_arg_t> arg,
+			       dsdc_lock_acquire_res_cb_t cb, bool safe)
+{
+  if (safe) {
+    acquire_cb_1 (arg, cb, get_primary ());
+  } else if (!_lock_server) {
+    (*cb) (New refcounted<dsdc_lock_acquire_res_t> (DSDC_NONODE));
+  } else {
+    _lock_server->get_aclnt (wrap (acquire_cb_1, arg, cb));
+  }
+}
+//
+//
+//-----------------------------------------------------------------------

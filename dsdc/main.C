@@ -20,7 +20,8 @@ usage ()
 {
   warnx << "usage: " << progname << " -M [-d] [-P <packetsz>] [-p <port>]\n"
 	<< "       " << progname << " -S [-d] [-P <packetsz>] [-n <n nodes>] "
-	<< "[-s <maxsize> (M|G|k|b)]  m1:p1 m2:p2 ...\n";
+	<< "[-s <maxsize> (M|G|k|b)]  m1:p1 m2:p2 ...\n"
+	<< "       " << progname << " -L m1:p1 m2:p2 ...\n" ;
   exit (1);
 }
 
@@ -55,6 +56,19 @@ parse_memsize (const str &in, char units, u_int32_t *outp)
   return true;
 }
 
+static void
+check_no_data_slave_args (size_t maxsz, u_int nnodes)
+{
+  if (maxsz != 0) {
+    warn << "-s <maxsz> can only be used in slave mode\n";
+    usage ();
+  }
+  if (nnodes != 0) {
+    warn << "-n <nnodes> can only be used in slave mode\n";
+    usage ();
+  }
+}
+
 static bool
 parseargs (int argc, char *argv[], dsdc_app_t **app)
 {
@@ -67,12 +81,17 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   int dbg_lev = 0;
   bool daemon_mode = false;
 
-  while ((ch = getopt (argc, argv, "qdMSp:n:s:h:P:")) != -1) {
+  while ((ch = getopt (argc, argv, "qdMSLp:n:s:h:P:")) != -1) {
     switch (ch) {
     case 'M':
       if (mode != DSDC_MODE_NONE)
 	usage ();
       mode = DSDC_MODE_MASTER;
+      break;
+    case 'L':
+      if (mode != DSDC_MODE_NONE)
+	usage ();
+      mode = DSDC_MODE_LOCKSERVER;
       break;
     case 'S':
       if (mode != DSDC_MODE_NONE)
@@ -116,15 +135,23 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   bool ret = true;
   switch (mode) {
   case DSDC_MODE_SLAVE:
+  case DSDC_MODE_LOCKSERVER:
     {
-      dsdc_slave_t *s;
-      if (!maxsz)
-	maxsz = dsdc_slave_maxsz;
-      if (!nnodes)
-	nnodes = dsdc_slave_nnodes;
-      if (port == -1)
-	port = dsdc_slave_port;
-      s = New dsdc_slave_t (nnodes, maxsz, port);
+
+      dsdc_slave_app_t *s;
+      if (mode == DSDC_MODE_SLAVE) {
+	if (!maxsz)
+	  maxsz = dsdc_slave_maxsz;
+	if (!nnodes)
+	  nnodes = dsdc_slave_nnodes;
+	if (port == -1)
+	  port = dsdc_slave_port;
+	s = New dsdc_slave_t (nnodes, maxsz, port);
+      } else {
+	check_no_data_slave_args (maxsz, nnodes);
+	s = New dsdcs_lockserver_t (port);
+      }
+
       bool added = false;
       for (int i = optind; i < argc; i++) {
 	str mhost = "localhost";
@@ -146,14 +173,6 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   case DSDC_MODE_MASTER:
     {
       dsdc_master_t *m;
-      if (maxsz != 0) {
-	warn << "-s <maxsz> can only be used in slave mode\n";
-	usage ();
-      }
-      if (nnodes != 0) {
-	warn << "-n <nnodes> can only be used in slave mode\n";
-	usage ();
-      }
       m = New dsdc_master_t (port);
       *app = m;
     }
@@ -162,7 +181,7 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
     warn << "must supply either -M or -S option for master or slave\n";
     usage ();
   }
-
+    
   set_hostname (hostname);
   if (!dsdc_hostname)
     ret = false;
@@ -172,6 +191,7 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
 
   return ret;
 }
+
 
 int
 main (int argc, char *argv[])

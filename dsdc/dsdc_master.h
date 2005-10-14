@@ -26,7 +26,7 @@
 
 
 class dsdc_master_t;
-class dsdcm_slave_t;
+class dsdcm_slave_base_t;
 
 // one of these objects is allocated for each extern client served;
 // i.e., there is one per incoming TCP connection. when the
@@ -49,7 +49,7 @@ protected:
 
   // if this client has registered as a slave, then this pointer field
   // will be set.  we set up bidirectional pointers here.
-  dsdcm_slave_t *_slave;  
+  dsdcm_slave_base_t *_slave;  
 
   dsdc_master_t *_master; // master objet
   int _fd;                // the client's fd
@@ -58,31 +58,74 @@ protected:
   str _hostname;          // hostname / port of client
 };
 
-//
-// slaves start out as regular clients, but are promoted when a register 
-// call is made. 
-//
-class dsdcm_slave_t : public aclnt_wrap_t {
+/**
+ * a base class used by both dsdcm_slave_t (which stores data) and
+ * also dsdcm_lock_server_t, which just handles locking.  Both types
+ * of slaves start out as regular clients, but are promoted when a 
+ * a regsiter call is made.
+ */
+class dsdcm_slave_base_t : public aclnt_wrap_t {
 public:
-  dsdcm_slave_t (dsdcm_client_t *c, ptr<axprt> x) ;
-  ~dsdcm_slave_t () ;
-
+  dsdcm_slave_base_t (dsdcm_client_t *c, ptr<axprt> x);
+  virtual ~dsdcm_slave_base_t () {}
+  void init (const dsdcx_slave_t &keys);
+  void get_xdr_repr (dsdcx_slave_t *o) { *o = _xdr_repr; }
+  const str &remote_peer_id () const { return _client->remote_peer_id (); }
   ptr<aclnt> get_aclnt () { return _clnt_to_slave; }
   void handle_heartbeat () { _last_heartbeat = timenow; }
-  void init (const dsdcx_slave_t &keys);
-  const str &remote_peer_id () const { return _client->remote_peer_id (); }
-
-  void get_xdr_repr (dsdcx_slave_t *o) { *o = _xdr_repr; }
 
   bool is_dead ();                    // if no heartbeat, assume dead
-  list_entry<dsdcm_slave_t> _lnk;
 
-private:
+  /**
+   * insert all of this slave's node into the master hash ring.
+   * data servers obviously need nodes so that data can be 
+   * routed toward them.  for now, locking is going to be centralized,
+   * so there is no need for lock servers to have node; their insert
+   * operations will be noops..
+   */
+  void insert_nodes ();
+  virtual void insert_node (dsdc_master_t *m, dsdc_ring_node_t *n) = 0;
+
+  /**
+   * clean out all of this slave's nodes from the master's hash ring.
+   * has polymorphic behavior based on whether the slave is a lock
+   * server or a data server. remove_node() calls the virtual
+   * remove_nodes ();
+   */
+  void remove_nodes ();
+  virtual void remove_node (dsdc_master_t *m, dsdc_ring_node_t *n) = 0;
+
+
+protected:
   dsdcx_slave_t _xdr_repr;           // XDR representation of us
   dsdcm_client_t *_client;           // associated client object
   ptr<aclnt> _clnt_to_slave;         // RPC client for talking to slave
-  vec<dsdc_ring_node_t *> _nodes;  // this slave's nodes in the ring
+  vec<dsdc_ring_node_t *> _nodes;    // this slave's nodes in the ring
   time_t _last_heartbeat;            // last reported heartbeat
+};
+
+/**
+ * corresponds to remote slave that will be doing data storing.
+ */
+class dsdcm_slave_t : public dsdcm_slave_base_t {
+public:
+  dsdcm_slave_t (dsdcm_client_t *c, ptr<axprt> x);
+  ~dsdcm_slave_t () ;
+  void remove_node (dsdc_master_t *m, dsdc_ring_node_t *n);
+  void insert_node (dsdc_master_t *m, dsdc_ring_node_t *n);
+  list_entry<dsdcm_slave_t> _lnk;
+};
+
+/**
+ * correspond to remote slave that will be a lock server.
+ */
+class dsdcm_lock_server_t : public dsdcm_slave_base_t {
+public:
+  dsdcm_lock_server_t (dsdcm_client_t *c, ptr<axprt> x);
+  ~dsdcm_lock_server_t () ;
+  void remove_node (dsdc_master_t *m, dsdc_ring_node_t *n);
+  void insert_node (dsdc_master_t *m, dsdc_ring_node_t *n);
+  tailq_entry<dsdcm_lock_server_t> _lnk;
 };
 
 //
@@ -115,6 +158,12 @@ public:
   void remove_slave (dsdcm_slave_t *sl)
   { _slaves.remove (sl); }
 
+  void insert_lock_server (dsdcm_lock_server_t *ls);
+  void remove_lock_server (dsdcm_lock_server_t *ls)
+  { _lock_servers.remove (ls); }
+  void insert_lock_node (dsdc_ring_node_t *node) {}
+  void remove_lock_node (dsdc_ring_node_t *node) {}
+
   // given a key, look in the consistent hash ring for a corresponding
   // node, and then get the ptr<aclnt> that corresponds to the remote
   // host
@@ -124,12 +173,16 @@ public:
   void handle_remove (svccb *b);
   void handle_put (svccb *b);
   void handle_getstate (svccb *b);
+  void handle_lock_release (svccb *b);
+  void handle_lock_acquire (svccb *b);
 
   void broadcast_newnode (const dsdcx_slave_t &x, dsdcm_slave_t *skip);
 
   // manage the system state
   void reset_system_state ();
   void compute_system_state ();
+
+  dsdcm_lock_server_t *lock_server () { return _lock_servers.first; }
 
   str startup_msg () const 
   {
@@ -156,8 +209,11 @@ private:
   // nodes that the slave has, the more load it will bear.
   dsdc_hash_ring_t _hash_ring;
 
-  ptr<dsdcx_slaves_t> _system_state;      // system state in XDR format
-  ptr<dsdc_key_t>     _system_state_hash; // hash of the above
+  ptr<dsdcx_state_t> _system_state;       // system state in XDR format
+  ptr<dsdc_key_t>    _system_state_hash;  // hash of the above
+
+  // only the first is active, the rest are backups.
+  tailq<dsdcm_lock_server_t, &dsdcm_lock_server_t::_lnk> _lock_servers;
 };
 
 #endif /* _DSDC_MASTER_H */

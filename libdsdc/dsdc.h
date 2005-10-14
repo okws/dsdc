@@ -11,6 +11,7 @@
 #include "arpc.h"
 #include "dsdc_state.h"
 #include "qhash.h"
+#include "dsdc_lock.h"
 
 /**
  * @brief dsdc intelligent, which is the prefix for smart clients
@@ -90,11 +91,6 @@ public:
 //   to reconnect every time.
 //
 class dsdci_slave_t : public dsdci_srv_t {
-private:
-  void fill_datum(
-	u_int64_t userid,
-	matchd_qanswer_rows_t *user_questions,
-	matchd_frontd_match_datum_t &datum);
 public:
   dsdci_slave_t (const str &h, int p) : dsdci_srv_t (h, p) {}
   list_entry<dsdci_slave_t> _lnk;
@@ -114,25 +110,82 @@ template<> struct keyfn<dsdci_slave_t, str> {
 // callback type for returning from get() calls below
 typedef callback<void, ptr<dsdc_get_res_t> >::ref dsdc_get_res_cb_t;
 typedef callback<void, ptr<dsdc_mget_res_t> >::ref dsdc_mget_res_cb_t;
+typedef callback<void, ptr<dsdc_lock_acquire_res_t> >::ref
+  dsdc_lock_acquire_res_cb_t;
 
 class dsdc_smartcli_t;
 
 
-//
-// a convenience class so that we only need to specify the
-// templated parameters once.
-//
+/**
+ * A convenience class for simplifying puts/gets to and from the
+ * DSDC via the smart client that you've already allocated. Once
+ * this class has been instantiated, you shouldn't have to worry about
+ * templatizing your put/get access methods into the smart client.  This
+ * class will take care of converting your key and values into something
+ * that DSDC can handle natively.
+ *
+ * This is the recommended way to access DSDC.
+ */
 template<class K, class V>
 class dsdc_iface_t {
 public:
   dsdc_iface_t (dsdc_smartcli_t *c) : _cli (c) {}
 
+  /**
+   * Get an object from DSDC.
+   *
+   * @param k the key to get 
+   * @param cb the callback to call once its gotten (or error)
+   * @param safe if on, route request through the master
+   */
   void get (const K &k, 
 	    typename callback<void, dsdc_res_t, ptr<V> >::ref cb,
 	    bool safe = false );
+
+  /**
+   * Put an object into DSDC.
+   *
+   * @param k the key to file the object under.
+   * @param obj the object to store
+   * @param cb get called back at cb with a status code
+   * @param safe if on, route PUT through the master.
+   */
   void put (const K &k, const V &obj, cbi::ptr cb = NULL,
 	    bool safe = false);
+
+  /**
+   * Remove an object from DSDC
+   *
+   * @param k the key of the object to remove
+   * @param cb get called back at cb with a status code
+   * @param safe if on, route remove through the master.
+   */
   void remove (const K &k, cbi::ptr cb = NULL, bool safe = false);
+
+  /**
+   * Acquire a lock from the DSDC lock server
+   *
+   * @param k the key to file the lock under
+   * @param cb get called back at cb with the status and a Lock ID
+   * @param timeout time this lock out after timeout seconds
+   * @param writer If on, get an exclusive lock; if off, a shared lock
+   * @param block Whether to block or just fail without the lock.
+   * @param safe if on, route request through the master.
+   */
+  void lock_acquire (const K &k, dsdc_lock_acquire_res_cb_t cb,
+		     u_int timeout = 0, bool writer = true, 
+		     bool block = true, bool safe = false);
+
+  /**
+   * Release a lock alread held.
+   *
+   * @param k the key of the lock to release
+   * @param id the lock ID held for that key
+   * @param cb get called back at cb with a status code.
+   * @param safe if on, route release through the master.
+   */
+  void lock_release (const K &k, dsdcl_id_t id, cbi::ptr cb = NULL,
+		     bool safe = false);
 
 private:
   dsdc_smartcli_t *_cli;
@@ -151,6 +204,7 @@ private:
 class dsdc_smartcli_t : public dsdc_system_state_cache_t {
 public:
   dsdc_smartcli_t () : _curr_master (NULL) {}
+  ~dsdc_smartcli_t ();
 
   // adds a master from a string only, in the form
   // <hostname>:<port>
@@ -182,6 +236,10 @@ public:
   void get (ptr<dsdc_key_t> key, dsdc_get_res_cb_t cb, bool safe = false);
   void remove (ptr<dsdc_key_t> key, cbi::ptr cb = NULL, bool safe = false);
   void mget (ptr<vec<dsdc_key_t> > keys, dsdc_mget_res_cb_t cb);
+  void lock_acquire (ptr<dsdc_lock_acquire_arg_t> arg,
+		     dsdc_lock_acquire_res_cb_t cb, bool safe = false);
+  void lock_release (ptr<dsdc_lock_release_arg_t> arg,
+		     cbi::ptr cb = NULL, bool safe = false);
 
   // slightly more automated versions of the above; call xdr2str/str2xdr
   // automatically, and therefore less code for the app designer
@@ -202,8 +260,22 @@ public:
   template<class K> void
   remove3 (const K &k, cbi::ptr cb = NULL, bool safe = false);
 
+  template<class K> void
+  lock_acquire3 (const K &k, dsdc_lock_acquire_res_cb_t cb, u_int timeout,
+		 bool writer = true, bool block = true, bool safe = false);
 
-  // an interface to wrap up the templated types in one place
+  template<class K> void
+  lock_release3 (const K &k, dsdcl_id_t id, cbi::ptr cb = NULL, 
+		 bool safe = false);
+
+
+  /**
+   * create a templated interface to this dsdc, which will spare you 
+   * from the xdr2btyes and bytes2xdr involved with the standard 
+   * interface.
+   *
+   * @return An interface object.
+   */
   template<class K, class O> 
   ptr<dsdc_iface_t<K,O> >
   make_interface () { return New refcounted<dsdc_iface_t<K,O> > (this); }
@@ -213,6 +285,7 @@ protected:
   // fulfill the virtual interface of dsdc_system_cache_t
   ptr<aclnt> get_primary ();
   aclnt_wrap_t *new_wrap (const str &h, int p);
+  aclnt_wrap_t *new_lockserver_wrap (const str &h, int p);
 
   void pre_construct ();
   void post_construct ();
@@ -283,6 +356,11 @@ protected:
     bool _success;
   };
   void init_cb (ptr<init_t> i, dsdci_master_t *m, bool b);
+
+  // On init, we want to return success to the caller after we have
+  // successfully initialized the hash ring. 
+  ptr<init_t> poke_after_refresh;
+
   //
   // end init code
   //-----------------------------------------------------------------------
@@ -450,20 +528,59 @@ dsdc_smartcli_t::remove3 (const K &k, cbi::ptr cb, bool safe)
   remove (mkkey_ptr (k), cb, safe);
 }
 
+template<class K> void
+dsdc_smartcli_t::lock_release3 (const K &k, dsdcl_id_t id, cbi::ptr cb,
+				bool safe)
+{
+  ptr<dsdc_lock_release_arg_t> arg =
+    New refcounted<dsdc_lock_release_arg_t> ();
+  mkkey<K> (&arg->key, k);
+  arg->lockid = id;
+  lock_release (arg, cb, safe);
+}
+
+template<class K> void
+dsdc_smartcli_t::lock_acquire3 (const K &k, dsdc_lock_acquire_res_cb_t cb,
+				u_int timeout, bool writer, bool block, 
+				bool safe)
+{
+  ptr<dsdc_lock_acquire_arg_t> arg = 
+    New refcounted<dsdc_lock_acquire_arg_t> ();
+  mkkey<K> (&arg->key, k);
+  arg->writer = writer;
+  arg->block = block;
+  arg->timeout = timeout;
+  lock_acquire (arg, cb, safe);
+}
+
 
 template<class K, class V> void 
 dsdc_iface_t<K,V>::get (const K &k, 
 			typename callback<void, dsdc_res_t, ptr<V> >::ref cb,
 			bool safe)
-{ return _cli->template get3<K,V> (k, cb, safe); }
+{ _cli->template get3<K,V> (k, cb, safe); }
 
 template<class K, class V> void 
 dsdc_iface_t<K,V>::put (const K &k, const V &obj, cbi::ptr cb, bool safe)
-{ return _cli->put3 (k, obj, cb, safe); }
+{ _cli->put3 (k, obj, cb, safe); }
 
 template<class K, class V> void 
 dsdc_iface_t<K,V>::remove (const K &k, cbi::ptr cb, bool safe)
-{ return _cli->remove3 (k, cb, safe); }
+{ _cli->remove3 (k, cb, safe); }
+
+template<class K, class V> void
+dsdc_iface_t<K,V>::lock_acquire (const K &k, dsdc_lock_acquire_res_cb_t cb,
+				 u_int timeout, bool writer, bool block,
+				 bool safe)
+{ _cli->lock_acquire3 (k, cb, timeout, writer, block, safe); }
+
+template<class K, class V> void
+dsdc_iface_t<K,V>::lock_release (const K &k, dsdcl_id_t id, 
+				 cbi::ptr cb, bool safe)
+{
+  _cli->lock_release3 (k, id, cb, safe);
+}
+
 
 //
 //-----------------------------------------------------------------------

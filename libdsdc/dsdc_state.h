@@ -23,6 +23,7 @@ protected:
   virtual void clean_cache () {}
   virtual ptr<aclnt> get_primary () = 0;
   virtual aclnt_wrap_t *new_wrap (const str &h, int p) = 0;
+  virtual aclnt_wrap_t *new_lockserver_wrap (const str &h, int p) = 0;
 
   virtual void pre_construct () {}
   virtual void post_construct () {}
@@ -32,11 +33,15 @@ protected:
   void refresh (ptr<bool> df);
   void schedule_refresh ();
 
-  dsdcx_slaves_t  _system_state;
+  void refresh_lock_server ();
+  void change_lock_server_to (aclnt_wrap_t *nl);
+
+  dsdcx_state_t  _system_state;
   dsdc_key_t _system_state_hash;
   u_int _n_updates_since_clean;
   dsdc_hash_ring_t _hash_ring;
   ptr<bool> _destroyed;
+  aclnt_wrap_t *_lock_server;
 };
 
 

@@ -126,39 +126,44 @@ struct dsdcx_slave_t {
 	int port;
 };
 
-struct dsdcx_slaves_t {
+struct dsdcx_state_t {
 	dsdcx_slave_t slaves<>;
+	dsdcx_slave_t *lock_server;
 };
 
 struct dsdc_register_arg_t {
  	dsdcx_slave_t slave;
 	bool primary;
+	bool lock_server;
 };
+
 
 union dsdc_getstate_res_t switch (bool needupdate) {
 case true:
-	dsdcx_slaves_t slaves;
+	dsdcx_state_t state;
 case false:
 	void;
 };
 
 union dsdc_lock_acquire_res_t switch (dsdc_res_t status) {
 case DSDC_OK:
-	unsigned lockid;
+	unsigned hyper lockid;
+case DSDC_RPC_ERROR:
+	unsigned err;
 default:
 	void;
 };
 
 struct dsdc_lock_acquire_arg_t {
 	dsdc_key_t key;           // a key into a lock-specific namespace
-	bool shared;              // whether the lock can be shared
-        bool writing;             // if shared lock, if needed for writing
+        bool writer;              // if shared lock, if needed for writing
 	bool block;               // whether to block or just fail
+	unsigned timeout;         // how long the lock is held for
 };
 
 struct dsdc_lock_release_arg_t {
 	dsdc_key_t key;	          // original key that was locked
-	unsigned lockid;          // provide the lock-ID to catch bugs
+	unsigned hyper lockid;    // provide the lock-ID to catch bugs
 
 };
 
@@ -213,7 +218,7 @@ program DSDC_PROG
  		 * heartbeat;  a slave must send a periodic heartbeat
 	  	 * message, otherwise, the master will think it's dead.
 		 */
-		void
+		dsdc_res_t
 		DSDC_HEARTBEAT (void) = 7;
 
 		/*
@@ -248,12 +253,12 @@ program DSDC_PROG
 		 * Relase a lock that was granted.
  		 */
 		dsdc_res_t
-		DSDC_LOCK_RELASE (dsdc_lock_release_arg_t) = 11;
+		DSDC_LOCK_RELEASE (dsdc_lock_release_arg_t) = 11;
 
 /*
  *-----------------------------------------------------------------------
  * Below are custom RPCs for matching and okcupid-related functions
- * in particular (with procno > 100...)
+ * in particular (with procno >= 100...)
  *
  */
 		match_frontd_match_results_t

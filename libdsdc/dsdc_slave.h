@@ -9,6 +9,7 @@
 #include "dsdc_state.h"
 #include "dsdc_const.h"
 #include "dsdc_util.h"
+#include "dsdc_lock.h"
 #include "ihash.h"
 #include "list.h"
 #include "async.h"
@@ -35,10 +36,11 @@ typedef enum { MASTER_STATUS_OK = 0,
 
 
 class dsdc_slave_t;
+class dsdc_slave_app_t;
 
 class dsdcs_master_t {
 public:
-  dsdcs_master_t (dsdc_slave_t *s, const str &h, int p, bool pr) 
+  dsdcs_master_t (dsdc_slave_app_t *s, const str &h, int p, bool pr) 
     : _slave (s), _status (MASTER_STATUS_DOWN), _hostname (h), 
       _port (p), _fd (-1), _primary (pr) {}
 
@@ -62,7 +64,7 @@ private:
   void retry ();
   void ready_to_serve ();
 
-  dsdc_slave_t *_slave;
+  dsdc_slave_app_t *_slave;
   dsdcs_master_status_t _status;
 
   const str _hostname;
@@ -80,7 +82,7 @@ private:
 // service p2p requests
 class dsdcs_p2p_cli_t {
 public:
-  dsdcs_p2p_cli_t (dsdc_slave_t *p, int f, const str &h) 
+  dsdcs_p2p_cli_t (dsdc_slave_app_t *p, int f, const str &h) 
     : _parent (p), _fd (f), _hn (h)
   {
     tcp_nodelay (_fd);
@@ -90,24 +92,71 @@ public:
   }
   void dispatch (svccb *sbp);
 private:
-  dsdc_slave_t *const _parent;
+  dsdc_slave_app_t *const _parent;
   const int _fd;
   ptr<axprt_stream> _x;
   ptr<asrv> _asrv;
   const str _hn;
 };
 
-class dsdc_slave_t : public dsdc_app_t, public dsdc_system_state_cache_t {
+// There are two possible slave apps as of now:
+//
+//   - Slave data store (dsdc_slave_t)
+//   - Slave lock server (dsdcs_lockserver_t)
+//
+// The naming is unforuntate but there due to historical limitations.
+class dsdc_slave_app_t : public dsdc_app_t {
+public:
+  dsdc_slave_app_t (int p);
+  virtual ~dsdc_slave_app_t () {}
+  void add_master (const str &h, int p);
+  virtual void dispatch (svccb *sbp) = 0;
+  virtual bool init ();
+  virtual void get_xdr_repr (dsdcx_slave_t *x) ;
+  virtual bool is_lock_server () const { return false; }
+
+  str startup_msg () const ;
+  virtual void startup_msg_v (strbuf *b) const {}
+protected:
+  bool get_port ();
+  void new_connection ();
+  /**
+   * return an aclnt for the master that's currently serving as the
+   * master primary.
+   */
+  ptr<aclnt> get_primary ();
+
+  list<dsdcs_master_t, &dsdcs_master_t::_lnk> _masters;
+
+  bool _primary; // a flag that's used to add the primary master only once
+  int _port;     // listen for p2p communication
+  int _lfd;
+
+};
+
+class dsdcs_lockserver_t : public dsdc_slave_app_t, 
+			   public dsdcl_mgr_t {
+public:
+  dsdcs_lockserver_t (int port) : dsdc_slave_app_t (port) {}
+  virtual ~dsdcs_lockserver_t () {}
+  void dispatch (svccb *sbp);
+  void get_xdr_repr (dsdcx_slave_t *x) ;
+  bool is_lock_server () const { return true; }
+  str progname_xtra () const { return "-L"; }
+};
+
+class dsdc_slave_t : public dsdc_slave_app_t ,
+		     public dsdc_system_state_cache_t {
 public:
   dsdc_slave_t (u_int nnodes = 0, u_int maxsz = 0, 
 		int port = dsdc_slave_port);
   virtual ~dsdc_slave_t () {}
 
+  void startup_msg_v (strbuf *b) const;
   bool init ();
-  void add_master (const str &h, int p);
   const dsdc_keyset_t *get_keys () const { return &_keys; }
   void get_keys (dsdc_keyset_t *k) const { *k = _keys; }
-  void get_xdr_repr (dsdcx_slave_t *x);
+  void get_xdr_repr (dsdcx_slave_t *x) ;
 
   void dispatch (svccb *sbp);
   void handle_get (svccb *sbp);
@@ -117,13 +166,14 @@ public:
   // Match function addition.
   void handle_compute_matches (svccb *sbp);
 
-  str startup_msg () const ;
   str progname_xtra () const { return "-S"; }
 
+  // implement virtual functions from the 
+  // dsdc_system_state_cache class
+  aclnt_wrap_t *new_wrap (const str &h, int p) { return NULL; }
+  aclnt_wrap_t *new_lockserver_wrap (const str &h, int p) { return NULL; }
+  ptr<aclnt> get_primary () { return dsdc_slave_app_t::get_primary (); }
 protected:
-
-  bool get_port ();
-  void new_connection ();
 
   void genkeys ();
   dsdc_obj_t * lru_lookup (const dsdc_key_t &k);
@@ -132,17 +182,12 @@ protected:
   bool lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o);
   size_t _lrusz;
 
-  // implement virtual functions from the 
-  // dsdc_system_state_cache class
-  aclnt_wrap_t *new_wrap (const str &h, int p) { return NULL; }
-  ptr<aclnt> get_primary ();
   void clean_cache ();
 
   dsdc_keyset_t _keys;
   const u_int _n_nodes;
   const size_t _maxsz;
 
-  list<dsdcs_master_t, &dsdcs_master_t::_lnk> _masters;
 
   ihash<dsdc_key_t, dsdc_cache_obj_t, &dsdc_cache_obj_t::_key,
     &dsdc_cache_obj_t::_hlnk, 
@@ -152,10 +197,6 @@ protected:
 
   tailq<dsdc_cache_obj_t, &dsdc_cache_obj_t::_qlnk> _lru;
 
-private:
-  bool _primary; // a flag that's used to add the primary master only once
-  int _port;     // listen for p2p communication
-  int _lfd;
 private:
   void fill_datum(
 	u_int64_t userid,

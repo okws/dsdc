@@ -31,7 +31,7 @@ public:
 
   // public fields for insert into itree
   dsdc_key_t _key;                         // the key for this node
-  itree_entry<dsdc_ring_node_t> _lnk;    // for implementing itree
+  itree_entry<dsdc_ring_node_t> _lnk;      // for implementing itree
 
   aclnt_wrap_t * get_aclnt_wrap () { return _aclnt_wrap; }
 

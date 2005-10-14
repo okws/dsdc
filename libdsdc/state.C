@@ -4,14 +4,51 @@
 #include "crypt.h"
 
 void
+dsdc_system_state_cache_t::change_lock_server_to (aclnt_wrap_t *nl)
+{
+  if (_lock_server) {
+    if (show_debug (1)) 
+      warn << "deactivating old lock server: " 
+	   << _lock_server->remote_peer_id () << "\n";
+    delete _lock_server;
+  }
+
+  _lock_server = nl;
+
+  if (_lock_server && show_debug (1)) 
+    warn << "activating new lock server: " 
+	 << _lock_server->remote_peer_id () << "\n";
+}
+
+void
+dsdc_system_state_cache_t::refresh_lock_server ()
+{
+  aclnt_wrap_t *nl = NULL;
+  if (_system_state.lock_server) {
+    if ((nl = new_lockserver_wrap (_system_state.lock_server->hostname,
+				   _system_state.lock_server->port))) {
+      if (!_lock_server || 
+	  nl->remote_peer_id () != _lock_server->remote_peer_id ())
+	change_lock_server_to (nl);
+      else
+	delete nl;
+    }
+  } else if (_lock_server) {
+    // the lock server went down
+    change_lock_server_to (NULL);
+  }
+}
+
+void
 dsdc_system_state_cache_t::handle_refresh (const dsdc_getstate_res_t &res)
 {
   if (res.needupdate) {
-    _system_state = *res.slaves;
+    _system_state = *res.state;
     sha1_hashxdr (_system_state_hash.base (), _system_state);
 
     pre_construct ();
     construct_tree ();
+    refresh_lock_server ();
     post_construct ();
 
     clean_cache ();

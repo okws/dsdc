@@ -57,7 +57,8 @@ private:
 
 typedef enum { DSDC_MODE_NONE = 0,
 	       DSDC_MODE_MASTER = 1,
-	       DSDC_MODE_SLAVE = 2 } dsdc_mode_t;
+	       DSDC_MODE_SLAVE = 2,
+	       DSDC_MODE_LOCKSERVER = 3 } dsdc_mode_t;
 
 void set_hostname (const str &s);
 extern str dsdc_hostname;

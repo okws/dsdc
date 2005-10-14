@@ -41,10 +41,20 @@ dsdcm_client_t::dsdcm_client_t (dsdc_master_t *ma, int f, const str &h)
   _master->insert_client (this);
 }
 
-dsdcm_slave_t::dsdcm_slave_t (dsdcm_client_t *c, ptr<axprt> x) :
-  _client (c), _clnt_to_slave (aclnt::alloc (x, dsdc_prog_1)) 
+dsdcm_slave_base_t::dsdcm_slave_base_t (dsdcm_client_t *c, ptr<axprt> x)
+  : _client (c), _clnt_to_slave (aclnt::alloc (x, dsdc_prog_1))
+{}  
+
+dsdcm_slave_t::dsdcm_slave_t (dsdcm_client_t *c, ptr<axprt> x)
+  : dsdcm_slave_base_t (c, x)
 {
   _client->get_master ()->insert_slave (this);
+}
+
+dsdcm_lock_server_t::dsdcm_lock_server_t (dsdcm_client_t *c, ptr<axprt> x)
+  : dsdcm_slave_base_t (c, x)
+{
+  _client->get_master ()->insert_lock_server (this);
 }
 
 void
@@ -54,7 +64,7 @@ dsdcm_client_t::dispatch (svccb *sbp)
 
     warn << "client " << remote_peer_id () << " gave EOF\n";
 
-    // at the enf of a TCP connection, we get a NULL sbp from SFS.
+    // at the end of a TCP connection, we get a NULL sbp from SFS.
     // at this point, we need to clean up state for this particular
     // client. note that the destructor chain will trigger cleanup
     // of the hash ring in the case of slave nodes, which is very
@@ -90,6 +100,12 @@ dsdcm_client_t::dispatch (svccb *sbp)
   case DSDC_GETSTATE:
     _master->handle_getstate (sbp);
     break;
+  case DSDC_LOCK_ACQUIRE:
+    _master->handle_lock_acquire (sbp);
+    break;
+  case DSDC_LOCK_RELEASE:
+    _master->handle_lock_release (sbp);
+    break;
   default:
     sbp->reject (PROC_UNAVAIL);
     break;
@@ -105,7 +121,7 @@ dsdc_master_t::handle_getstate (svccb *sbp)
  
   if (dsdck_cmp (*arg, *_system_state_hash) != 0) {
     res.set_needupdate (true);
-    *res.slaves = *_system_state;
+    *res.state = *_system_state;
   }
   sbp->replyref (res);
 }
@@ -122,7 +138,7 @@ dsdcm_client_t::handle_heartbeat (svccb *sbp)
     return;
   } 
   _slave->handle_heartbeat ();
-  sbp->reply (NULL);
+  sbp->replyref (DSDC_OK);
 }
 
 void
@@ -142,12 +158,19 @@ dsdc_master_t::compute_system_state ()
   if (_system_state) 
     return;
 
-  _system_state = New refcounted<dsdcx_slaves_t> ();
+  _system_state = New refcounted<dsdcx_state_t> ();
 
   dsdcx_slave_t slave;
   for (dsdcm_slave_t *p = _slaves.first; p; p = _slaves.next (p)) {
     p->get_xdr_repr (&slave);
     _system_state->slaves.push_back (slave);
+  }
+
+  if (_lock_servers.first) {
+    if (!_system_state->lock_server)
+      _system_state->lock_server.alloc ();
+    _lock_servers.first->get_xdr_repr (&slave);
+    *_system_state->lock_server = slave;
   }
 
   // also compute the hash 
@@ -165,7 +188,11 @@ dsdcm_client_t::handle_register (svccb *sbp)
     sbp->replyref (dsdc_res_t (DSDC_ALREADY_REGISTERED));
     return;
   }
-  _slave = New dsdcm_slave_t (this, _x);
+  if (arg->lock_server) {
+    _slave = New dsdcm_lock_server_t (this, _x);
+  } else {
+    _slave = New dsdcm_slave_t (this, _x);
+  }
   _slave->init (arg->slave);
   
   sbp->replyref (dsdc_res_t (DSDC_OK));
@@ -195,22 +222,41 @@ dsdcm_client_t::~dsdcm_client_t ()
 }
 
 void
-dsdcm_slave_t::init (const dsdcx_slave_t &sl)
+dsdcm_slave_t::insert_node (dsdc_master_t *m, dsdc_ring_node_t *n)
 {
-  for (u_int i = 0; i < sl.keys.size (); i++) {
+  m->insert_node (n);
+}
 
-    dsdc_ring_node_t *n = New dsdc_ring_node_t (this, sl.keys[i]);
-    _client->get_master ()->insert_node (n);
+void
+dsdcm_lock_server_t::insert_node (dsdc_master_t *m, dsdc_ring_node_t *n)
+{
+  m->insert_lock_node (n);
+}
+
+
+void
+dsdcm_slave_base_t::insert_nodes ()
+{
+  for (u_int i = 0; i < _xdr_repr.keys.size (); i++) {
+
+    dsdc_key_t k = _xdr_repr.keys[i];
+    dsdc_ring_node_t *n = New dsdc_ring_node_t (this, k);
+   
+    insert_node (_client->get_master (), n);
     _nodes.push_back (n);
 
     if (show_debug (1)) {
       warn ("insert slave: %s -> %s(%p)\n", 
-	    key_to_str (sl.keys[i]).cstr (), 
-	    _client->remote_peer_id ().cstr (), this);
+	    key_to_str (k).cstr (), remote_peer_id ().cstr (), this);
     }
   }
+}
 
+void
+dsdcm_slave_base_t::init (const dsdcx_slave_t &sl)
+{
   _xdr_repr = sl;
+  insert_nodes ();
 
   // need this just once
   handle_heartbeat ();
@@ -219,14 +265,38 @@ dsdcm_slave_t::init (const dsdcx_slave_t &sl)
 dsdcm_slave_t::~dsdcm_slave_t ()
 {
   _client->get_master ()->remove_slave (this);
+  remove_nodes ();
+}
+
+dsdcm_lock_server_t::~dsdcm_lock_server_t ()
+{
+  _client->get_master ()->remove_lock_server (this);
+  remove_nodes ();
+}
+
+void
+dsdcm_slave_t::remove_node (dsdc_master_t *m, dsdc_ring_node_t *rn)
+{
+  m->remove_node (rn);
+}
+
+void
+dsdcm_lock_server_t::remove_node (dsdc_master_t *m, dsdc_ring_node_t *rn)
+{
+  m->remove_lock_node (rn);
+}
+
+void
+dsdcm_slave_base_t::remove_nodes ()
+{
   for (u_int i = 0; i < _nodes.size (); i++) {
-    _client->get_master ()->remove_node (_nodes[i]);
+    dsdc_ring_node_t *n = _nodes[i];
+    remove_node (_client->get_master (), n);
     if (show_debug (1)) {
       warn ("removing node %s -> %s (%p)\n",
-	    key_to_str (_nodes[i]->_key).cstr (),
-	    remote_peer_id ().cstr (), this);
+	    key_to_str (n->_key).cstr (), remote_peer_id ().cstr (), this);
     }
-    delete _nodes[i];
+    delete n;
   }
 }
 
@@ -251,7 +321,7 @@ dsdc_master_t::get_aclnt (const dsdc_key_t &k, ptr<aclnt> *cli)
 }
 
 bool
-dsdcm_slave_t::is_dead ()
+dsdcm_slave_base_t::is_dead ()
 {
   if (timenow - _last_heartbeat > 
       dsdc_heartbeat_interval * dsdc_missed_beats_to_death) {
@@ -294,6 +364,48 @@ dsdc_master_t::handle_get (svccb *sbp)
     sbp->reply (res);
   } else 
     cli->call (DSDC_GET, k, res, wrap (handle_get_cb, res, sbp));
+}
+
+static void
+acquire_cb (svccb *sbp, ptr<dsdc_lock_acquire_res_t> res, clnt_stat stat)
+{
+  if (!stat) {
+    res->set_status (DSDC_RPC_ERROR);
+    *res->err = stat;
+  } else {
+    sbp->reply (res);
+  }
+}
+
+void
+dsdc_master_t::handle_lock_release (svccb *sbp)
+{
+  if (!lock_server ()) {
+    sbp->replyref (DSDC_NONODE);
+  } else {
+    ptr<int> res = New refcounted<int> ();
+    lock_server ()->get_aclnt ()->
+      call (DSDC_LOCK_RELEASE,
+	    sbp->Xtmpl getarg<dsdc_lock_release_arg_t> (),
+	    res,
+	    wrap (handle_vanilla_cb, res, sbp));
+  }
+}
+
+void
+dsdc_master_t::handle_lock_acquire (svccb *sbp)
+{
+  ptr<dsdc_lock_acquire_res_t> res
+    = New refcounted<dsdc_lock_acquire_res_t> ();
+  if (!lock_server ()) {
+    res->set_status (DSDC_NONODE);
+    sbp->reply (res);
+  } else {
+    lock_server ()->get_aclnt ()-> 
+      call (DSDC_LOCK_ACQUIRE, 
+	    sbp->Xtmpl getarg<dsdc_lock_acquire_arg_t> (),
+	    res, wrap (acquire_cb, sbp, res));
+  }
 }
 
 void
@@ -344,6 +456,24 @@ dsdc_master_t::broadcast_newnode (const dsdcx_slave_t &x, dsdcm_slave_t *skip)
       p->get_aclnt ()->call (DSDC_NEWNODE, &x, res, 
 			     wrap (ignore_cb, res));
     }
+  }
+}
+
+void
+dsdc_master_t::insert_lock_server (dsdcm_lock_server_t *ls)
+{
+  int debug_lev = 1;
+  str typ;
+  if (_lock_servers.first) {
+    debug_lev = 2;
+    typ = "BACKUP";
+  } else {
+    typ = "primary";
+  }
+  _lock_servers.insert_tail (ls);
+  if (show_debug (debug_lev)) {
+    warn ("%s lock server registered: %s(%p)\n", 
+	  typ.cstr (), ls->remote_peer_id ().cstr (), this);
   }
 }
 

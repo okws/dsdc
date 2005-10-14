@@ -9,15 +9,19 @@
 #include "dsdc_prot.h"
 #include "dsdc_const.h"
 #include "aios.h"
+#include "dsdc_lock.h"
 
 typedef enum { NONE = 0,
 	       GET = 1,
 	       PUT = 2 } tst_mode_t;
 
+#define LOCK_SHARED  (1 << 0)
+#define LOCK_NO_BLOCK (1 << 1)
+
 bool tst2_done = false;
 int tst2_cbct = 0; // callback count
 
-dsdc_iface_t<tst_key_t, tst_obj_checked_t> *cli;
+ptr<dsdc_iface_t<tst_key_t, tst_obj_checked_t> > cli;
 
 
 static void
@@ -55,7 +59,7 @@ generate_kv (tst_key_t *k, str *v)
 static void
 usage ()
 {
-  warn << "usage: " << progname << " m1:p1 m2:p2 m3:p3 ...\n";
+  warn << "usage: " << progname << " [-d] m1:p1 m2:p2 m3:p3 ...\n";
   exit (1);
 }
 
@@ -129,14 +133,121 @@ get_cb (tst_key_t k, dsdc_res_t status, ptr<tst_obj_checked_t> obj)
 }
 
 static void
+remove_cb (tst_key_t k, int status)
+{
+  switch (status) {
+  case DSDC_NOTFOUND:
+    aout << strbuf ("REMOVE: %d -> <null> (NOT FOUND)\n", k);
+    break;
+  case DSDC_OK:
+    aout << strbuf ("REMOVED: %d\n", k);
+    break;
+  case DSDC_RPC_ERROR:
+    warn << "** REMOVE: RPC error\n";
+    break;
+  default:
+    warn << "** REMOVE: DSDC error " << status << "\n";
+  }
+  cb_done ();
+}
+static void
+acquire_cb (tst_key_t k, ptr<dsdc_lock_acquire_res_t> res)
+{
+  switch (res->status) {
+  case DSDC_OK:
+    aout << strbuf ("LOCK ACQUIRED: %d -> %llx\n", k, *res->lockid);
+    break;
+  case DSDC_RPC_ERROR:
+    warn << "** LOCK_ACQUIRE: RPC error\n";
+    break;
+  default:
+    warn << "** LOCK_ACQUIRE: DSDC error " << res->status << "\n";
+  }
+    
+  cb_done ();
+}
+
+static void
 get (tst_key_t k, bool safe)
 {
+  tst2_cbct++;
   cli->get (k, wrap (get_cb, k), safe);
 }
 
 static void
 remove (tst_key_t k, bool safe)
 {
+  tst2_cbct++;
+  cli->remove (k, wrap (remove_cb, k), safe);
+}
+
+static void
+release_cb (tst_key_t key, dsdcl_id_t lockid, int status)
+{
+  switch (status) {
+  case DSDC_NOTFOUND:
+    aout << strbuf ("LOCK_RELEASE: (%d, %llx) not found\n", key, lockid);
+    break;
+  case DSDC_RPC_ERROR:
+    warn << "** LOCK_RELEASE: RPC error\n";
+    break;
+  case DSDC_OK:
+    aout << strbuf ("LOCK_RELEASED: (%d, %llx)\n", key, lockid);
+    break;
+  default:
+    warn << "** LOCK_RELEASE: DSDC error " << status << "\n";
+    break;
+  }
+  cb_done ();
+
+}
+
+static void
+release (tst_key_t key, dsdcl_id_t lockid, bool safe)
+{
+  tst2_cbct++;
+  cli->lock_release (key, lockid, wrap (release_cb, key, lockid), safe);
+}
+
+
+static void
+acquire (tst_key_t k, u_int to, bool shared, bool block, bool safe)
+{
+  tst2_cbct++;
+  cli->lock_acquire (k, wrap (acquire_cb, k), to, !shared, block, safe);
+}
+
+static bool
+do_acquire (const vec<str> &args, bool safe)
+{
+  if (args.size () < 2 || args.size () > 5)
+    return false;
+  tst_key_t key = 0;
+  u_int timeout = 0;
+  bool shared = false;
+  bool block = true;
+  if (!convertint (args[1], &key))
+    return false;
+  if (args.size () > 2 && !convertint (args[2], &timeout))
+    return false;
+
+  if (args.size () > 3) {
+    for (const char *cp = args[3].cstr (); *cp; cp++) {
+      switch (*cp) {
+      case 's':
+	shared = true;
+	break;
+      case 'B':
+	block = false;
+	break;
+      default:
+	warn ("Unexepcted option to do_acquire: %c\n", *cp);
+	break;
+      }
+    }
+  }
+  acquire (key, timeout, shared, block, safe);
+  return true;
 
 }
 
@@ -200,6 +311,18 @@ rdline (str ln, int err)
     if (args.size () == 2 && convertint (args[1], &key))
       remove (key, safe);
     break;
+  case 'a':
+    do_acquire (args, safe);
+    break;
+  case 'R':
+    {
+      dsdcl_id_t lockid;
+      if (args.size () == 3 && convertint (args[1], &key) && 
+	  convertint (args[2], &lockid)) {
+	release (key, lockid, safe);
+      }
+      break;
+    }
   default:
     break;
   }
@@ -229,19 +352,33 @@ main (int argc, char *argv[])
 {
   tst2_done = false;
   tst2_cbct = 0;
+  int ch;
+  int dbg_lev = 0;
 
   setprogname (argv[0]);
 
   dsdc_smartcli_t *sc = New dsdc_smartcli_t ();
 
-  for (int i = 1; i < argc; i++) {
+  while ((ch = getopt (argc, argv, "d")) != -1)
+    switch (ch) {
+    case 'd':
+      dbg_lev ++;
+      break;
+    default:
+      usage ();
+      break;
+    }
+
+  set_debug (dbg_lev);
+
+  for (int i = optind; i < argc; i++) {
     str host = "localhost";
     int port = dsdc_port;
     if (!parse_hn (argv[i], &host, &port))
       usage ();
     sc->add_master (host, port);
   }
-  cli = New dsdc_iface_t<tst_key_t, tst_obj_checked_t> (sc);
+  cli = sc->make_interface<tst_key_t, tst_obj_checked_t> ();
   sc->init (wrap (main2));
   amain ();
 }
