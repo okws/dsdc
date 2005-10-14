@@ -99,6 +99,8 @@ private:
   const str _hn;
 };
 
+#define SLAVE_DETERMINISTIC_SEEDS    (1 << 0)
+
 // There are two possible slave apps as of now:
 //
 //   - Slave data store (dsdc_slave_t)
@@ -107,7 +109,7 @@ private:
 // The naming is unforuntate but there due to historical limitations.
 class dsdc_slave_app_t : public dsdc_app_t {
 public:
-  dsdc_slave_app_t (int p);
+  dsdc_slave_app_t (int p, int opts);
   virtual ~dsdc_slave_app_t () {}
   void add_master (const str &h, int p);
   virtual void dispatch (svccb *sbp) = 0;
@@ -131,13 +133,15 @@ protected:
   bool _primary; // a flag that's used to add the primary master only once
   int _port;     // listen for p2p communication
   int _lfd;
-
+  
+  int _opts;     // options for configuring this slave
 };
 
 class dsdcs_lockserver_t : public dsdc_slave_app_t, 
 			   public dsdcl_mgr_t {
 public:
-  dsdcs_lockserver_t (int port) : dsdc_slave_app_t (port) {}
+  dsdcs_lockserver_t (int port, int o = 0) : 
+    dsdc_slave_app_t (port, o) {}
   virtual ~dsdcs_lockserver_t () {}
   void dispatch (svccb *sbp);
   void get_xdr_repr (dsdcx_slave_t *x) ;
@@ -149,7 +153,7 @@ class dsdc_slave_t : public dsdc_slave_app_t ,
 		     public dsdc_system_state_cache_t {
 public:
   dsdc_slave_t (u_int nnodes = 0, u_int maxsz = 0, 
-		int port = dsdc_slave_port);
+		int port = dsdc_slave_port, int opts = 0);
   virtual ~dsdc_slave_t () {}
 
   void startup_msg_v (strbuf *b) const;

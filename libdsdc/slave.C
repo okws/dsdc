@@ -457,7 +457,12 @@ void
 dsdc_slave_t::genkeys ()
 {
     dsdc_key_template_t t;
-    t.pid = getpid ();
+    t.port = _port;
+
+    if (_opts & SLAVE_DETERMINISTIC_SEEDS)
+      t.pid = 0;
+    else
+      t.pid = getpid ();
 
     if (!(t.hostname = dsdc_hostname))
         t.hostname = myname ();
@@ -535,16 +540,17 @@ dsdc_slave_t::startup_msg_v (strbuf *b) const
 }
 
 
-dsdc_slave_t::dsdc_slave_t (u_int n, u_int s, int p)
-  : dsdc_slave_app_t (p),
+dsdc_slave_t::dsdc_slave_t (u_int n, u_int s, int p, int o)
+  : dsdc_slave_app_t (p, o),
     dsdc_system_state_cache_t (),
     _lrusz (0),
     _n_nodes (n ? n : dsdc_slave_nnodes),
     _maxsz (s ? s : dsdc_slave_maxsz) {}
 
-dsdc_slave_app_t::dsdc_slave_app_t (int p)
+dsdc_slave_app_t::dsdc_slave_app_t (int p, int o)
   : dsdc_app_t (),
-    _primary (false), _port (p < 0 ? dsdc_slave_port : p), _lfd (-1) {}
+    _primary (false), _port (p < 0 ? dsdc_slave_port : p), _lfd (-1),
+    _opts (o) {}
 
 void 
 dsdc_slave_app_t::get_xdr_repr (dsdcx_slave_t *x)

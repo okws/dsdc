@@ -19,7 +19,7 @@ static void
 usage ()
 {
   warnx << "usage: " << progname << " -M [-d] [-P <packetsz>] [-p <port>]\n"
-	<< "       " << progname << " -S [-d] [-P <packetsz>] [-n <n nodes>] "
+	<< "       " << progname << " -S [-dR] [-P <packetsz>] [-n <n nodes>] "
 	<< "[-s <maxsize> (M|G|k|b)]  m1:p1 m2:p2 ...\n"
 	<< "       " << progname << " -L m1:p1 m2:p2 ...\n" ;
   exit (1);
@@ -80,8 +80,9 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   str hostname;
   int dbg_lev = 0;
   bool daemon_mode = false;
+  int opts = 0;
 
-  while ((ch = getopt (argc, argv, "qdMSLp:n:s:h:P:")) != -1) {
+  while ((ch = getopt (argc, argv, "dqLMRSp:n:s:h:P:")) != -1) {
     switch (ch) {
     case 'M':
       if (mode != DSDC_MODE_NONE)
@@ -97,6 +98,9 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
       if (mode != DSDC_MODE_NONE)
 	usage ();
       mode = DSDC_MODE_SLAVE;
+      break;
+    case 'R':
+      opts = opts | SLAVE_DETERMINISTIC_SEEDS;
       break;
     case 'p':
       if (!convertint (optarg, &port))
@@ -137,7 +141,6 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   case DSDC_MODE_SLAVE:
   case DSDC_MODE_LOCKSERVER:
     {
-
       dsdc_slave_app_t *s;
       if (mode == DSDC_MODE_SLAVE) {
 	if (!maxsz)
@@ -146,10 +149,10 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
 	  nnodes = dsdc_slave_nnodes;
 	if (port == -1)
 	  port = dsdc_slave_port;
-	s = New dsdc_slave_t (nnodes, maxsz, port);
+	s = New dsdc_slave_t (nnodes, maxsz, port, opts);
       } else {
 	check_no_data_slave_args (maxsz, nnodes);
-	s = New dsdcs_lockserver_t (port);
+	s = New dsdcs_lockserver_t (port, opts);
       }
 
       bool added = false;

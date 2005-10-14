@@ -75,6 +75,7 @@ typedef opaque dsdc_custom_t<>;
 struct dsdc_key_template_t {
 	unsigned id;
 	unsigned pid;
+	unsigned port;
 	string hostname<>;
 };
 
