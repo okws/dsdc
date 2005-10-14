@@ -163,7 +163,46 @@ public:
   void remove (const K &k, cbi::ptr cb = NULL, bool safe = false);
 
   /**
-   * Acquire a lock from the DSDC lock server
+   * @brief Acquire a lock from the DSDC lock server
+   *
+   * Acquire a lock from the DSDC lock server.  The salient
+   * options to this operation are what kind of lock to acquire
+   * (either shared for reading or exclusive for reading) and
+   * also whether or not to block while acquiring it.  In the
+   * former case, the lock manager will grant a read lock if
+   * the lock is currently unheld, or its shared among other readers;
+   * it will block (or fail) if a writer currently hold the lock.
+   * The default is to always grab exclusive/write locks.
+   *
+   * Also possible is a feature for not-blocking when querying
+   * the lock server, though this is not the default behavior.
+   * In the block flag is turned off, then the RPC to the server 
+   * will immediately return, either with the lock if the acquisition
+   * was successful, or without it if the lock is already held.
+   *
+   * As usual, the safe flag can be specified to go through the master
+   * as opposed to using the Smart Client's state, but this feature
+   * is especially overkill in the case of the lock server protocol,
+   * which should result in a system that's more stable than
+   * data-storing slaves.
+   *
+   * Also, specify a timeout with the lock call; this means that the
+   * lock server will time the lock out after that many seconds.
+   *
+   * After everything is done, the client is called back with a
+   * dsdc_lock_acquire_res_cb_t, which contains a sttatus code
+   * and, on success, a lock ID for this particular lock. The
+   * client should keep this lock ID around and present it to the
+   * server when the lock is going to be release.  There is nothing
+   * to stop the client from fudging the lock ID, so clients
+   * can steal locks in this way.  But we assume the everyone trusts
+   * each other. 
+   *
+   * Note that lock IDs should be nonces over the lifetime of the lock
+   * server, so this should help in debugging.  That is, if you get
+   * lock ID i for key K1, and lock ID j for K2, and you mix up which
+   * is related to which, the lock server should keep you straight,
+   * since it knows that i != j for its lifetime.
    *
    * @param k the key to file the lock under
    * @param cb get called back at cb with the status and a Lock ID
@@ -177,7 +216,12 @@ public:
 		     bool block = true, bool safe = false);
 
   /**
-   * Release a lock alread held.
+   * @brief Release a lock already held.
+   *
+   * Release a lock previously acquired. Will not block on the server
+   * side (but will obviously have network latency). The arguments 
+   * given are the key the original lock was requested on, and the 
+   * lock ID returned by lock_acquire_res_cb_t.
    *
    * @param k the key of the lock to release
    * @param id the lock ID held for that key
