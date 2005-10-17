@@ -329,7 +329,9 @@ dsdc_slave_t::fill_datum(
 
     bzero(&datum, sizeof(datum));
     datum.userid = userid;
+    warn << "userid: " << userid;
     if (o == NULL) {
+	warn << " not found!\n";
         datum.match_found = false;
         return;
     }
@@ -342,6 +344,10 @@ dsdc_slave_t::fill_datum(
     bytes2xdr (questions, *o);
     datum.match_found = true;
     compute_match(*user_questions, questions, datum);
+    warn << " found datum: match: " << datum.mpercent
+	<< " friend: " << datum.fpercent
+	<< " enemy: " << datum.epercent
+	<< "\n";
 }
 
 void
@@ -349,13 +355,18 @@ dsdc_slave_t::handle_compute_matches (svccb *sbp)
 {
     matchd_frontd_dcdc_arg_t *a = sbp->Xtmpl getarg<matchd_frontd_dcdc_arg_t> ();
     matchd_qanswer_rows_t *user_questions = &a->user_questions;
+    ptr<match_frontd_match_results_t> res =
+	New refcounted<match_frontd_match_results_t>();
 
+    warn << __func__ << ": user count: " << a->userids.size() << "\n"t
     for (unsigned int i = 0; i < a->userids.size(); i++) {
         u_int64_t userid = a->userids[i];
         matchd_frontd_match_datum_t datum;
 
         fill_datum(userid, user_questions, datum);
+	res->results.push_back(datum);
     }
+    sbp->reply(res);
 }
 
 dsdc_obj_t *
