@@ -358,7 +358,7 @@ dsdc_slave_t::handle_compute_matches (svccb *sbp)
     ptr<match_frontd_match_results_t> res =
 	New refcounted<match_frontd_match_results_t>();
 
-    warn << __func__ << ": user count: " << a->userids.size() << "\n"t
+    warn << __func__ << ": user count: " << a->userids.size() << "\n";
     for (unsigned int i = 0; i < a->userids.size(); i++) {
         u_int64_t userid = a->userids[i];
         matchd_frontd_match_datum_t datum;
