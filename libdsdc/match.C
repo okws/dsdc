@@ -111,7 +111,7 @@ compute_match(
          * both lists should be sorted by question id.
          * So first traverse q2 until we hit a question that matches.
          */
-        while (q1[i].questionid > q2[j].questionid && j < q2.size())
+        while (j < q2.size() && q1[i].questionid > q2[j].questionid)
             j++;
         /* if we exhausted the list then we're done. */
         if (j == q2.size())
@@ -128,7 +128,7 @@ compute_match(
          */
         // convenient accessors.
         matchd_qanswer_row_t &q1r = q1[i];
-        matchd_qanswer_row_t &q2r = q2[i];
+        matchd_qanswer_row_t &q2r = q2[j];
 
         // both need to answer or we skip it.
         if (getMatchAnswer(q1r) == 0 || getMatchAnswer(q2r) == 0)
