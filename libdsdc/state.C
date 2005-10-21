@@ -74,7 +74,8 @@ dsdc_system_state_cache_t::construct_tree ()
 
 dsdc_system_state_cache_t::dsdc_system_state_cache_t ()
   : _n_updates_since_clean (0), 
-    _destroyed (New refcounted<bool> (false))
+    _destroyed (New refcounted<bool> (false)),
+    _lock_server (NULL)
 {
   memset (_system_state_hash.base (), 0, _system_state_hash.size ());
 }
