@@ -5,6 +5,9 @@
 #include <math.h>
 #include "dsdc_match.h"
 
+// dump a variable macro D(f) -> << " f: " << f << "\n"
+#define D(f)  << " " #f ": " << f << "\n"
+
 /*
  * XXX: this should be configurable.
  */
@@ -36,10 +39,13 @@ static int
 getMatchAnswer(matchd_qanswer_row_t &answer)
 {
 
+#if 0
     if (answer.answer == 0)
         return (0);
     else
         return (1 << (answer.answer - 1));
+#endif
+    return (1 << answer.answer);
 }
 
 static int
@@ -47,6 +53,16 @@ getMatchWantedMask(matchd_qanswer_row_t &answer)
 {
 
     return answer.match_answer;
+}
+
+inline const strbuf &
+strbuf_cat (const strbuf &b, double n)
+{
+    char buf[100];
+
+    sprintf(buf, "%f", n);
+    b << buf;
+    return b;
 }
 
 static double
@@ -61,11 +77,12 @@ calcMatchAvg(
     double u2percent(0.0);
 
     if (u1possible > 0) {
-        u1percent = ((double)u1actual) / u1possible;
+        u1percent = (double)u1actual / (double)u1possible;
     }
     if (u2possible > 0) {
-        u2percent = ((double)u2actual) / u2possible;
+        u2percent = (double)u2actual / (double)u2possible;
     }
+
 
     result = sqrt(u1percent * u2percent);
 
@@ -73,6 +90,18 @@ calcMatchAvg(
     if (common > 0) {
         delta = 1 / sqrt(common);
     }
+
+    warn << __func__ << " :\n"
+	D(u1percent)
+	D(u2percent)
+	D(u1actual)
+	D(u2actual)
+	D(u1possible)
+	D(u2possible)
+	D(delta)
+	D(result)
+	<< "\n";
+
     if (lowerconfidence) {
 	    result -= delta;
 	    if (result < 0.0) {
@@ -84,6 +113,9 @@ calcMatchAvg(
 	    result = 1.0;
 	}
     }
+    warn << __func__ << " :\n"
+	D(result)
+	<< "\n";
     return result;
 }
 
@@ -93,7 +125,7 @@ compute_match(
     matchd_qanswer_rows_t &q2,
     matchd_frontd_match_datum_t &datum)
 {
-    unsigned int i, j;
+    unsigned int i = 0, j = 0;
 
     int common = 0;
     int u1possible = 0;
@@ -103,16 +135,17 @@ compute_match(
     int match_u1actual = 0;
     int match_u2actual = 0;
 
-    i = 0;
-    j = 0;
+    warn << "two arrays, size1: "
+	<< q1.size() << " size2: " << q2.size() << "\n";
 
     for (i = 0; i < q1.size(); i++) {
         /*
          * both lists should be sorted by question id.
          * So first traverse q2 until we hit a question that matches.
          */
-        while (j < q2.size() && q1[i].questionid > q2[j].questionid)
+        while (j < q2.size() && q1[i].questionid > q2[j].questionid) {
             j++;
+	}
         /* if we exhausted the list then we're done. */
         if (j == q2.size())
             break;
@@ -120,33 +153,50 @@ compute_match(
          * if we're now greater but not the same question, then loop
          * to advance our cursor into the first list.
          */
-        if (q1[i].questionid < q2[j].questionid)
+        if (q1[i].questionid < q2[j].questionid) {
             continue;
+	}
 
-        /*
-         * ok, we got matching question ids!
-         */
+	warn
+	    << i << " : " << q1[i].questionid
+	    << " <=> "
+	    << j << " : " << q2[j].questionid << "\n";
+	/*
+	 * ok, we got matching question ids!
+	 */
         // convenient accessors.
         matchd_qanswer_row_t &q1r = q1[i];
         matchd_qanswer_row_t &q2r = q2[j];
 
         // both need to answer or we skip it.
-        if (getMatchAnswer(q1r) == 0 || getMatchAnswer(q2r) == 0)
+        if (getMatchAnswer(q1r) == 0 || getMatchAnswer(q2r) == 0) {
+	    warn << "Missing answer: "
+		<< getMatchAnswer(q1r) << " : "
+		<< getMatchAnswer(q2r) << "\n";
             continue;
+	}
 
         int points1 = getImportance(q1r);
         int points2 = getImportance(q2r);
+	int matchanswer1 = getMatchAnswer(q1r);
+	int matchanswer2 = getMatchAnswer(q2r);
 
         common++;
         u1possible += points1;
         u2possible += points2;
+	warn << "Points: " << points1 << " <=> " << points2 << "\n";
+	warn << "Answer: " << matchanswer1 << " <=> " << matchanswer2 << "\n";
+	warn << "Answer x: " << q1r.answer << " <=> " << q2r.answer << "\n";
+	warn << "Mask x: " << q1r.match_answer << " <=> " << q2r.match_answer << "\n";
+	warn << "x: " << q1r.match_answer << " <=> " << q2r.match_answer << "\n";
         /*
          * If they had the same answer, then give them
          * actual friend points.
          */
-        if (getMatchAnswer(q1r) == getMatchAnswer(q2r)) {
+        if (matchanswer1 == matchanswer2) {
             friend_u1actual += points1;
             friend_u2actual += points2;
+	    warn << "Friend match!\n";
         }
 
         /*
@@ -154,24 +204,40 @@ compute_match(
          * If they fit each other's expectations, then give
          * each other actual points.
          */
-        if ((getMatchAnswer(q1r) & getMatchWantedMask(q2r)) != 0) {
+        if ((matchanswer1 & getMatchWantedMask(q2r)) != 0) {
+	    warn << "Match 1!\n";
             match_u1actual += points1;
         }
-        if ((getMatchAnswer(q2r) & getMatchWantedMask(q1r)) != 0) {
+        if ((matchanswer2 & getMatchWantedMask(q1r)) != 0) {
+	    warn << "Match 2!\n";
             match_u2actual += points2;
         }
+	warn
+	    D(common)
+	    D(u1possible)
+	    D(u2possible)
+	    D(friend_u1actual)
+	    D(friend_u2actual)
+	    D(match_u1actual)
+	    D(match_u2actual)
+	    ;
     }
 
+    warn << "MATCH ***************************************\n";
     double match_avg = calcMatchAvg(common,
                                     u1possible, u2possible,
 				    match_u1actual, match_u2actual);
+    warn << "FRIEND ***************************************\n";
+
     double friend_avg = calcMatchAvg(common,
                                      u1possible, u2possible,
 				     friend_u1actual, friend_u2actual);
+    warn << "ENEMY ***************************************\n";
     double enemy_avg = calcMatchAvg(common,
                                      u1possible, u2possible,
 				     friend_u1actual, friend_u2actual, false);
 
+    warn << "ADJUSTING ***************************************\n";
     if (common > 0) {
         /*
 	 * This boosts the friend average a little.
@@ -192,6 +258,25 @@ compute_match(
 
     datum.mpercent = (int)(match_avg * 100.0);
     datum.fpercent = (int)(friend_avg * 100.0);
-    datum.epercent = (int)(enemy_avg * 100.0);
+    datum.epercent = (int)((1.0 - enemy_avg) * 100.0);
+    warn << "two arrays, size1: "
+	<< q1.size() << " size2: " << q2.size() << "\n";
+    warn
+	D(common)
+	D(u1possible)
+	D(u2possible)
+	D(friend_u1actual)
+	D(friend_u2actual)
+	D(match_u1actual)
+	D(match_u2actual)
+	;
+#undef D
+    warn
+	<< "Mpercent: " << datum.mpercent
+	<< " Fpercent: " << datum.fpercent
+	<< " Epercent: " << datum.epercent
+	<< "\n";
+    warn << "DONE ***************************************\n";
+
 }
 

@@ -329,9 +329,8 @@ dsdc_slave_t::fill_datum(
 
     bzero(&datum, sizeof(datum));
     datum.userid = userid;
-    warn << "userid: " << userid;
     if (o == NULL) {
-	warn << " not found!\n";
+        warn << "userid: " << userid << "\n";
         datum.match_found = false;
         return;
     }
@@ -344,7 +343,8 @@ dsdc_slave_t::fill_datum(
     bytes2xdr (questions, *o);
     datum.match_found = true;
     compute_match(*user_questions, questions, datum);
-    warn << " found datum: match: " << datum.mpercent
+    warn << "userid: " << userid
+	<< " found datum: match: " << datum.mpercent
 	<< " friend: " << datum.fpercent
 	<< " enemy: " << datum.epercent
 	<< "\n";
