@@ -8,10 +8,17 @@
 // dump a variable macro D(f) -> << " f: " << f << "\n"
 #define D(f)  << " " #f ": " << f << "\n"
 
+#define DEBUG_MATCH
+#ifdef DEBUG_MATCH
+const bool dbg = true;
+#else
+const bool dbg = false;
+#endif
+
 /*
  * XXX: this should be configurable.
  */
-static int
+static inline int
 getImportance(const matchd_qanswer_row_t &answer)
 {
     int result = 0;
@@ -35,7 +42,11 @@ getImportance(const matchd_qanswer_row_t &answer)
     return result;
 }
 
-static int
+/*
+ * @brief return the bit set equal to the user's answer + 1
+ * Basically, 1 = 2, 2 = 4, 3 = 8... etc
+ */
+static inline int
 getMatchAnswer(matchd_qanswer_row_t &answer)
 {
 
@@ -46,6 +57,18 @@ getMatchAnswer(matchd_qanswer_row_t &answer)
         return (1 << (answer.answer - 1));
 #endif
     return (1 << answer.answer);
+}
+
+/*
+ * @brief return true if the user answered the question at all.
+ */
+static inline bool
+getMatchAnswered(matchd_qanswer_row_t &answer)
+{
+
+    if (dbg)
+    warn << __func__ << " : " << answer.answer << "\n";
+    return (answer.answer != 0);
 }
 
 static int
@@ -91,6 +114,7 @@ calcMatchAvg(
         delta = 1 / sqrt(common);
     }
 
+    if (dbg)
     warn << __func__ << " :\n"
 	D(u1percent)
 	D(u2percent)
@@ -113,6 +137,7 @@ calcMatchAvg(
 	    result = 1.0;
 	}
     }
+    if (dbg)
     warn << __func__ << " :\n"
 	D(result)
 	<< "\n";
@@ -135,6 +160,7 @@ compute_match(
     int match_u1actual = 0;
     int match_u2actual = 0;
 
+    if (dbg)
     warn << "two arrays, size1: "
 	<< q1.size() << " size2: " << q2.size() << "\n";
 
@@ -157,6 +183,7 @@ compute_match(
             continue;
 	}
 
+    if (dbg)
 	warn
 	    << i << " : " << q1[i].questionid
 	    << " <=> "
@@ -169,10 +196,7 @@ compute_match(
         matchd_qanswer_row_t &q2r = q2[j];
 
         // both need to answer or we skip it.
-        if (getMatchAnswer(q1r) == 0 || getMatchAnswer(q2r) == 0) {
-	    warn << "Missing answer: "
-		<< getMatchAnswer(q1r) << " : "
-		<< getMatchAnswer(q2r) << "\n";
+        if (!getMatchAnswered(q1r) || !getMatchAnswered(q2r)) {
             continue;
 	}
 
@@ -184,11 +208,12 @@ compute_match(
         common++;
         u1possible += points1;
         u2possible += points2;
-	warn << "Points: " << points1 << " <=> " << points2 << "\n";
-	warn << "Answer: " << matchanswer1 << " <=> " << matchanswer2 << "\n";
-	warn << "Answer x: " << q1r.answer << " <=> " << q2r.answer << "\n";
-	warn << "Mask x: " << q1r.match_answer << " <=> " << q2r.match_answer << "\n";
-	warn << "x: " << q1r.match_answer << " <=> " << q2r.match_answer << "\n";
+    if (dbg)
+	warn << "Points: " << points1 << " <=> " << points2 << "\n"
+	<< "Answer: " << matchanswer1 << " <=> " << matchanswer2 << "\n"
+	<< "Answer x: " << q1r.answer << " <=> " << q2r.answer << "\n"
+	<< "Mask x: " << q1r.match_answer << " <=> " << q2r.match_answer << "\n"
+	<< "x: " << q1r.match_answer << " <=> " << q2r.match_answer << "\n";
         /*
          * If they had the same answer, then give them
          * actual friend points.
@@ -196,6 +221,7 @@ compute_match(
         if (matchanswer1 == matchanswer2) {
             friend_u1actual += points1;
             friend_u2actual += points2;
+    if (dbg)
 	    warn << "Friend match!\n";
         }
 
@@ -205,13 +231,16 @@ compute_match(
          * each other actual points.
          */
         if ((matchanswer1 & getMatchWantedMask(q2r)) != 0) {
+    if (dbg)
 	    warn << "Match 1!\n";
             match_u1actual += points1;
         }
         if ((matchanswer2 & getMatchWantedMask(q1r)) != 0) {
+    if (dbg)
 	    warn << "Match 2!\n";
             match_u2actual += points2;
         }
+    if (dbg)
 	warn
 	    D(common)
 	    D(u1possible)
@@ -223,20 +252,24 @@ compute_match(
 	    ;
     }
 
+    if (dbg)
     warn << "MATCH ***************************************\n";
     double match_avg = calcMatchAvg(common,
                                     u1possible, u2possible,
 				    match_u1actual, match_u2actual);
+    if (dbg)
     warn << "FRIEND ***************************************\n";
 
     double friend_avg = calcMatchAvg(common,
                                      u1possible, u2possible,
 				     friend_u1actual, friend_u2actual);
+    if (dbg)
     warn << "ENEMY ***************************************\n";
     double enemy_avg = calcMatchAvg(common,
                                      u1possible, u2possible,
 				     friend_u1actual, friend_u2actual, false);
 
+    if (dbg)
     warn << "ADJUSTING ***************************************\n";
     if (common > 0) {
         /*
@@ -259,9 +292,9 @@ compute_match(
     datum.mpercent = (int)(match_avg * 100.0);
     datum.fpercent = (int)(friend_avg * 100.0);
     datum.epercent = (int)((1.0 - enemy_avg) * 100.0);
+    if (dbg)
     warn << "two arrays, size1: "
-	<< q1.size() << " size2: " << q2.size() << "\n";
-    warn
+	<< q1.size() << " size2: " << q2.size() << "\n"
 	D(common)
 	D(u1possible)
 	D(u2possible)
@@ -269,14 +302,10 @@ compute_match(
 	D(friend_u2actual)
 	D(match_u1actual)
 	D(match_u2actual)
-	;
-#undef D
-    warn
 	<< "Mpercent: " << datum.mpercent
 	<< " Fpercent: " << datum.fpercent
 	<< " Epercent: " << datum.epercent
-	<< "\n";
-    warn << "DONE ***************************************\n";
-
+	<< "\n"
+	<< "DONE ***************************************\n";
+#undef D
 }
-
