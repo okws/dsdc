@@ -22,6 +22,7 @@ bool tst2_done = false;
 int tst2_cbct = 0; // callback count
 
 ptr<dsdc_iface_t<tst_key_t, tst_obj_checked_t> > cli;
+dsdc_smartcli_t *sc;
 
 
 static void
@@ -217,6 +218,33 @@ acquire (tst_key_t k, u_int to, bool shared, bool block, bool safe)
   cli->lock_acquire (k, wrap (acquire_cb, k), to, !shared, block, safe);
 }
 
+static void
+mget_cb (ptr<dsdc_mget_res_t> res)
+{
+  cb_done ();
+}
+
+static void
+mget (ptr<vec<dsdc_key_t> > keys, bool safe)
+{
+  tst2_cbct++;
+  sc->mget (keys, wrap (mget_cb));
+}
+
+static bool
+do_mget (vec<str> &args, bool safe)
+{
+  tst_key_t key;
+  ptr<vec<dsdc_key_t> > kvec = New refcounted<vec<dsdc_key_t> > ();
+  for (u_int i = 1; i < args.size (); i++) {
+    if (!convertint (args[i], &key))
+      return false;
+    mkkey (&((*kvec)[i-i]), key);
+  }
+  mget (kvec, safe);
+  return true;
+}
+
 static bool
 do_acquire (const vec<str> &args, bool safe)
 {
@@ -314,6 +342,9 @@ rdline (str ln, int err)
   case 'a':
     do_acquire (args, safe);
     break;
+  case 'm':
+    do_mget (args, safe);
+    break;
   case 'R':
     {
       dsdcl_id_t lockid;
@@ -357,7 +388,7 @@ main (int argc, char *argv[])
 
   setprogname (argv[0]);
 
-  dsdc_smartcli_t *sc = New dsdc_smartcli_t ();
+  sc = New dsdc_smartcli_t ();
 
   while ((ch = getopt (argc, argv, "d")) != -1)
     switch (ch) {

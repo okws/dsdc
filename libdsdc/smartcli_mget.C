@@ -11,7 +11,7 @@ struct mget_batch_t {
 
   void mget ();
   void mget_cb1 (ptr<aclnt> c);
-  void mget_cb2 (clnt_stat err);
+  void mget_cb2 (dsdc_res_t res, clnt_stat err);
 
   str node;
   aclnt_wrap_t *aclw;
@@ -71,18 +71,18 @@ mget_state_t::go (const dsdc_hash_ring_t &r)
 }
 
 void
-mget_batch_t::mget_cb2 (clnt_stat err)
+mget_batch_t::mget_cb2 (dsdc_res_t dsdc_err, clnt_stat rpc_err)
 {
   size_t sz = positions.size ();
-  dsdc_get_res_t err_res;
+  dsdc_get_res_t err_res (dsdc_err);
 
-  if (err) {
+  if (dsdc_err == DSDC_OK && rpc_err) {
     err_res.set_status (DSDC_RPC_ERROR); 
-    *(err_res.err) = err;
+    *(err_res.err) = rpc_err;
   }
 
   for (u_int i = 0; i < sz; i++) {
-    if (err) {
+    if (err_res.status != DSDC_OK) {
       hold->set (err_res, positions[i]);
     } else {
       hold->set (res[i].res, positions[i]);
@@ -90,14 +90,22 @@ mget_batch_t::mget_cb2 (clnt_stat err)
   }
 
   // might actually free us, so don't access any class variables
-  // after unsetting the *hold* reference count
+  // after unsetting the *hold* reference count.  Note that 
+  // hold = NULL is not atomic, so we should make sure that the 
+  // delete happens after the function returns;  hence hold_local.
+  ptr<mget_state_t> hold_local = hold;
   hold = NULL; 
 }
 
 void
 mget_batch_t::mget_cb1 (ptr<aclnt> c)
 {
-  c->call (DSDC_MGET, &arg, &res, wrap (this, &mget_batch_t::mget_cb2));
+  if (c)
+    c->call (DSDC_MGET, &arg, &res, wrap (this, &mget_batch_t::mget_cb2,
+					  DSDC_OK));
+  else
+    mget_cb2 (DSDC_NONODE, static_cast<clnt_stat> (0));
+  
 }
 
 void
