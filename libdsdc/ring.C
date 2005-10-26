@@ -42,7 +42,7 @@ dsdc_hash_ring_t::successor (const dsdc_key_t &k) const
     }
   }
 
-  if (show_debug (3)) {
+  if (show_debug (DSDC_DBG_HI)) {
     warn ("successor lookup: %s -> %s\n", 
 	  key_to_str (k).cstr (), 
 	  ret ? key_to_str (ret->_key).cstr () : "<null>");

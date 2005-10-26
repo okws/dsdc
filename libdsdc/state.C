@@ -7,7 +7,7 @@ void
 dsdc_system_state_cache_t::change_lock_server_to (aclnt_wrap_t *nl)
 {
   if (_lock_server) {
-    if (show_debug (1)) 
+    if (show_debug (DSDC_DBG_LOW)) 
       warn << "deactivating old lock server: " 
 	   << _lock_server->remote_peer_id () << "\n";
     delete _lock_server;
@@ -15,7 +15,7 @@ dsdc_system_state_cache_t::change_lock_server_to (aclnt_wrap_t *nl)
 
   _lock_server = nl;
 
-  if (_lock_server && show_debug (1)) 
+  if (_lock_server && show_debug (DSDC_DBG_LOW)) 
     warn << "activating new lock server: " 
 	 << _lock_server->remote_peer_id () << "\n";
 }

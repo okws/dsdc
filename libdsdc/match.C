@@ -3,17 +3,11 @@
  */
 
 #include <math.h>
+#include "dsdc_util.h"
 #include "dsdc_match.h"
 
 // dump a variable macro D(f) -> << " f: " << f << "\n"
 #define D(f)  << " " #f ": " << f << "\n"
-
-#define DEBUG_MATCH
-#ifdef DEBUG_MATCH
-const bool dbg = true;
-#else
-const bool dbg = false;
-#endif
 
 /*
  * XXX: this should be configurable.
@@ -66,8 +60,9 @@ static inline bool
 getMatchAnswered(matchd_qanswer_row_t &answer)
 {
 
-    if (dbg)
-    warn << __func__ << " : " << answer.answer << "\n";
+    if (show_debug(DSDC_DBG_MATCH_HIGH)) {
+	warn << __func__ << " : " << answer.answer << "\n";
+    }
     return (answer.answer != 0);
 }
 
@@ -114,33 +109,35 @@ calcMatchAvg(
         delta = 1 / sqrt(common);
     }
 
-    if (dbg)
-    warn << __func__ << " :\n"
-	D(u1percent)
-	D(u2percent)
-	D(u1actual)
-	D(u2actual)
-	D(u1possible)
-	D(u2possible)
-	D(delta)
-	D(result)
-	<< "\n";
+    if (show_debug(DSDC_DBG_MATCH_HIGH)) {
+	warn << __func__ << " :\n"
+	    D(u1percent)
+	    D(u2percent)
+	    D(u1actual)
+	    D(u2actual)
+	    D(u1possible)
+	    D(u2possible)
+	    D(delta)
+	    D(result)
+	    << "\n";
+    }
 
     if (lowerconfidence) {
-	    result -= delta;
-	    if (result < 0.0) {
-	        result = 0.0;
-	    }
+	result -= delta;
+	if (result < 0.0) {
+	    result = 0.0;
+	}
     } else {
 	result += delta;
 	if (result > 1.0) {
 	    result = 1.0;
 	}
     }
-    if (dbg)
-    warn << __func__ << " :\n"
-	D(result)
-	<< "\n";
+    if (show_debug(DSDC_DBG_MATCH_HIGH)) {
+	warn << __func__ << " :\n"
+	    D(result)
+	    << "\n";
+    }
     return result;
 }
 
@@ -160,9 +157,10 @@ compute_match(
     int match_u1actual = 0;
     int match_u2actual = 0;
 
-    if (dbg)
-    warn << "two arrays, size1: "
-	<< q1.size() << " size2: " << q2.size() << "\n";
+    if (show_debug(DSDC_DBG_MATCH_HIGH)) {
+	warn << "two arrays, size1: "
+	    << q1.size() << " size2: " << q2.size() << "\n";
+    }
 
     for (i = 0; i < q1.size(); i++) {
         /*
@@ -183,11 +181,12 @@ compute_match(
             continue;
 	}
 
-    if (dbg)
-	warn
-	    << i << " : " << q1[i].questionid
-	    << " <=> "
-	    << j << " : " << q2[j].questionid << "\n";
+	if (show_debug(DSDC_DBG_MATCH_HIGH)) {
+	    warn
+		<< i << " : " << q1[i].questionid
+		<< " <=> "
+		<< j << " : " << q2[j].questionid << "\n";
+	}
 	/*
 	 * ok, we got matching question ids!
 	 */
@@ -207,72 +206,87 @@ compute_match(
 
         common++;
         u1possible += points1;
-        u2possible += points2;
-    if (dbg)
-	warn << "Points: " << points1 << " <=> " << points2 << "\n"
-	<< "Answer: " << matchanswer1 << " <=> " << matchanswer2 << "\n"
-	<< "Answer x: " << q1r.answer << " <=> " << q2r.answer << "\n"
-	<< "Mask x: " << q1r.match_answer << " <=> " << q2r.match_answer << "\n"
-	<< "x: " << q1r.match_answer << " <=> " << q2r.match_answer << "\n";
-        /*
-         * If they had the same answer, then give them
+	u2possible += points2;
+	if (show_debug(DSDC_DBG_MATCH_HIGH)) {
+	    warn << "Points: "
+		<< points1 << " <=> " << points2 << "\n"
+		<< "Answer: "
+		<< matchanswer1 << " <=> " << matchanswer2 << "\n"
+		<< "Answer x: "
+		<< q1r.answer << " <=> " << q2r.answer << "\n"
+		<< "Mask x: "
+		<< q1r.match_answer << " <=> " << q2r.match_answer << "\n"
+		<< "x: " <<
+		q1r.match_answer << " <=> " << q2r.match_answer << "\n";
+	}
+	/*
+	 * If they had the same answer, then give them
          * actual friend points.
          */
         if (matchanswer1 == matchanswer2) {
             friend_u1actual += points1;
-            friend_u2actual += points2;
-    if (dbg)
-	    warn << "Friend match!\n";
-        }
+	    friend_u2actual += points2;
+	    if (show_debug(DSDC_DBG_MATCH_HIGH)) {
+		warn << "Friend match!\n";
+	    }
+	}
 
-        /*
-         * Ok now do actual match points.
-         * If they fit each other's expectations, then give
-         * each other actual points.
+	/*
+	 * Ok now do actual match points.
+	 * If they fit each other's expectations, then give
+	 * each other actual points.
          */
-        if ((matchanswer1 & getMatchWantedMask(q2r)) != 0) {
-    if (dbg)
-	    warn << "Match 1!\n";
-            match_u1actual += points1;
-        }
-        if ((matchanswer2 & getMatchWantedMask(q1r)) != 0) {
-    if (dbg)
-	    warn << "Match 2!\n";
-            match_u2actual += points2;
-        }
-    if (dbg)
-	warn
-	    D(common)
-	    D(u1possible)
-	    D(u2possible)
-	    D(friend_u1actual)
-	    D(friend_u2actual)
-	    D(match_u1actual)
-	    D(match_u2actual)
-	    ;
+	if ((matchanswer1 & getMatchWantedMask(q2r)) != 0) {
+	    if (show_debug(DSDC_DBG_MATCH_HIGH)) {
+		warn << "Match 1!\n";
+	    }
+	    match_u1actual += points1;
+	}
+	if ((matchanswer2 & getMatchWantedMask(q1r)) != 0) {
+	    if (show_debug(DSDC_DBG_MATCH_HIGH)) {
+		warn << "Match 2!\n";
+	    }
+	    match_u2actual += points2;
+	}
+	if (show_debug(DSDC_DBG_MATCH_HIGH)) {
+	    warn
+		D(common)
+		D(u1possible)
+		D(u2possible)
+		D(friend_u1actual)
+		D(friend_u2actual)
+		D(match_u1actual)
+		D(match_u2actual)
+		;
+	}
     }
 
-    if (dbg)
-    warn << "MATCH ***************************************\n";
+    if (show_debug(DSDC_DBG_MATCH_HIGH)) {
+	warn << "MATCH ***************************************\n";
+    }
     double match_avg = calcMatchAvg(common,
-                                    u1possible, u2possible,
-				    match_u1actual, match_u2actual);
-    if (dbg)
-    warn << "FRIEND ***************************************\n";
+	    u1possible, u2possible,
+	    match_u1actual, match_u2actual);
 
+    if (show_debug(DSDC_DBG_MATCH_HIGH)) {
+	warn << "FRIEND ***************************************\n";
+    }
     double friend_avg = calcMatchAvg(common,
-                                     u1possible, u2possible,
-				     friend_u1actual, friend_u2actual);
-    if (dbg)
-    warn << "ENEMY ***************************************\n";
-    double enemy_avg = calcMatchAvg(common,
-                                     u1possible, u2possible,
-				     friend_u1actual, friend_u2actual, false);
+	    u1possible, u2possible,
+	    friend_u1actual, friend_u2actual);
 
-    if (dbg)
-    warn << "ADJUSTING ***************************************\n";
+    if (show_debug(DSDC_DBG_MATCH_HIGH)) {
+	warn << "ENEMY ***************************************\n";
+    }
+    double enemy_avg = calcMatchAvg(common,
+	    u1possible, u2possible,
+	    friend_u1actual, friend_u2actual, false);
+
+    if (show_debug(DSDC_DBG_MATCH_HIGH)) {
+	warn << "ADJUSTING ***************************************\n";
+    }
     if (common > 0) {
-        /*
+	/*
 	 * This boosts the friend average a little.
          */
         friend_avg += (0.5 - (friend_avg / 2.0));
@@ -292,20 +306,21 @@ compute_match(
     datum.mpercent = (int)(match_avg * 100.0);
     datum.fpercent = (int)(friend_avg * 100.0);
     datum.epercent = (int)((1.0 - enemy_avg) * 100.0);
-    if (dbg)
-    warn << "two arrays, size1: "
-	<< q1.size() << " size2: " << q2.size() << "\n"
-	D(common)
-	D(u1possible)
-	D(u2possible)
-	D(friend_u1actual)
-	D(friend_u2actual)
-	D(match_u1actual)
-	D(match_u2actual)
-	<< "Mpercent: " << datum.mpercent
-	<< " Fpercent: " << datum.fpercent
-	<< " Epercent: " << datum.epercent
-	<< "\n"
-	<< "DONE ***************************************\n";
+    if (show_debug(DSDC_DBG_MATCH_HIGH)) {
+	warn << "two arrays, size1: "
+	    << q1.size() << " size2: " << q2.size() << "\n"
+	    D(common)
+	    D(u1possible)
+	    D(u2possible)
+	    D(friend_u1actual)
+	    D(friend_u2actual)
+	    D(match_u1actual)
+	    D(match_u2actual)
+	    << "Mpercent: " << datum.mpercent
+	    << " Fpercent: " << datum.fpercent
+	    << " Epercent: " << datum.epercent
+	    << "\n"
+	    << "DONE ***************************************\n";
+    }
 #undef D
 }

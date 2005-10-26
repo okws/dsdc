@@ -468,7 +468,7 @@ template<class T> void
 dsdc_smartcli_t::change_cache_cb_2 (ptr<cc_t<T> > cc, clnt_stat err)
 {
   if (err) {
-    if (show_debug (1)) {
+    if (show_debug (DSDC_DBG_LOW)) {
       warn << "RPC error in proc=" << cc->proc << ": " << err << "\n";
     }
     cc->set_res (DSDC_RPC_ERROR);

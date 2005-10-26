@@ -7,6 +7,7 @@
 #include "dsdc_slave.h"
 #include "dsdc_const.h"
 #include "dsdc_prot.h"
+#include "dsdc_util.h"
 #include "dsdc_match.h"
 #include "crypt.h"
 
@@ -104,7 +105,7 @@ dsdc_slave_t::clean_cache ()
         n = _lru.next (p);
         dsdc_ring_node_t *n = _hash_ring.successor (p->_key);
         if (!_khash[n->_key]) {
-            if (show_debug (2)) {
+            if (show_debug (DSDC_DBG_MED)) {
                 warn ("CLEAN: removed object: %s\n", key_to_str (p->_key).cstr () );
             }
             tot += lru_remove_obj (p, true);
@@ -112,7 +113,7 @@ dsdc_slave_t::clean_cache ()
         }
     }
     _n_updates_since_clean = 0;
-    if (show_debug (1)) 
+    if (show_debug (DSDC_DBG_LOW)) 
         warn ("CLEAN: cleaned %d objects (%d bytes in total)\n", nobj, tot);
 }
 
@@ -294,7 +295,7 @@ dsdc_slave_t::handle_remove (svccb *sbp)
     } else {
         res = DSDC_NOTFOUND;
     }
-    if (show_debug (1)) {
+    if (show_debug (DSDC_DBG_LOW)) {
         warn ("remove issued (rc=%d): %s\n", res, key_to_str (*k).cstr ());
     }
     sbp->replyref (res);
@@ -306,7 +307,7 @@ dsdc_slave_t::handle_put (svccb *sbp)
     dsdc_put_arg_t *a = sbp->Xtmpl getarg<dsdc_put_arg_t> ();
     bool rc = lru_insert (a->key, a->obj);
     dsdc_res_t res = rc ? DSDC_REPLACED : DSDC_INSERTED;
-    if (show_debug (1)) {
+    if (show_debug (DSDC_DBG_LOW)) {
         warn ("insert issued (rc=%d): %s\n", res, key_to_str (a->key).cstr ());
     }
     sbp->replyref (res);
@@ -330,7 +331,9 @@ dsdc_slave_t::fill_datum(
     bzero(&datum, sizeof(datum));
     datum.userid = userid;
     if (o == NULL) {
-        warn << "userid: " << userid << "\n";
+	if (show_debug (DSDC_DBG_MATCH)) {
+	    warn << "userid: " << userid << "\n";
+	}
         datum.match_found = false;
         return;
     }
@@ -343,11 +346,13 @@ dsdc_slave_t::fill_datum(
     bytes2xdr (questions, *o);
     datum.match_found = true;
     compute_match(*user_questions, questions, datum);
-    warn << "userid: " << userid
-	<< " found datum: match: " << datum.mpercent
-	<< " friend: " << datum.fpercent
-	<< " enemy: " << datum.epercent
-	<< "\n";
+    if (show_debug (DSDC_DBG_MATCH)) {
+	warn << "userid: " << userid
+	    << " found datum: match: " << datum.mpercent
+	    << " friend: " << datum.fpercent
+	    << " enemy: " << datum.epercent
+	    << "\n";
+    }
 }
 
 void
@@ -358,7 +363,9 @@ dsdc_slave_t::handle_compute_matches (svccb *sbp)
     ptr<match_frontd_match_results_t> res =
 	New refcounted<match_frontd_match_results_t>();
 
-    warn << __func__ << ": user count: " << a->userids.size() << "\n";
+    if (show_debug (DSDC_DBG_MATCH)) {
+	warn << __func__ << ": user count: " << a->userids.size() << "\n";
+    }
     for (unsigned int i = 0; i < a->userids.size(); i++) {
         u_int64_t userid = a->userids[i];
         matchd_frontd_match_datum_t datum;
@@ -393,7 +400,7 @@ dsdc_slave_t::lru_remove_obj (dsdc_cache_obj_t *o, bool del)
         if (!o)
             return 0;
 
-        if (show_debug (2)) 
+        if (show_debug (DSDC_DBG_MED)) 
             warn ("LRU Delete triggered: %s\n", key_to_str (o->_key).cstr ());
     }
   
@@ -523,7 +530,7 @@ dsdc_slave_app_t::get_port ()
         }
     }
     if (_lfd > 0) {
-        if (show_debug (1)) 
+        if (show_debug (DSDC_DBG_LOW)) 
             close_on_exec (_lfd);
         listen (_lfd, 256);
         fdcb (_lfd, selread, wrap (this, &dsdc_slave_t::new_connection));
@@ -546,7 +553,7 @@ dsdc_slave_app_t::startup_msg () const
 void
 dsdc_slave_t::startup_msg_v (strbuf *b) const
 {
-  if (show_debug (2)) 
+  if (show_debug (DSDC_DBG_MED)) 
     b->fmt ("; nnodes=%d, maxsz=0x%x", _n_nodes, _maxsz);
 }
 

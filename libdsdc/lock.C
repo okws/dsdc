@@ -24,7 +24,7 @@ dsdc_lock_t::~dsdc_lock_t ()
   dsdcl_waiter_t *p, *n;
 
   // should only happen when we delete the grandparent lock manager
-  if (_waiters.first && show_debug (2)) 
+  if (_waiters.first && show_debug (DSDC_DBG_MED)) 
     warn ("Key %s: waiters left in queue on delete\n", 
 	  key_to_str (_key).cstr ());
 
@@ -81,7 +81,7 @@ dsdc_lock_t::release (dsdcl_id_t l)
   bool ret = true;
   if ((h = _writer)) {
     if (l != h->id ()) {
-      if (show_debug (1))
+      if (show_debug (DSDC_DBG_LOW))
 	warn ("Key %s: release of write lock failed; "
 	      "expected ID %llx, got ID 0x%llx\n",
 	      key_to_str (_key).cstr (), h->id (), l);
@@ -93,7 +93,7 @@ dsdc_lock_t::release (dsdcl_id_t l)
     }
   } else {
     if (!(h = _readers[l])) {
-      if (show_debug (1)) 
+      if (show_debug (DSDC_DBG_LOW)) 
 	warn ("Key %s: no lock found for lock ID 0x%llx\n",
 	      key_to_str (_key).cstr (), l);
       ret = false;
@@ -209,7 +209,7 @@ dsdc_lock_t::remove_holder (dsdcl_holder_t *h, ptr<bool> df, bool timed_out)
 
   if (!timed_out)
     h->cancel_timeout ();
-  else if (show_debug (1)) {
+  else if (show_debug (DSDC_DBG_LOW)) {
     warn ("Key %s: lock timed out for ID 0x%llx\n", 
 	  key_to_str (_key).cstr (), h->id ());
   }
@@ -275,11 +275,11 @@ dsdcl_mgr_t::release (svccb *sbp)
   dsdc_lock_t *l = find_lock (arg->key);
   dsdc_res_t res = DSDC_NOTFOUND;
   if (!l) {
-    if (show_debug (1))
+    if (show_debug (DSDC_DBG_LOW))
       warn ("Key %s: no lock found\n", key_to_str (arg->key).cstr ());
   } else if (!l->release (arg->lockid)) {
 
-    if (show_debug (2))
+    if (show_debug (DSDC_DBG_MED))
       // This warning at level 2, since a warning is already sounded in
       // l->release() if something weird happened.
       warn ("Key %s: no lock for ID 0x%llx\n", key_to_str (arg->key).cstr (), 

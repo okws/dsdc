@@ -60,6 +60,16 @@ typedef enum { DSDC_MODE_NONE = 0,
 	       DSDC_MODE_SLAVE = 2,
 	       DSDC_MODE_LOCKSERVER = 3 } dsdc_mode_t;
 
+/*
+ * Debug flags.
+ */
+#define DSDC_DBG_LOW		0x0001
+#define DSDC_DBG_MED		0x0002
+#define DSDC_DBG_HI		0x0004
+
+#define DSDC_DBG_MATCH		0x0008
+#define DSDC_DBG_MATCH_HIGH	0x0010
+
 void set_hostname (const str &s);
 extern str dsdc_hostname;
 void set_debug (int lev);

@@ -16,7 +16,7 @@ dsdci_srv_t::hit_eof (ptr<bool> df)
   if (*df)
     return;
 
-  if (show_debug (1))
+  if (show_debug (DSDC_DBG_LOW))
     warn << "EOF from remote peer: " << key () << "\n";
 
   _fd = -1;
@@ -134,7 +134,7 @@ dsdc_smartcli_t::post_construct ()
   for (dsdci_slave_t *s = _slaves.first; s; s = n) {
     n = _slaves.next (s);
     if (! _slaves_hash_tmp[s->key ()]) {
-      if (show_debug (2)) {
+      if (show_debug (DSDC_DBG_MED)) {
 	warn << "CLEAN: removing slave: " << s->key () << "\n";
       }
       _slaves.remove (s);
@@ -187,7 +187,7 @@ dsdc_smartcli_t::get_cb_2 (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
 			   ptr<dsdc_get_res_t> res, clnt_stat err)
 {
   if (err) {
-    if (show_debug (1)) {
+    if (show_debug (DSDC_DBG_LOW)) {
       warn << "lookup failed with RPC error: " << err << "\n";
     }
     res->set_status (DSDC_RPC_ERROR);
@@ -214,12 +214,12 @@ dsdci_srv_t::connect_cb (cbb cb, int f)
 {
   bool ret = true;
   if ((_fd = f) < 0) {
-    if (show_debug (1)) {
+    if (show_debug (DSDC_DBG_LOW)) {
       warn << "connection to slave failed: " << key () << "\n";
     }
     ret = false;
   } else {
-    if (show_debug (3)) {
+    if (show_debug (DSDC_DBG_HI)) {
       warn << "connection to slave succeeded: " << key () << "\n";
     }
     assert ((_x = axprt_stream::alloc (_fd, dsdc_packet_sz)));
@@ -286,7 +286,7 @@ acquire_cb_2 (dsdc_lock_acquire_res_cb_t cb,
 	      clnt_stat err)
 {
   if (err) {
-    if (show_debug (1)) {
+    if (show_debug (DSDC_DBG_LOW)) {
       warn << "Acquire failed with RPC error: " << err << "\n";
     }
     res->set_status (DSDC_RPC_ERROR);
@@ -299,7 +299,7 @@ static void
 release_cb_2 (cbi::ptr cb, ptr<int> res, clnt_stat err)
 {
   if (err) {
-    if (show_debug (1)) {
+    if (show_debug (DSDC_DBG_LOW)) {
       warn << "Acquire failed with RPC error: " << err << "\n";
     }
     *res = DSDC_RPC_ERROR;

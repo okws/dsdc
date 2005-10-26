@@ -146,7 +146,7 @@ dsdc_master_t::reset_system_state ()
 {
   _system_state = NULL;
   _system_state_hash = NULL;
-  if (show_debug (3))
+  if (show_debug (DSDC_DBG_HI))
     warn << "system state reset\n";
 }
 
@@ -245,7 +245,7 @@ dsdcm_slave_base_t::insert_nodes ()
     insert_node (_client->get_master (), n);
     _nodes.push_back (n);
 
-    if (show_debug (1)) {
+    if (show_debug (DSDC_DBG_LOW)) {
       warn ("insert slave: %s -> %s(%p)\n", 
 	    key_to_str (k).cstr (), remote_peer_id ().cstr (), this);
     }
@@ -292,7 +292,7 @@ dsdcm_slave_base_t::remove_nodes ()
   for (u_int i = 0; i < _nodes.size (); i++) {
     dsdc_ring_node_t *n = _nodes[i];
     remove_node (_client->get_master (), n);
-    if (show_debug (1)) {
+    if (show_debug (DSDC_DBG_LOW)) {
       warn ("removing node %s -> %s (%p)\n",
 	    key_to_str (n->_key).cstr (), remote_peer_id ().cstr (), this);
     }
@@ -309,7 +309,7 @@ dsdc_master_t::get_aclnt (const dsdc_key_t &k, ptr<aclnt> *cli)
 
   aclnt_wrap_t *w = node->get_aclnt_wrap ();
   assert (w);
-  if (show_debug (2)) 
+  if (show_debug (DSDC_DBG_MED)) 
     warn ("resolved mapping: %s -> %s (%p)\n", 
 	  key_to_str (k).cstr (), w->remote_peer_id ().cstr (), w);
   

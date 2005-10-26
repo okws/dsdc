@@ -79,10 +79,11 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   int port = -1;
   str hostname;
   int dbg_lev = 0;
+  int dbg_opt;
   bool daemon_mode = false;
   int opts = 0;
 
-  while ((ch = getopt (argc, argv, "dqLMRSp:n:s:h:P:")) != -1) {
+  while ((ch = getopt (argc, argv, "d:qLMRSp:n:s:h:P:")) != -1) {
     switch (ch) {
     case 'M':
       if (mode != DSDC_MODE_NONE)
@@ -118,7 +119,14 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
       hostname = optarg;
       break;
     case 'd':
-      dbg_lev ++;
+      if (!convertint (optarg, &dbg_opt)) {
+	usage ();
+      }
+      if (dbg_opt == 0) {
+	  dbg_lev = 0;
+      } else {
+	  dbg_lev |= dbg_opt;
+      }
       break;
     case 'P':
       if (!convertint (optarg, &dsdc_packet_sz))
@@ -216,7 +224,7 @@ main (int argc, char *argv[])
 
   setprogname (const_cast<char *> (app->progname (argv[0]).cstr ()));
 
-  if (app->daemonize () || show_debug (1)) {
+  if (app->daemonize () || show_debug (DSDC_DBG_LOW)) {
     str sm = app->startup_msg ();
     warn << "starting up";
     if (sm)
@@ -227,3 +235,4 @@ main (int argc, char *argv[])
   amain ();
   return 0;
 }
+
