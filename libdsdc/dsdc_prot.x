@@ -4,11 +4,28 @@
 
 %#define MATCHD_FRONTD_FROBBER	0
 %#define MATCHD_FRONTD_USERCACHE_FROBBER	1
+%#define UBER_USER_FROBBER	2
+%#define PROFILE_STALKER_FROBBER	3
 
 /* %#include "userid_prot.h" */
 
 struct matchd_frontd_userkey_t {
 	int frobber;		/**< should always be MATCHD_FRONTD_FROBBER */
+	u_int64_t userid;	/**< user id */
+};
+
+struct uber_key_t {
+	int frobber;		/**< should always be UBER_USER_FROBBER */
+	u_int64_t userid;	/**< user id */
+	unsigned int load_type; /**< load type; see uberconst.h */
+};
+
+/**
+ * generic dsdc key for various user-related stuff
+ * Be sure to use different frobber values.
+ */
+struct user_dsdc_key_t {
+	int frobber;		/**< unique ID for data type */
 	u_int64_t userid;	/**< user id */
 };
 
