@@ -202,10 +202,12 @@ protected:
   tailq<dsdc_cache_obj_t, &dsdc_cache_obj_t::_qlnk> _lru;
 
 private:
+#ifdef DSDC_CUPID
   void fill_datum(
 	u_int64_t userid,
 	matchd_qanswer_rows_t *user_questions,
 	matchd_frontd_match_datum_t &datum);
+#endif
 
 };
 

@@ -2,10 +2,15 @@
  * $Id$
  */
 
+#ifdef DSDC_CUPID
+// For question data loaded into match.
 %#define MATCHD_FRONTD_FROBBER	0
+// For user information loaded into match
 %#define MATCHD_FRONTD_USERCACHE_FROBBER	1
 %#define UBER_USER_FROBBER	2
 %#define PROFILE_STALKER_FROBBER	3
+// For cached match results.
+%#define MATCHD_FRONTD_MATCHCACHE_FROBBER	4
 
 /* %#include "userid_prot.h" */
 
@@ -14,19 +19,21 @@ struct matchd_frontd_userkey_t {
 	u_int64_t userid;	/**< user id */
 };
 
+/**
+ * Identifier for most uber user structs.
+ */
 struct uber_key_t {
-	int frobber;		/**< should always be UBER_USER_FROBBER */
-	u_int64_t userid;	/**< user id */
-	unsigned int load_type; /**< load type; see uberconst.h */
+    int frobber;
+    u_int64_t userid;
+    unsigned int load_type;
 };
 
 /**
- * generic dsdc key for various user-related stuff
- * Be sure to use different frobber values.
+ * Identifier for most uber user structs.
  */
-struct user_dsdc_key_t {
-	int frobber;		/**< unique ID for data type */
-	u_int64_t userid;	/**< user id */
+struct profile_stalker_key_t {
+    int frobber;
+    u_int64_t userid;
 };
 
 /*
@@ -78,6 +85,8 @@ struct matchd_frontd_match_datum_t {
 struct match_frontd_match_results_t {
 	matchd_frontd_match_datum_t results<>;
 };
+
+#endif /* DSDC_CUPID */
 
 
 %#define DSDC_KEYSIZE 20
@@ -186,10 +195,10 @@ struct dsdc_lock_release_arg_t {
 };
 
 
-program DSDC_PROG 
+program DSDC_PROG
 {
 	version DSDC_VERS {
-	
+
 		void
 		DSDC_NULL (void) = 0;
 
@@ -198,14 +207,14 @@ program DSDC_PROG
  * issue them to the master nodes, who will deal with them:
  *
  *  PUT / REMOVE / GET / MGET
- * 
+ *
  */
 		dsdc_res_t
 		DSDC_PUT (dsdc_put_arg_t) = 1;
 
 		dsdc_res_t
 		DSDC_REMOVE (dsdc_key_t) = 2;
-		
+
 		dsdc_get_res_t
 		DSDC_GET (dsdc_key_t) = 3;
 
@@ -273,6 +282,7 @@ program DSDC_PROG
 		dsdc_res_t
 		DSDC_LOCK_RELEASE (dsdc_lock_release_arg_t) = 11;
 
+#ifdef DSDC_CUPID
 /*
  *-----------------------------------------------------------------------
  * Below are custom RPCs for matching and okcupid-related functions
@@ -281,6 +291,7 @@ program DSDC_PROG
  */
 		match_frontd_match_results_t
                 DSDC_COMPUTE_MATCHES(matchd_frontd_dcdc_arg_t) = 100;
+#endif
 
 	} = 1;
 } = 30002;

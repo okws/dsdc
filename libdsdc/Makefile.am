@@ -1,14 +1,24 @@
 
 dsdclib_LTLIBRARIES = libdsdc.la
 
+if DSDC_CUPID
 libdsdc_la_SOURCES = dsdc_prot.C dsdc_util.C state.C const.C ring.C \
-		     smartcli.C slave.C smartcli_mget.C match.C lock.C
-
-#userid_prot.C
+		     smartcli.C smartcli_mget.C match.C lock.C \
+		     slave.C
 
 dsdcinclude_HEADERS = dsdc_prot.h dsdc.h dsdc_ring.h dsdc_const.h \
 		     dsdc_prot.x dsdc_util.h dsdc_slave.h dsdc_state.h \
-                     dsdc_match.h dsdc_lock.h
+                     dsdc_lock.h \
+		     dsdc_match.h
+else
+libdsdc_la_SOURCES = dsdc_prot.C dsdc_util.C state.C const.C ring.C \
+		     smartcli.C smartcli_mget.C lock.C slave.C
+
+dsdcinclude_HEADERS = dsdc_prot.h dsdc.h dsdc_ring.h dsdc_const.h \
+		     dsdc_prot.x dsdc_util.h dsdc_slave.h dsdc_state.h \
+                     dsdc_lock.h
+endif
+
 
 #userid_prot.x userid_prot.h
 

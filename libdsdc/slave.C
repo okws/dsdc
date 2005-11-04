@@ -189,9 +189,11 @@ dsdc_slave_t::dispatch (svccb *sbp)
         case DSDC_REMOVE:
             handle_remove (sbp);
             break;
+#ifdef DSDC_CUPID
         case DSDC_COMPUTE_MATCHES:
             handle_compute_matches(sbp);
             break;
+#endif
         default:
             sbp->reject (PROC_UNAVAIL);
             break;
@@ -311,69 +313,6 @@ dsdc_slave_t::handle_put (svccb *sbp)
         warn ("insert issued (rc=%d): %s\n", res, key_to_str (a->key).cstr ());
     }
     sbp->replyref (res);
-}
-
-void
-dsdc_slave_t::fill_datum(
-    u_int64_t userid,
-    matchd_qanswer_rows_t *user_questions,
-    matchd_frontd_match_datum_t &datum)
-{
-    // lookup the user's questions by creating the key for them.
-    matchd_frontd_userkey_t key;
-    key.frobber = MATCHD_FRONTD_FROBBER;
-    key.userid = userid;
-    ptr<dsdc_key_t> k = mkkey_ptr(key);
-
-    // do the lookup.
-    dsdc_obj_t *o = lru_lookup (*k);
-
-    bzero(&datum, sizeof(datum));
-    datum.userid = userid;
-    if (o == NULL) {
-	if (show_debug (DSDC_DBG_MATCH)) {
-	    warn << "userid: " << userid << "\n";
-	}
-        datum.match_found = false;
-        return;
-    }
-
-    /*
-      ptr<matchd_qanswer_rows_t> questions =
-      New refcounted<matchd_qanswer_rows_t> ();
-    */
-    matchd_qanswer_rows_t questions;
-    bytes2xdr (questions, *o);
-    datum.match_found = true;
-    compute_match(*user_questions, questions, datum);
-    if (show_debug (DSDC_DBG_MATCH)) {
-	warn << "userid: " << userid
-	    << " found datum: match: " << datum.mpercent
-	    << " friend: " << datum.fpercent
-	    << " enemy: " << datum.epercent
-	    << "\n";
-    }
-}
-
-void
-dsdc_slave_t::handle_compute_matches (svccb *sbp)
-{
-    matchd_frontd_dcdc_arg_t *a = sbp->Xtmpl getarg<matchd_frontd_dcdc_arg_t> ();
-    matchd_qanswer_rows_t *user_questions = &a->user_questions;
-    ptr<match_frontd_match_results_t> res =
-	New refcounted<match_frontd_match_results_t>();
-
-    if (show_debug (DSDC_DBG_MATCH)) {
-	warn << __func__ << ": user count: " << a->userids.size() << "\n";
-    }
-    for (unsigned int i = 0; i < a->userids.size(); i++) {
-        u_int64_t userid = a->userids[i];
-        matchd_frontd_match_datum_t datum;
-
-        fill_datum(userid, user_questions, datum);
-	res->results.push_back(datum);
-    }
-    sbp->reply(res);
 }
 
 dsdc_obj_t *

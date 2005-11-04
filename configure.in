@@ -52,7 +52,6 @@ SFS_CFLAGS
 
 CPPFLAGS="$CPPFLAGS -I"'$(top_srcdir)'
 
-
 dnl
 dnl for .x files, need header in build directory; add new includes FIRST;
 dnl otherwise, compiling from source after an install will look for the
@@ -88,6 +87,16 @@ dsdclibdir='${dsdctopdir}/lib'
 dsdcincludedir='${dsdctopdir}/include'
 dsdcexecdir='${dsdctopdir}'
 
+#
+# XXX: CUPID!!! Enable DSDC changes for cupid.
+#
+DSDC_CUPID=YES
+if test "$DSDC_CUPID" = YES; then
+    AM_CONDITIONAL(DSDC_CUPID, true)
+    CPPFLAGS="$CPPFLAGS -DDSDC_CUPID"
+    RPCC="$RPCC -DDSDC_CUPID"
+fi
+
 dnl
 dnl allow executables to be dumped into system bin, despite a non-standard
 dnl tag situation
@@ -98,7 +107,6 @@ if test -z "$sfstag" -o "$dsdc_systembin" = "yes" ; then
 else
    dsdcbindir='${dsdctopdir}/bin'
 fi
-	
 
 ETAGS_ARGS='-C /dev/null'
 
@@ -112,3 +120,4 @@ AC_SUBST(dsdcexecdir)
 AC_SUBST(dsdcincludedir)
 
 AC_OUTPUT(libdsdc/Makefile dsdc/Makefile tst/Makefile Makefile)
+
