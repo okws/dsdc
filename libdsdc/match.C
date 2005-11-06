@@ -11,6 +11,7 @@
 #include "dsdc_prot.h"
 #include "dsdc_util.h"
 #include "dsdc_match.h"
+#include "crypt.h"
 
 // dump a variable macro D(f) -> << " f: " << f << "\n"
 #define D(f)  << " " #f ": " << f << "\n"
