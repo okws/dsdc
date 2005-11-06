@@ -3,8 +3,8 @@
  * $Id$
  */
 
-
 #include <math.h>
+#include "xdrmisc.h"
 #include "dsdc.h"
 #include "dsdc_slave.h"
 #include "dsdc_const.h"
