@@ -19,7 +19,7 @@
 
 name="dsdc_master"
 rcvar=`set_rcvar`
-command="/disk/dsdc/0.2/shared/bin/dsdc_master"
+command="/disk/dsdc/0.2/shared/bin/dsdc"
 dsdc_master_flags="-M -q -d 0xffff"
 pidfile="/var/run/dsdc_master.pid"
 #required_files="/etc/sfs/okws_config"
