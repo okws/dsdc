@@ -160,7 +160,8 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
       proctitle = "dsdc_master";
       break;
   default:
-    warn << "must supply either -M or -S option for master or slave\n";
+    warn << "must supply either -L, -M or -S option for lockmgr, master "
+	 << "or slave\n";
     usage ();
   }
   setproctitle(proctitle);
