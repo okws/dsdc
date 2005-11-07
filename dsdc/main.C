@@ -234,12 +234,10 @@ main (int argc, char *argv[])
   if (!app->init ())
     return -1;
 
-  // if this is a "const char *" somehow g++ omits the
-  // call to setprogname().
-  char *pn = strdup(app->progname (argv[0]).cstr ());
-  setprogname (pn);
+  str pn = app->progname (argv[0]);
+  setprogname (const_cast<char *> (pn.cstr ()));
 #ifdef __FreeBSD__
-  setproctitle ("%s", pn);
+  setproctitle ("%s", pn.cstr ());
 #endif /* __FreeBSD__ */
 
   if (app->daemonize ()) 
