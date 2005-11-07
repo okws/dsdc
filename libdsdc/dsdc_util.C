@@ -58,12 +58,12 @@ parse_hn (const str &in, str *host, int *port)
 }
 
 str
-dsdc_app_t::progname (const str &in) const
+dsdc_app_t::progname (const str &in, bool usepid) const
 {
   strbuf b (in);
   if (progname_xtra ())
     b << progname_xtra ();
-  if (_daemonize) 
+  if (_daemonize && usepid) 
     b.fmt ("[%d]", getpid ());
   return b;
 }

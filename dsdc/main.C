@@ -12,8 +12,6 @@
 #include "dsdc_master.h"
 #include "rxx.h"
 
-char *pidfile_name;
-
 class dsdc_run_t {
 public:
   dsdc_run_t () : _app (NULL) {}
@@ -150,21 +148,13 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   *app = NULL;
 
   bool ret = true;
-  switch (mode) {
-  case DSDC_MODE_SLAVE:
-      pidfile_name = "dsdc_slave";
-      break;
-  case DSDC_MODE_LOCKSERVER:
-      pidfile_name = "dsdc_nlm";
-      break;
-  case DSDC_MODE_MASTER:
-      pidfile_name = "dsdc_master";
-      break;
-  default:
+
+  if (mode == DSDC_MODE_NONE) {
     warn << "must supply either -L, -M or -S option for lockmgr, master "
 	 << "or slave\n";
     usage ();
   }
+
   switch (mode) {
   case DSDC_MODE_SLAVE:
   case DSDC_MODE_LOCKSERVER:
@@ -237,17 +227,22 @@ main (int argc, char *argv[])
   if (!app->init ())
     return -1;
 
+  // With last arg = false, do not put pid into progname
+  str pidfile_name = app->progname (argv[0], false);
+
 #ifdef __FreeBSD__
-  setproctitle ("%s", pidfile_name);
+  // If using FreeBSD's RC process management system...
+  setproctitle ("%s", pidfile_name.cstr ());
+  setprogname (const_cast<char*> (pidfile_name.cstr ()));
 #endif /* __FreeBSD__ */
-  setprogname (pidfile_name);
 
   if (app->daemonize ()) 
     daemonize ();
-  // if this is a "const char *" somehow g++ omits the
-  // call to setprogname().
-  str pn = app->progname (argv[0]);
+
+  // With last arg = true, use the pid in the progname
+  str pn = app->progname (argv[0], true);
   setprogname (const_cast<char *> (pn.cstr ()));
+
   if (app->daemonize () || show_debug (DSDC_DBG_LOW)) {
     str sm = app->startup_msg ();
     warn << "starting up";
