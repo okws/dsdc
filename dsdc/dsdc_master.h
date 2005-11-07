@@ -188,7 +188,7 @@ public:
   {
     return strbuf ("master listening on %s:%d", dsdc_hostname.cstr (), _port);
   }
-  str progname_xtra () const { return "-M"; }
+  str progname_xtra () const { return "_master"; }
 private:
 
   void broadcast_deletes (const dsdc_key_t &k, dsdcm_slave_t *skip);

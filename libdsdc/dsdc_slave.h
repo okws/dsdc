@@ -146,7 +146,7 @@ public:
   void dispatch (svccb *sbp);
   void get_xdr_repr (dsdcx_slave_t *x) ;
   bool is_lock_server () const { return true; }
-  str progname_xtra () const { return "-L"; }
+  str progname_xtra () const { return "_nlm"; }
 };
 
 class dsdc_slave_t : public dsdc_slave_app_t ,
@@ -170,7 +170,7 @@ public:
   // Match function addition.
   void handle_compute_matches (svccb *sbp);
 
-  str progname_xtra () const { return "-S"; }
+  str progname_xtra () const { return "_slave"; }
 
   // implement virtual functions from the 
   // dsdc_system_state_cache class

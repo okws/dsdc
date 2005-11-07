@@ -148,24 +148,18 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   *app = NULL;
 
   bool ret = true;
-  const char *proctitle;
   switch (mode) {
   case DSDC_MODE_SLAVE:
-      proctitle = "dsdc_slave";
       break;
   case DSDC_MODE_LOCKSERVER:
-      proctitle = "dsdc_nlm";
       break;
   case DSDC_MODE_MASTER:
-      proctitle = "dsdc_master";
       break;
   default:
     warn << "must supply either -L, -M or -S option for lockmgr, master "
 	 << "or slave\n";
     usage ();
   }
-  setproctitle(proctitle);
-  progname = proctitle;
   switch (mode) {
   case DSDC_MODE_SLAVE:
   case DSDC_MODE_LOCKSERVER:
@@ -242,7 +236,11 @@ main (int argc, char *argv[])
   if (app->daemonize ()) 
     daemonize ();
 
-  setprogname (const_cast<char *> (app->progname (argv[0]).cstr ()));
+  // Alfred; need to run off to class. This is the general idea of
+  // what I had in mind.  
+  const char *pn = app->progname (argv[0]).cstr ();
+  setprogname (pn);
+  setproctitle (pn);
 
   if (app->daemonize () || show_debug (DSDC_DBG_LOW)) {
     str sm = app->startup_msg ();
