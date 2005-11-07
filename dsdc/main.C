@@ -3,6 +3,9 @@
 // $Id$
 //
 
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "parseopt.h"
 #include "dsdc_util.h"
 #include "dsdc_slave.h"
@@ -15,7 +18,7 @@ public:
   dsdc_app_t *_app;
 };
 
-static void 
+static void
 usage ()
 {
   warnx << "usage: " << progname << " -M [-d] [-P <packetsz>] [-p <port>]\n"
@@ -83,41 +86,8 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   bool daemon_mode = false;
   int opts = 0;
 
-  while ((ch = getopt (argc, argv, "d:qLMRSp:n:s:h:P:")) != -1) {
+  while ((ch = getopt (argc, argv, "d:h:LMn:p:P:qRSs:")) != -1) {
     switch (ch) {
-    case 'M':
-      if (mode != DSDC_MODE_NONE)
-	usage ();
-      mode = DSDC_MODE_MASTER;
-      break;
-    case 'L':
-      if (mode != DSDC_MODE_NONE)
-	usage ();
-      mode = DSDC_MODE_LOCKSERVER;
-      break;
-    case 'S':
-      if (mode != DSDC_MODE_NONE)
-	usage ();
-      mode = DSDC_MODE_SLAVE;
-      break;
-    case 'R':
-      opts = opts | SLAVE_DETERMINISTIC_SEEDS;
-      break;
-    case 'p':
-      if (!convertint (optarg, &port))
-	usage ();
-      break;
-    case 'n':
-      if (!convertint (optarg, &nnodes))
-	usage ();
-      break;
-    case 's':
-      if (!parse_memsize (optarg, 'm', &maxsz))
-	usage ();
-      break;
-    case 'h':
-      hostname = optarg;
-      break;
     case 'd':
       if (!convertint (optarg, &dbg_opt)) {
 	usage ();
@@ -128,12 +98,45 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
 	  dbg_lev |= dbg_opt;
       }
       break;
+    case 'h':
+      hostname = optarg;
+      break;
+    case 'L':
+      if (mode != DSDC_MODE_NONE)
+	usage ();
+      mode = DSDC_MODE_LOCKSERVER;
+      break;
+    case 'M':
+      if (mode != DSDC_MODE_NONE)
+	usage ();
+      mode = DSDC_MODE_MASTER;
+      break;
+    case 'n':
+      if (!convertint (optarg, &nnodes))
+	usage ();
+      break;
+    case 'p':
+      if (!convertint (optarg, &port))
+	usage ();
+      break;
     case 'P':
       if (!convertint (optarg, &dsdc_packet_sz))
 	usage ();
       break;
     case 'q':
       daemon_mode = true;
+      break;
+    case 'R':
+      opts = opts | SLAVE_DETERMINISTIC_SEEDS;
+      break;
+    case 'S':
+      if (mode != DSDC_MODE_NONE)
+	usage ();
+      mode = DSDC_MODE_SLAVE;
+      break;
+    case 's':
+      if (!parse_memsize (optarg, 'm', &maxsz))
+	usage ();
       break;
     default:
       usage ();
@@ -145,6 +148,23 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   *app = NULL;
 
   bool ret = true;
+  const char *proctitle;
+  switch (mode) {
+  case DSDC_MODE_SLAVE:
+      proctitle = "dsdc_slave";
+      break;
+  case DSDC_MODE_LOCKSERVER:
+      proctitle = "dsdc_nlm";
+      break;
+  case DSDC_MODE_MASTER:
+      proctitle = "dsdc_master";
+      break;
+  default:
+    warn << "must supply either -M or -S option for master or slave\n";
+    usage ();
+  }
+  setproctitle(proctitle);
+  progname = proctitle;
   switch (mode) {
   case DSDC_MODE_SLAVE:
   case DSDC_MODE_LOCKSERVER:
@@ -189,8 +209,7 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
     }
     break;
   default:
-    warn << "must supply either -M or -S option for master or slave\n";
-    usage ();
+    break;
   }
     
   set_hostname (hostname);

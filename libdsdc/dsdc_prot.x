@@ -14,9 +14,10 @@
 
 /* %#include "userid_prot.h" */
 
-struct matchd_frontd_userkey_t {
-	int frobber;		/**< should always be MATCHD_FRONTD_FROBBER */
-	u_int64_t userid;	/**< user id */
+/* 64 bit key */
+struct dsdc_key64_t {
+	int frobber;
+	u_int64_t key64;	/**< user id */
 };
 
 /**
@@ -26,14 +27,6 @@ struct uber_key_t {
     int frobber;
     u_int64_t userid;
     unsigned int load_type;
-};
-
-/**
- * Identifier for most uber user structs.
- */
-struct profile_stalker_key_t {
-    int frobber;
-    u_int64_t userid;
 };
 
 /*

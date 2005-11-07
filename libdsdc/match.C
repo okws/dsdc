@@ -339,9 +339,9 @@ dsdc_slave_t::fill_datum(
     matchd_frontd_match_datum_t &datum)
 {
     // lookup the user's questions by creating the key for them.
-    matchd_frontd_userkey_t key;
+    dsdc_key64_t key;
     key.frobber = MATCHD_FRONTD_FROBBER;
-    key.userid = userid;
+    key.key64 = userid;
     ptr<dsdc_key_t> k = mkkey_ptr(key);
 
     // do the lookup.
