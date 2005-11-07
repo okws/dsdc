@@ -217,6 +217,7 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   return ret;
 }
 
+#include <stdio.h>
 
 int
 main (int argc, char *argv[])
@@ -233,14 +234,16 @@ main (int argc, char *argv[])
   if (!app->init ())
     return -1;
 
+  // if this is a "const char *" somehow g++ omits the
+  // call to setprogname().
+  char *pn = strdup(app->progname (argv[0]).cstr ());
+  setprogname (pn);
+#ifdef __FreeBSD__
+  setproctitle ("%s", pn);
+#endif /* __FreeBSD__ */
+
   if (app->daemonize ()) 
     daemonize ();
-
-  // Alfred; need to run off to class. This is the general idea of
-  // what I had in mind.  
-  const char *pn = app->progname (argv[0]).cstr ();
-  setprogname (pn);
-  setproctitle (pn);
 
   if (app->daemonize () || show_debug (DSDC_DBG_LOW)) {
     str sm = app->startup_msg ();
