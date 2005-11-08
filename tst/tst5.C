@@ -44,10 +44,12 @@ generate_kv (tst_key_t *k, str *v)
 {
   *k =  ( rand () % INT_MAX );
 
-  mstr m (40);
+  u_int sz = rand () % 1000;
+
+  mstr m (sz);
   int shift = 0;
   u_int32_t w = 0;
-  for (u_int i = 0 ; i < 40; i ++) {
+  for (u_int i = 0 ; i < sz; i ++) {
     if (shift == 0) 
       w = rand ();
     m[i] = (w >> shift) & 0xff;

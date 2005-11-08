@@ -212,12 +212,39 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   return ret;
 }
 
+static void
+dsdc_abort ()
+{
+  panic ("Caught abort signal!\n");
+}
+
+static void
+dsdc_exit_on_sig (int sig)
+{
+  if (show_debug (DSDC_DBG_LOW)) {
+    warn ("Caught shutdown signal=%d\n", sig);
+  }
+  exit (0);
+}
+
+
+static void
+set_signal_handlers ()
+{
+  sigcb (SIGTERM, wrap (dsdc_exit_on_sig, SIGTERM));
+  sigcb (SIGINT,  wrap (dsdc_exit_on_sig, SIGINT));
+  sigcb (SIGABRT, wrap (dsdc_abort));
+}
+
+
 int
 main (int argc, char *argv[])
 {
   setprogname (argv[0]);
 
   dsdc_app_t *app = NULL;
+
+  set_signal_handlers ();
 
   if (!parseargs (argc, argv, &app))
     return -1;
