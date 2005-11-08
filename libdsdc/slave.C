@@ -297,7 +297,7 @@ dsdc_slave_t::handle_remove (svccb *sbp)
     } else {
         res = DSDC_NOTFOUND;
     }
-    if (show_debug (DSDC_DBG_LOW)) {
+    if (show_debug (DSDC_DBG_MED)) {
         warn ("remove issued (rc=%d): %s\n", res, key_to_str (*k).cstr ());
     }
     sbp->replyref (res);
@@ -309,7 +309,7 @@ dsdc_slave_t::handle_put (svccb *sbp)
     dsdc_put_arg_t *a = sbp->Xtmpl getarg<dsdc_put_arg_t> ();
     bool rc = lru_insert (a->key, a->obj);
     dsdc_res_t res = rc ? DSDC_REPLACED : DSDC_INSERTED;
-    if (show_debug (DSDC_DBG_LOW)) {
+    if (show_debug (DSDC_DBG_MED)) {
         warn ("insert issued (rc=%d): %s\n", res, key_to_str (a->key).cstr ());
     }
     sbp->replyref (res);
@@ -464,13 +464,15 @@ dsdc_slave_app_t::get_port ()
     for (i = 0; i < dsdcs_port_attempts && i < USHRT_MAX && _lfd < 0; i++) {
         _lfd = inetsocket (SOCK_STREAM, _port);
         if (_lfd < 0) {
+	  if (show_debug (DSDC_DBG_MED)) 
             warn ("port=%d attempt failed: %m\n", _port);
-            _port++;
+	  _port++;
         }
     }
     if (_lfd > 0) {
         if (show_debug (DSDC_DBG_LOW)) 
-            close_on_exec (_lfd);
+	  warn ("found port = %d\n", _lfd);
+	close_on_exec (_lfd);
         listen (_lfd, 256);
         fdcb (_lfd, selread, wrap (this, &dsdc_slave_t::new_connection));
         return true;
@@ -492,7 +494,7 @@ dsdc_slave_app_t::startup_msg () const
 void
 dsdc_slave_t::startup_msg_v (strbuf *b) const
 {
-  if (show_debug (DSDC_DBG_MED)) 
+  if (show_debug (DSDC_DBG_LOW)) 
     b->fmt ("; nnodes=%d, maxsz=0x%x", _n_nodes, _maxsz);
 }
 

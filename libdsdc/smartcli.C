@@ -219,7 +219,7 @@ dsdci_srv_t::connect_cb (cbb cb, int f)
     }
     ret = false;
   } else {
-    if (show_debug (DSDC_DBG_HI)) {
+    if (show_debug (DSDC_DBG_MED)) {
       warn << "connection to slave succeeded: " << key () << "\n";
     }
     assert ((_x = axprt_stream::alloc (_fd, dsdc_packet_sz)));
