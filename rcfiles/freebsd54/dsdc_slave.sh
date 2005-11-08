@@ -21,7 +21,7 @@ name="dsdc_slave"
 rcvar=`set_rcvar`
 command="/disk/dsdc/0.2/shared/bin/dsdc"
 dsdc_masters="stage0.okcupid.com stage1.okcupid.com"
-dsdc_slave_flags="-s 1024M -d 0xffff"
+dsdc_slave_flags="-s 512M -d 0xffff"
 dsdc_slave_flags="-S -q ${dsdc_slave_flags} ${dsdc_masters}"
 pidfile="/var/run/dsdc_slave.pid"
 
