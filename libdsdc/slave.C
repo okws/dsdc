@@ -153,8 +153,11 @@ dsdcs_p2p_cli_t::dispatch (svccb *sbp)
     if (!sbp) {
         warn << "EOF from " << _hn << "\n";
         delete (this);
-    } else
-        _parent->dispatch (sbp);
+    } else if (_x->getfd () < 0) {
+      warn << "Swallowing RPC from destroyed client: " << _hn << "\n";
+    } else {
+      _parent->dispatch (sbp);
+    }
 }
 
 void
