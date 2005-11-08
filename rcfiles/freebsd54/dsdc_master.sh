@@ -23,6 +23,9 @@ command="/disk/dsdc/0.2/shared/bin/dsdc"
 dsdc_master_flags="-M -q -d 0xffff"
 pidfile="/var/run/dsdc_master.pid"
 
+dir=/disk/coredumps/${name}
+echo "Changing directory to ${dir}"
+cd ${dir}
 load_rc_config $name
 run_rc_command "$1"
 

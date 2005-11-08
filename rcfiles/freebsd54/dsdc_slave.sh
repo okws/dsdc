@@ -25,6 +25,9 @@ dsdc_slave_flags="-s 512M -d 0xffff"
 dsdc_slave_flags="-S -q ${dsdc_slave_flags} ${dsdc_masters}"
 pidfile="/var/run/dsdc_slave.pid"
 
+dir=/disk/coredumps/${name}
+echo "Changing directory to ${dir}"
+cd ${dir}
 load_rc_config $name
 run_rc_command "$1"
 
