@@ -393,7 +393,7 @@ dsdc_slave_t::lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o)
         lru_remove_obj (NULL, true);
     }
 
-    _lru.insert_head (co);
+    _lru.insert_tail (co);
     _objs.insert (co);
     _lrusz += co->size ();
 
