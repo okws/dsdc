@@ -19,13 +19,19 @@
 
 name="dsdc_master"
 rcvar=`set_rcvar`
-command="/disk/dsdc/0.2/shared/bin/dsdc"
+load_rc_config $name
+
+if [ "x${dsdc_buildtag}" = "x" ] ; then
+	dsdc_buildtag=shared
+fi
+command="/disk/dsdc/0.2/${dsdc_buildtag}/bin/dsdc"
+if [ ! -x ${command} ] ; then
+        echo "${name}: unable to exec ${command}"
+fi
+
 dsdc_master_flags="-M -q -d 0xffff"
 pidfile="/var/run/dsdc_master.pid"
 
-dir=/disk/coredumps/${name}
-echo "Changing directory to ${dir}"
+dir=/disk/coredumps
 cd ${dir}
-load_rc_config $name
 run_rc_command "$1"
-
