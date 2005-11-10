@@ -12,6 +12,8 @@
 #include "dsdc_master.h"
 #include "rxx.h"
 
+str cmd_pidfile("");
+
 class dsdc_run_t {
 public:
   dsdc_run_t () : _app (NULL) {}
@@ -86,7 +88,7 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   bool daemon_mode = false;
   int opts = 0;
 
-  while ((ch = getopt (argc, argv, "d:h:LMn:p:P:qRSs:")) != -1) {
+  while ((ch = getopt (argc, argv, "d:h:LMn:p:P:qRSs:Z:")) != -1) {
     switch (ch) {
     case 'd':
       if (!convertint (optarg, &dbg_opt)) {
@@ -137,6 +139,9 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
     case 's':
       if (!parse_memsize (optarg, 'm', &maxsz))
 	usage ();
+      break;
+    case 'Z':
+      cmd_pidfile = optarg;
       break;
     default:
       usage ();
@@ -254,8 +259,13 @@ main (int argc, char *argv[])
   if (!app->init ())
     return -1;
 
-  // With last arg = false, do not put pid into progname
-  str pidfile_name = app->progname (argv[0], false);
+  str pidfile_name;
+  if (cmd_pidfile.len() != 0) {
+      pidfile_name = cmd_pidfile;
+  } else {
+      // With last arg = false, do not put pid into progname
+      pidfile_name = app->progname (argv[0], false);
+  }
 
 #ifdef __FreeBSD__
   // If using FreeBSD's RC process management system...
