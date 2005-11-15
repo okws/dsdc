@@ -13,6 +13,9 @@
 #include "dsdc_match.h"
 #include "crypt.h"
 
+// scale results by this much, should be in sync with MATCH_T_PERC_MULT
+#define DSDC_MATCH_T_PERC_MULT 100
+
 // dump a variable macro D(f) -> << " f: " << f << "\n"
 #define D(f)  << " " #f ": " << f << "\n"
 
@@ -310,9 +313,9 @@ compute_match(
 #endif
     }
 
-    datum.mpercent = (int)(match_avg * 100.0);
-    datum.fpercent = (int)(friend_avg * 100.0);
-    datum.epercent = (int)((1.0 - enemy_avg) * 100.0);
+    datum.mpercent = (int)(match_avg * 100.0 * DSDC_MATCH_T_PERC_MULT);
+    datum.fpercent = (int)(friend_avg * 100.0 * DSDC_MATCH_T_PERC_MULT);
+    datum.epercent = (int)((1.0 - enemy_avg) * 100.0 * DSDC_MATCH_T_PERC_MULT);
     if (show_debug(DSDC_DBG_MATCH_HIGH)) {
 	warn << "two arrays, size1: "
 	    << q1.size() << " size2: " << q2.size() << "\n"
