@@ -31,6 +31,18 @@ public:
   void hit_eof (ptr<bool> df); // call this when there is an EOF
 
   /**
+   * some descendents will want to reestablish as soon as communication
+   * is cut off (such as masters!)
+   */
+  virtual void eof_hook () {};
+
+  /**
+   * say if it's a master or slave connection (for logging)
+   */
+  virtual str typ () const { return "slave"; }
+
+
+  /**
    * for aclnt_wrap virtual interface.  note that this interface is
    * not reliable! if no RPC over TCP connection is currently active,
    * then we cannot create a new TCP connection (since this function
@@ -66,6 +78,7 @@ private:
 
   ptr<axprt> _x;
   ptr<aclnt> _cli;
+protected:
   ptr<bool> _destroyed;
 };
 
@@ -79,6 +92,12 @@ private:
 class dsdci_master_t : public dsdci_srv_t {
 public:
   dsdci_master_t (const str &h, int p) : dsdci_srv_t (h,p) {}
+
+  void eof_hook ();
+  void schedule_retry ();
+  void retry_cb (ptr<bool> df, bool res);
+  void retry (ptr<bool> df);
+  str typ () const { return "master"; }
 
   tailq_entry<dsdci_master_t> _lnk;
   ihash_entry<dsdci_master_t> _hlnk;

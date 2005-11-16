@@ -22,10 +22,13 @@ void
 dsdcs_master_t::connect_cb (int f)
 {
     if (f < 0) {
-        went_down (strbuf ("could not connect to host on startup: %m"));
-        return;
+      if (show_debug (DSDC_DBG_MED))
+        went_down (strbuf ("could not connect to host: %m"));
+      return;
     }
-    master_warn ("connection succeeded");
+    if (show_debug (DSDC_DBG_LOW))
+      master_warn ("connection succeeded");
+
     _fd = f;
     assert ((_x = axprt_stream::alloc (_fd, dsdc_packet_sz)));
     _cli = aclnt::alloc (_x, dsdc_prog_1);

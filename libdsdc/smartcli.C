@@ -22,6 +22,14 @@ dsdci_srv_t::hit_eof (ptr<bool> df)
   _fd = -1;
   _cli = NULL;
   _x = NULL;
+
+  eof_hook ();
+}
+
+void
+dsdci_master_t::eof_hook ()
+{
+  schedule_retry ();
 }
 
 bool
@@ -215,18 +223,18 @@ dsdci_srv_t::connect_cb (cbb cb, int f)
   bool ret = true;
   if ((_fd = f) < 0) {
     if (show_debug (DSDC_DBG_LOW)) {
-      warn << "connection to slave failed: " << key () << "\n";
+      warn << "connection to " << typ () << " failed: " << key () << "\n";
     }
     ret = false;
   } else {
     if (show_debug (DSDC_DBG_MED)) {
-      warn << "connection to slave succeeded: " << key () << "\n";
+      warn << "connection to " << typ () << " succeeded: " << key () << "\n";
     }
     assert ((_x = axprt_stream::alloc (_fd, dsdc_packet_sz)));
     _cli = aclnt::alloc (_x, dsdc_prog_1);
     _cli->seteofcb (wrap (this, &dsdci_srv_t::hit_eof, _destroyed));
   }
-  (*cb) (true);
+  (*cb) (ret);
 } 
 
 void
@@ -358,5 +366,44 @@ dsdc_smartcli_t::lock_acquire (ptr<dsdc_lock_acquire_arg_t> arg,
   }
 }
 //
+//
+//-----------------------------------------------------------------------
+
+//-----------------------------------------------------------------------
+// reconnect to masters after connections failed; this code should
+// be combined with the code for the slaves trying to reconnect in 
+// slave.C
+//
+void
+dsdci_master_t::schedule_retry ()
+{
+  delaycb (dsdc_retry_wait_time, 0, 
+	   wrap (this, &dsdci_master_t::retry, _destroyed));
+}
+
+void
+dsdci_master_t::retry_cb (ptr<bool> df, bool res)
+{
+  if (*df)
+    return;
+  if (res) {
+    if (show_debug (DSDC_DBG_LOW))
+      warn << "Retry succeeded: " << key () << "\n";
+  } else {
+    schedule_retry ();
+  }
+}
+
+void
+dsdci_master_t::retry (ptr<bool> df)
+{
+  if (*df)
+    return;
+
+  if (show_debug (DSDC_DBG_MED))
+    warn << "Retrying remote peer: " << key () << "\n";
+
+  connect (wrap (this, &dsdci_master_t::retry_cb, df));
+}
 //
 //-----------------------------------------------------------------------
