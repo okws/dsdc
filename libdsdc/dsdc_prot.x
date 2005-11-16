@@ -11,6 +11,14 @@
 %#define PROFILE_STALKER_FROBBER	3
 // For cached match results.
 %#define MATCHD_FRONTD_MATCHCACHE_FROBBER	4
+// For groups.
+%#define GROUP_INFO_FROBBER	5
+// For generic test scores.
+%#define GTEST_SCORE_FROBBER	6
+// For psych test scores.
+%#define PTEST_SCORE_FROBBER	7
+// For member test scores.
+%#define MTEST_SCORE_FROBBER	8
 
 /* %#include "userid_prot.h" */
 
@@ -89,6 +97,12 @@ typedef opaque dsdc_key_t[DSDC_KEYSIZE];
 
 typedef dsdc_key_t dsdc_keyset_t<>;
 
+
+struct dsdc_req_t {
+    dsdc_key_t key;
+    int time_to_expire;
+};
+
 typedef opaque dsdc_custom_t<>;
 
 struct dsdc_key_template_t {
@@ -138,6 +152,7 @@ struct dsdc_mget_1res_t {
 
 typedef dsdc_mget_1res_t dsdc_mget_res_t<>;
 typedef dsdc_key_t       dsdc_mget_arg_t<>;
+typedef dsdc_req_t       dsdc_mget2_arg_t<>;
 
 
 struct dsdcx_slave_t {
@@ -274,6 +289,18 @@ program DSDC_PROG
  		 */
 		dsdc_res_t
 		DSDC_LOCK_RELEASE (dsdc_lock_release_arg_t) = 11;
+
+        /*
+         * get with expiry times
+         */
+		dsdc_get_res_t
+		DSDC_GET2 (dsdc_req_t) = 12;
+
+        /*
+         * multi-get with expiry times
+         */
+		dsdc_mget_res_t
+		DSDC_MGET2 (dsdc_mget2_arg_t) = 13;
 
 #ifdef DSDC_CUPID
 /*

@@ -148,7 +148,8 @@ class dsdc_smartcli_t;
 template<class K, class V>
 class dsdc_iface_t {
 public:
-  dsdc_iface_t (dsdc_smartcli_t *c) : _cli (c) {}
+  dsdc_iface_t (dsdc_smartcli_t *c, int t=INT_MAX) :
+      _cli (c), time_to_expire(t) {}
 
   /**
    * Get an object from DSDC.
@@ -158,8 +159,8 @@ public:
    * @param safe if on, route request through the master
    */
   void get (const K &k, 
-	    typename callback<void, dsdc_res_t, ptr<V> >::ref cb,
-	    bool safe = false );
+            typename callback<void, dsdc_res_t, ptr<V> >::ref cb,
+            bool safe = false );
 
   /**
    * Put an object into DSDC.
@@ -250,9 +251,9 @@ public:
   void lock_release (const K &k, dsdcl_id_t id, cbi::ptr cb = NULL,
 		     bool safe = false);
 
-private:
-  dsdc_smartcli_t *_cli;
-
+    private:
+        dsdc_smartcli_t *_cli;
+        int time_to_expire;
 };
 
 #define DSDC_RETRY_ON_STARTUP          0x1
@@ -298,7 +299,8 @@ public:
   //   of the cache state.
   //
   void put (ptr<dsdc_put_arg_t> arg, cbi::ptr cb = NULL, bool safe = false);
-  void get (ptr<dsdc_key_t> key, dsdc_get_res_cb_t cb, bool safe = false);
+  void get (ptr<dsdc_key_t> key, dsdc_get_res_cb_t cb,
+            bool safe = false, int time_to_expire=INT_MAX);
   void remove (ptr<dsdc_key_t> key, cbi::ptr cb = NULL, bool safe = false);
   void mget (ptr<vec<dsdc_key_t> > keys, dsdc_mget_res_cb_t cb);
   void lock_acquire (ptr<dsdc_lock_acquire_arg_t> arg,
@@ -312,8 +314,8 @@ public:
 			       cbi::ptr cb = NULL, bool safe = false);
   template<class T> 
   void get2 (ptr<dsdc_key_t> k, 
-	     typename callback<void, dsdc_res_t, ptr<T> >::ref cb,
-	     bool safe = false);
+             typename callback<void, dsdc_res_t, ptr<T> >::ref cb,
+             bool safe = false, int time_to_expire=INT_MAX);
 
   // even more convenient version of the above!
   template<class K, class V> void 
@@ -321,7 +323,7 @@ public:
 	bool safe = false);
   template<class K, class V> void 
   get3 (const K &k, typename callback<void, dsdc_res_t, ptr<V> >::ref cb,
-	bool safe = false);
+        bool safe = false, int time_to_expire = INT_MAX);
   template<class K> void
   remove3 (const K &k, cbi::ptr cb = NULL, bool safe = false);
 
@@ -343,7 +345,9 @@ public:
    */
   template<class K, class O> 
   ptr<dsdc_iface_t<K,O> >
-  make_interface () { return New refcounted<dsdc_iface_t<K,O> > (this); }
+  make_interface (int time_to_expire=INT_MAX) {
+      return New refcounted<dsdc_iface_t<K,O> > (this, time_to_expire);
+  }
 
 protected:
 
@@ -355,8 +359,8 @@ protected:
   void pre_construct ();
   void post_construct ();
 
-  void get_cb_1 (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb, 
-		 ptr<aclnt> cli);
+  void get_cb_1 (ptr<dsdc_key_t> k, int time_to_expire, dsdc_get_res_cb_t cb, 
+                 ptr<aclnt> cli);
   void get_cb_2 (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
 		 ptr<dsdc_get_res_t> res, clnt_stat err);
 
@@ -555,11 +559,12 @@ dsdc_smartcli_t::get2_cb_1 (typename callback<void, dsdc_res_t,
 }
 
 template<class T> void
-dsdc_smartcli_t::get2 (ptr<dsdc_key_t> k, 
-		       typename callback<void, dsdc_res_t, ptr<T> >::ref cb, 
-		       bool safe)
+dsdc_smartcli_t::get2 (ptr<dsdc_key_t> k,
+                       typename callback<void, dsdc_res_t, ptr<T> >::ref cb, 
+                       bool safe, int time_to_expire)
 {
-  get (k, wrap (this, &dsdc_smartcli_t::get2_cb_1<T>, cb), safe);
+  get (k, wrap (this, &dsdc_smartcli_t::get2_cb_1<T>, cb),
+       safe, time_to_expire);
 }
 
 template<class T> void
@@ -581,9 +586,9 @@ dsdc_smartcli_t::put2 (const dsdc_key_t &k, const T &obj,
 template<class K, class V> void 
 dsdc_smartcli_t::get3 (const K &k, 
 		       typename callback<void, dsdc_res_t, ptr<V> >::ref cb,
-		       bool safe)
+		       bool safe, int time_to_expire)
 {
-  get2<V> (mkkey_ptr (k), cb, safe);
+  get2<V> (mkkey_ptr (k), cb, safe, time_to_expire);
 }
   
 template<class K, class V> void 
@@ -623,12 +628,11 @@ dsdc_smartcli_t::lock_acquire3 (const K &k, dsdc_lock_acquire_res_cb_t cb,
   lock_acquire (arg, cb, safe);
 }
 
-
 template<class K, class V> void 
 dsdc_iface_t<K,V>::get (const K &k, 
 			typename callback<void, dsdc_res_t, ptr<V> >::ref cb,
 			bool safe)
-{ _cli->template get3<K,V> (k, cb, safe); }
+{ _cli->template get3<K,V> (k, cb, safe, time_to_expire); }
 
 template<class K, class V> void 
 dsdc_iface_t<K,V>::put (const K &k, const V &obj, cbi::ptr cb, bool safe)

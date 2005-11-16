@@ -195,6 +195,12 @@ dsdc_slave_t::dispatch (svccb *sbp)
         case DSDC_REMOVE:
             handle_remove (sbp);
             break;
+        case DSDC_GET2:
+            handle_get (sbp);
+            break;
+        case DSDC_MGET2:
+            handle_mget (sbp);
+            break;
 #ifdef DSDC_CUPID
         case DSDC_COMPUTE_MATCHES:
             handle_compute_matches(sbp);
@@ -258,15 +264,32 @@ dsdcs_master_t::schedule_retry ()
 void
 dsdc_slave_t::handle_mget (svccb *sbp)
 {
-    dsdc_mget_arg_t *arg = sbp->Xtmpl getarg<dsdc_mget_arg_t> ();
+    dsdc_mget2_arg_t *arg2;
+    dsdc_mget_arg_t *arg;
     dsdc_mget_res_t res;
-    u_int sz = arg->size ();
+    u_int sz=0;
+
+    if (sbp->proc() == DSDC_GET2) {
+        arg2 = sbp->Xtmpl getarg<dsdc_mget2_arg_t> ();
+        sz = arg2->size ();
+    } else {
+        arg = sbp->Xtmpl getarg<dsdc_mget_arg_t> ();
+        sz = arg->size ();
+    }
     res.setsize (sz);
 
     for (u_int i = 0; i < sz; i++) {
-        dsdc_key_t k = (*arg)[i];
-        dsdc_obj_t *o = lru_lookup ( k );
-        res[i].key = k;
+        dsdc_obj_t *o;
+        if (sbp->proc() == DSDC_GET2) {
+            dsdc_req_t k = (*arg2)[i];
+            o = lru_lookup ( k.key , k.time_to_expire );
+            res[i].key = k.key;
+        } else {
+            dsdc_key_t k = (*arg)[i];
+            o = lru_lookup ( k );
+            res[i].key = k;
+        }
+        
         if (o) {
             res[i].res.set_status (DSDC_OK);
             *(res[i].res.obj) = *o;
@@ -281,8 +304,14 @@ dsdc_slave_t::handle_mget (svccb *sbp)
 void
 dsdc_slave_t::handle_get (svccb *sbp)
 {
-    dsdc_key_t *k = sbp->Xtmpl getarg<dsdc_key_t> ();
-    dsdc_obj_t *o = lru_lookup (*k);
+    dsdc_obj_t *o;
+    if (sbp->proc() == DSDC_GET2) {
+        dsdc_req_t *k = sbp->Xtmpl getarg<dsdc_req_t> ();
+        o = lru_lookup (k->key, k->time_to_expire);
+    } else {
+        dsdc_key_t *k = sbp->Xtmpl getarg<dsdc_key_t> ();
+        o = lru_lookup (*k);
+    }
     dsdc_get_res_t res;
     if (o) {
         res.set_status (DSDC_OK);
@@ -322,13 +351,15 @@ dsdc_slave_t::handle_put (svccb *sbp)
 }
 
 dsdc_obj_t *
-dsdc_slave_t::lru_lookup (const dsdc_key_t &k)
+dsdc_slave_t::lru_lookup (const dsdc_key_t &k, const int expire)
 {
     dsdc_cache_obj_t *o = _objs[k];
-    if (o) {
+    if (o && timenow - expire < o->_timein) {
         _lru.remove (o);
         _lru.insert_tail (o);
         return &o->_obj;
+//     } else if (o && timenow - expire < o->_timein) {
+//         warn ("Exists, but expired\n");
     }
     return NULL;
 }

@@ -167,7 +167,8 @@ public:
   void handle_mget (svccb *sbp);
   void handle_put (svccb *sbp);
   void handle_remove (svccb *sbp);
-  // Match function addition.
+
+        // Match function addition.
   void handle_compute_matches (svccb *sbp);
 
   str progname_xtra () const { return "_slave"; }
@@ -180,7 +181,7 @@ public:
 protected:
 
   void genkeys ();
-  dsdc_obj_t * lru_lookup (const dsdc_key_t &k);
+  dsdc_obj_t * lru_lookup (const dsdc_key_t &k, const int expire=INT_MAX);
   size_t lru_remove_obj (dsdc_cache_obj_t *o, bool del);
   bool lru_remove (const dsdc_key_t &k);
   bool lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o);
