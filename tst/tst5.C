@@ -376,7 +376,7 @@ static void
 main2 (bool b)
 {
   if (!b) 
-    fatal << "all master connections failed\n";
+    warn << "all master connections failed\n";
   srdline ();
 }
 
@@ -390,7 +390,7 @@ main (int argc, char *argv[])
 
   setprogname (argv[0]);
 
-  sc = New dsdc_smartcli_t ();
+  sc = New dsdc_smartcli_t (DSDC_RETRY_ON_STARTUP);
 
   while ((ch = getopt (argc, argv, "d")) != -1)
     switch (ch) {

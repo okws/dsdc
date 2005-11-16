@@ -255,6 +255,8 @@ private:
 
 };
 
+#define DSDC_RETRY_ON_STARTUP          0x1
+
 //
 // dsdc smart client: 
 //
@@ -266,7 +268,7 @@ private:
 //
 class dsdc_smartcli_t : public dsdc_system_state_cache_t {
 public:
-  dsdc_smartcli_t () : _curr_master (NULL) {}
+  dsdc_smartcli_t (u_int o = 0) : _curr_master (NULL), _opts (o) {}
   ~dsdc_smartcli_t ();
 
   // adds a master from a string only, in the form
@@ -424,9 +426,12 @@ protected:
   // successfully initialized the hash ring. 
   ptr<init_t> poke_after_refresh;
 
+  void last_finished (cbb::ptr cb, bool b);
+
   //
   // end init code
   //-----------------------------------------------------------------------
+
 
 protected:
   dsdci_master_t *_curr_master;
@@ -437,6 +442,8 @@ protected:
   list<dsdci_slave_t, &dsdci_slave_t::_lnk> _slaves;
   fhash<str, dsdci_slave_t, &dsdci_slave_t::_hlnk> _slaves_hash;
   bhash<str> _slaves_hash_tmp;
+
+  u_int _opts;
 
 };
 

@@ -274,12 +274,28 @@ dsdc_smartcli_t::init_cb (ptr<init_t> i, dsdci_master_t *m, bool b)
     poke_after_refresh = i;
     refresh (_destroyed);
   }
+  if (!b && (_opts & DSDC_RETRY_ON_STARTUP)) {
+    m->schedule_retry ();
+  }
 }
+
+void
+dsdc_smartcli_t::last_finished (cbb::ptr cb, bool b)
+{
+  // if all connects failed, then still start the refresh timer anyways,
+  // even though it will definitely fail at first.
+  if (!b && (_opts & DSDC_RETRY_ON_STARTUP))
+    refresh (_destroyed);
+  if (cb)
+    (*cb) (b);
+}
+
 
 void
 dsdc_smartcli_t::init (cbb::ptr cb)
 {
-  ptr<init_t> i = New refcounted<init_t> (cb);
+  ptr<init_t> i = 
+    New refcounted<init_t> (wrap (this, &dsdc_smartcli_t::last_finished, cb));
   for (dsdci_master_t *m = _masters.first; m; m = _masters.next (m)) {
     m->connect (wrap (this, &dsdc_smartcli_t::init_cb, i, m));
   }
