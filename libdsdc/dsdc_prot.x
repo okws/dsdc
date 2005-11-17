@@ -19,6 +19,8 @@
 %#define PTEST_SCORE_FROBBER	7
 // For member test scores.
 %#define MTEST_SCORE_FROBBER	8
+// For member test scores.
+%#define CUPID_TEST_SCORE_FROBBER	9
 
 /* %#include "userid_prot.h" */
 
