@@ -1,4 +1,4 @@
-#ifdef DSDC_CUPID
+#ifndef DSDC_NO_CUPID
 /*
  * $Id$
  */
@@ -398,5 +398,5 @@ dsdc_slave_t::handle_compute_matches (svccb *sbp)
     sbp->reply(res);
 }
 
-#endif /* DSDC_CUPID */
+#endif /* !DSDC_NO_CUPID */
 

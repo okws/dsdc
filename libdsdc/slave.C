@@ -201,7 +201,7 @@ dsdc_slave_t::dispatch (svccb *sbp)
         case DSDC_MGET2:
             handle_mget (sbp);
             break;
-#ifdef DSDC_CUPID
+#ifndef DSDC_NO_CUPID
         case DSDC_COMPUTE_MATCHES:
             handle_compute_matches(sbp);
             break;

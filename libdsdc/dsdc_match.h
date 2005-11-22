@@ -8,13 +8,13 @@
 
 #include "dsdc_prot.h"
 
-#ifdef DSDC_CUPID
+#ifndef DSDC_NO_CUPID
 
 void
 compute_match(
     matchd_qanswer_rows_t &q1,
     matchd_qanswer_rows_t &q2,
     matchd_frontd_match_datum_t &datum);
-#endif /* DSDC_CUPID */
+#endif /* !DSDC_NO_CUPID */
 
 #endif

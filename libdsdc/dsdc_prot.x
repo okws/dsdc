@@ -2,7 +2,7 @@
  * $Id$
  */
 
-#ifdef DSDC_CUPID
+#ifndef DSDC_NO_CUPID
 // For question data loaded into match.
 %#define MATCHD_FRONTD_FROBBER	0
 // For user information loaded into match
@@ -89,7 +89,7 @@ struct match_frontd_match_results_t {
 	matchd_frontd_match_datum_t results<>;
 };
 
-#endif /* DSDC_CUPID */
+#endif /* !DSDC_NO_CUPID */
 
 
 %#define DSDC_KEYSIZE 20
@@ -304,7 +304,7 @@ program DSDC_PROG
 		dsdc_mget_res_t
 		DSDC_MGET2 (dsdc_mget2_arg_t) = 13;
 
-#ifdef DSDC_CUPID
+#ifndef DSDC_NO_CUPID
 /*
  *-----------------------------------------------------------------------
  * Below are custom RPCs for matching and okcupid-related functions
