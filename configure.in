@@ -95,6 +95,8 @@ if test "$DSDC_NO_CUPID" = "YES"; then
     AM_CONDITIONAL(DSDC_NO_CUPID, true)
     CPPFLAGS="$CPPFLAGS -DDSDC_NO_CUPID"
     RPCC="$RPCC -DDSDC_NO_CUPID"
+else
+    AM_CONDITIONAL(DSDC_NO_CUPID, false)
 fi
 
 dnl
