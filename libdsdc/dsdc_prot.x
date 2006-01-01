@@ -39,27 +39,18 @@ struct uber_key_t {
     unsigned int load_type;
 };
 
+%#define MATCHD_NULL_QUESTION_ID	0
+
 /*
  * Matchd question.  This matches the qanswers table in our database.
  */
 struct matchd_qanswer_row_t {
 	int questionid;
-	int answer;		/**< actual answer 0-4 */
-	int match_answer;	/**< wanted answers mask */
-	int importance;		/**< importance */
-	int date_answered;	/**< time_t answered. */
-	int skipped;		/**< question skipped? */
+	unsigned int data;      /**< bits: 0-1 answer, 2-5 answer mask,
+				  6-8 importance */
 };
 
 typedef matchd_qanswer_row_t matchd_qanswer_rows_t<>;
-
-#if 0
-struct matchd_qanswer_compact_row_t {
-    int questionid;
-    int date_answered;
-    int data;	/* bits: 0-1 answer, 2-5 answer mask, 6-8 importance */
-}
-#endif
 
 /*
  * This structure is passed to the DSDC backend for computing matches.
@@ -86,6 +77,7 @@ struct matchd_frontd_match_datum_t {
  * structure containing per-user match results.
  */
 struct match_frontd_match_results_t {
+    int cache_misses;
 	matchd_frontd_match_datum_t results<>;
 };
 

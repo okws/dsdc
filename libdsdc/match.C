@@ -11,6 +11,7 @@
 #include "dsdc_prot.h"
 #include "dsdc_util.h"
 #include "dsdc_match.h"
+#include "qanswer_aux.h"
 #include "crypt.h"
 
 // scale results by this much, should be in sync with MATCH_T_PERC_MULT
@@ -26,7 +27,7 @@ static inline int
 getImportance(const matchd_qanswer_row_t &answer)
 {
     int result = 0;
-    switch (answer.importance) {
+    switch (qa_importance_get(answer)) {
         case 1:
             result = 250;
             break;
@@ -60,7 +61,7 @@ getMatchAnswer(matchd_qanswer_row_t &answer)
     else
         return (1 << (answer.answer - 1));
 #endif
-    return (1 << answer.answer);
+    return (1 << qa_answer_get(answer));
 }
 
 /*
@@ -70,17 +71,20 @@ static inline bool
 getMatchAnswered(matchd_qanswer_row_t &answer)
 {
 
+    return (true);
+#if 0
     if (show_debug(DSDC_DBG_MATCH_HIGH)) {
 	warn << __func__ << " : " << answer.answer << "\n";
     }
     return (answer.answer != 0);
+#endif
 }
 
-static int
+static inline int
 getMatchWantedMask(matchd_qanswer_row_t &answer)
 {
 
-    return answer.match_answer;
+    return (qa_matchanswer_get(answer));
 }
 
 inline const strbuf &
@@ -223,11 +227,10 @@ compute_match(
 		<< "Answer: "
 		<< matchanswer1 << " <=> " << matchanswer2 << "\n"
 		<< "Answer x: "
-		<< q1r.answer << " <=> " << q2r.answer << "\n"
+		<< qa_answer_get(q1r) << " <=> " << qa_answer_get(q2r) << "\n"
 		<< "Mask x: "
-		<< q1r.match_answer << " <=> " << q2r.match_answer << "\n"
-		<< "x: " <<
-		q1r.match_answer << " <=> " << q2r.match_answer << "\n";
+		<< qa_matchanswer_get(q1r) << " <=> "
+		<< qa_matchanswer_get(q2r) << "\n";
 	}
 	/*
 	 * If they had the same answer, then give them
@@ -350,8 +353,10 @@ dsdc_slave_t::fill_datum(
     // do the lookup.
     dsdc_obj_t *o = lru_lookup (*k);
 
-    bzero(&datum, sizeof(datum));
     datum.userid = userid;
+    datum.mpercent = -1;
+    datum.fpercent = -1;
+    datum.epercent = -1;
     if (o == NULL) {
 	if (show_debug (DSDC_DBG_MATCH)) {
 	    warn << "userid: " << userid << "\n";
@@ -385,6 +390,8 @@ dsdc_slave_t::handle_compute_matches (svccb *sbp)
     ptr<match_frontd_match_results_t> res =
 	New refcounted<match_frontd_match_results_t>();
 
+    res->cache_misses = 0;
+
     if (show_debug (DSDC_DBG_MATCH)) {
 	warn << __func__ << ": user count: " << a->userids.size() << "\n";
     }
@@ -393,6 +400,8 @@ dsdc_slave_t::handle_compute_matches (svccb *sbp)
         matchd_frontd_match_datum_t datum;
 
         fill_datum(userid, user_questions, datum);
+	if (!datum.match_found)
+	    res->cache_misses++;
 	res->results.push_back(datum);
     }
     sbp->reply(res);
