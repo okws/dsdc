@@ -1,6 +1,8 @@
 #ifndef DSDC_NO_CUPID
 /*
  * $Id$
+ *
+ * Contains the logic for computing match results.
  */
 
 #include <math.h>
@@ -78,13 +80,6 @@ getMatchAnswered(matchd_qanswer_row_t &answer)
     }
     return (answer.answer != 0);
 #endif
-}
-
-static inline int
-getMatchWantedMask(matchd_qanswer_row_t &answer)
-{
-
-    return (qa_matchanswer_get(answer));
 }
 
 inline const strbuf &
@@ -187,6 +182,22 @@ compute_match(
         /* if we exhausted the list then we're done. */
         if (j == q2.size())
             break;
+        // convenient accessors.
+        matchd_qanswer_row_t &q1r = q1[i];
+        matchd_qanswer_row_t &q2r = q2[j];
+	if (show_debug(DSDC_DBG_MATCH_HIGH)) {
+	   warn << "\n";
+	   warn << "1: id: " << q1r.questionid
+	       << ", answer " << qa_answer_get(q1r)
+	       << ", match_answer " << qa_matchanswer_get(q1r)
+	       << ", importance " << qa_importance_get(q1r)
+	       << "\n";
+	   warn << "2: id: " << q2r.questionid
+	       << ", answer " << qa_answer_get(q2r)
+	       << ", match_answer " << qa_matchanswer_get(q2r)
+	       << ", importance " << qa_importance_get(q2r)
+	       << "\n";
+	}
         /*
          * if we're now greater but not the same question, then loop
          * to advance our cursor into the first list.
@@ -204,9 +215,6 @@ compute_match(
 	/*
 	 * ok, we got matching question ids!
 	 */
-        // convenient accessors.
-        matchd_qanswer_row_t &q1r = q1[i];
-        matchd_qanswer_row_t &q2r = q2[j];
 
         // both need to answer or we skip it.
         if (!getMatchAnswered(q1r) || !getMatchAnswered(q2r)) {
@@ -223,7 +231,8 @@ compute_match(
 	u2possible += points2;
 	if (show_debug(DSDC_DBG_MATCH_HIGH)) {
 	    warn << "Points: "
-		<< points1 << " <=> " << points2 << "\n"
+		<< points1 << " : " << qa_importance_get(q1r) << " <=> "
+		<< points2 << " : " << qa_importance_get(q2r) << "\n"
 		<< "Answer: "
 		<< matchanswer1 << " <=> " << matchanswer2 << "\n"
 		<< "Answer x: "
@@ -249,17 +258,17 @@ compute_match(
 	 * If they fit each other's expectations, then give
 	 * each other actual points.
          */
-	if ((matchanswer1 & getMatchWantedMask(q2r)) != 0) {
+	if ((matchanswer1 & qa_matchanswer_get(q2r)) != 0) {
 	    if (show_debug(DSDC_DBG_MATCH_HIGH)) {
 		warn << "Match 1!\n";
 	    }
-	    match_u1actual += points1;
+	    match_u2actual += points2;
 	}
-	if ((matchanswer2 & getMatchWantedMask(q1r)) != 0) {
+	if ((matchanswer2 & qa_matchanswer_get(q1r)) != 0) {
 	    if (show_debug(DSDC_DBG_MATCH_HIGH)) {
 		warn << "Match 2!\n";
 	    }
-	    match_u2actual += points2;
+	    match_u1actual += points1;
 	}
 	if (show_debug(DSDC_DBG_MATCH_HIGH)) {
 	    warn
@@ -318,7 +327,13 @@ compute_match(
 
     datum.mpercent = (int)(match_avg * 100.0 * DSDC_MATCH_T_PERC_MULT);
     datum.fpercent = (int)(friend_avg * 100.0 * DSDC_MATCH_T_PERC_MULT);
-    datum.epercent = (int)((1.0 - enemy_avg) * 100.0 * DSDC_MATCH_T_PERC_MULT);
+    // In theory no one should score an enemy percentage of 100%
+    // If they do, that means they just do not have any intersecting
+    // questions, so make them go to 0.
+    if (enemy_avg == 0)
+	enemy_avg = 1;
+    datum.epercent = (int)(sqrt((1.0 - enemy_avg)) * 100.0 * DSDC_MATCH_T_PERC_MULT);
+
     if (show_debug(DSDC_DBG_MATCH_HIGH)) {
 	warn << "two arrays, size1: "
 	    << q1.size() << " size2: " << q2.size() << "\n"
@@ -372,6 +387,9 @@ dsdc_slave_t::fill_datum(
     matchd_qanswer_rows_t questions;
     bytes2xdr (questions, *o);
     datum.match_found = true;
+    if (show_debug (DSDC_DBG_MATCH)) {
+	warn << "calling compute_match(), userid: " << userid << "\n";
+    }
     compute_match(*user_questions, questions, datum);
     if (show_debug (DSDC_DBG_MATCH)) {
 	warn << "userid: " << userid
