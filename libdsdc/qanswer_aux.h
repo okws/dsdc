@@ -23,6 +23,13 @@
 #define QA_IMPORTANCE_BITS	3
 
 static inline void
+qa_init(struct matchd_qanswer_row_t &row)
+{
+	row.questionid = 0;
+	row.data = 0;
+}
+
+static inline void
 qa_questionid_set(struct matchd_qanswer_row_t &row, int id)
 {
 
