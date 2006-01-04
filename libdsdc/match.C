@@ -374,9 +374,9 @@ dsdc_slave_t::fill_datum(
     dsdc_obj_t *o = lru_lookup (*k);
 
     datum.userid = userid;
-    datum.mpercent = -1;
-    datum.fpercent = -1;
-    datum.epercent = -1;
+    datum.mpercent = 0;
+    datum.fpercent = 0;
+    datum.epercent = 0;
     if (o == NULL) {
 	if (show_debug (DSDC_DBG_MATCH)) {
 	    warn << "userid: " << userid << "\n";
