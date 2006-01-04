@@ -116,6 +116,11 @@ calcMatchAvg(
     double delta(0.0);
     if (common > 0) {
         delta = 1 / sqrt(common);
+	// If we're not using lower confidence, then we're
+	// doing an enemy match, so adjust the delta even more.
+	if (!lowerconfidence) {
+	    delta *= 2;
+	}
     }
 
     if (show_debug(DSDC_DBG_MATCH_HIGH)) {
@@ -311,7 +316,7 @@ compute_match(
 	/*
 	 * This boosts the friend average a little.
          */
-        friend_avg += (0.5 - (friend_avg / 2.0));
+	friend_avg = sqrt(friend_avg);
         /*
          * This is disabled as it's already done inside of calcMatchAvg()
          * but for some reason looks like it's repeated inside
