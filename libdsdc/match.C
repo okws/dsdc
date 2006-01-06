@@ -57,12 +57,6 @@ static inline int
 getMatchAnswer(matchd_qanswer_row_t &answer)
 {
 
-#if 0
-    if (answer.answer == 0)
-        return (0);
-    else
-        return (1 << (answer.answer - 1));
-#endif
     return (1 << qa_answer_get(answer));
 }
 
@@ -74,12 +68,6 @@ getMatchAnswered(matchd_qanswer_row_t &answer)
 {
 
     return (true);
-#if 0
-    if (show_debug(DSDC_DBG_MATCH_HIGH)) {
-	warn << __func__ << " : " << answer.answer << "\n";
-    }
-    return (answer.answer != 0);
-#endif
 }
 
 inline const strbuf &
@@ -317,17 +305,6 @@ compute_match(
 	 * This boosts the friend average a little.
          */
 	friend_avg = sqrt(friend_avg);
-        /*
-         * This is disabled as it's already done inside of calcMatchAvg()
-         * but for some reason looks like it's repeated inside
-         * matchd_db_t::calcMatchFriend as a bug???
-         */
-#if 0
-        friend_avg -= (1 / sqrt(common));
-        if (friend_avg < 0) {
-            friend_avg = 0;
-        }
-#endif
     }
 
     datum.mpercent = (int)(match_avg * 100.0 * DSDC_MATCH_T_PERC_MULT);
@@ -364,6 +341,11 @@ dsdc_slave_t::fill_datum(
     matchd_qanswer_rows_t *user_questions,
     matchd_frontd_match_datum_t &datum)
 {
+    datum.userid = userid;
+    datum.mpercent = 0;
+    datum.fpercent = 0;
+    datum.epercent = 0;
+
     // lookup the user's questions by creating the key for them.
     dsdc_key64_t key;
     key.frobber = MATCHD_FRONTD_FROBBER;
@@ -371,12 +353,8 @@ dsdc_slave_t::fill_datum(
     ptr<dsdc_key_t> k = mkkey_ptr(key);
 
     // do the lookup.
-    dsdc_obj_t *o = lru_lookup (*k);
+    dsdc_obj_t *o = lru_lookup(*k);
 
-    datum.userid = userid;
-    datum.mpercent = 0;
-    datum.fpercent = 0;
-    datum.epercent = 0;
     if (o == NULL) {
 	if (show_debug (DSDC_DBG_MATCH)) {
 	    warn << "userid: " << userid << "\n";
@@ -385,18 +363,14 @@ dsdc_slave_t::fill_datum(
         return;
     }
 
-    /*
-      ptr<matchd_qanswer_rows_t> questions =
-      New refcounted<matchd_qanswer_rows_t> ();
-    */
     matchd_qanswer_rows_t questions;
-    bytes2xdr (questions, *o);
+    bytes2xdr(questions, *o);
     datum.match_found = true;
-    if (show_debug (DSDC_DBG_MATCH)) {
+    if (show_debug(DSDC_DBG_MATCH)) {
 	warn << "calling compute_match(), userid: " << userid << "\n";
     }
     compute_match(*user_questions, questions, datum);
-    if (show_debug (DSDC_DBG_MATCH)) {
+    if (show_debug(DSDC_DBG_MATCH)) {
 	warn << "userid: " << userid
 	    << " found datum: match: " << datum.mpercent
 	    << " friend: " << datum.fpercent
@@ -408,7 +382,8 @@ dsdc_slave_t::fill_datum(
 void
 dsdc_slave_t::handle_compute_matches (svccb *sbp)
 {
-    matchd_frontd_dcdc_arg_t *a = sbp->Xtmpl getarg<matchd_frontd_dcdc_arg_t> ();
+    matchd_frontd_dcdc_arg_t *a =
+	sbp->Xtmpl getarg<matchd_frontd_dcdc_arg_t>();
     matchd_qanswer_rows_t *user_questions = &a->user_questions;
     ptr<match_frontd_match_results_t> res =
 	New refcounted<match_frontd_match_results_t>();
