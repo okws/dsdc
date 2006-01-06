@@ -337,7 +337,7 @@ compute_match(
     // questions, so make them go to 0.
     if (enemy_avg == 0)
 	enemy_avg = 1;
-    datum.epercent = (int)(sqrt((1.0 - enemy_avg)) * 100.0 * DSDC_MATCH_T_PERC_MULT);
+    datum.epercent = (int)((1.0 - enemy_avg) * 100.0 * DSDC_MATCH_T_PERC_MULT);
 
     if (show_debug(DSDC_DBG_MATCH_HIGH)) {
 	warn << "two arrays, size1: "
