@@ -13,14 +13,28 @@
 %#define MATCHD_FRONTD_MATCHCACHE_FROBBER	4
 // For groups.
 %#define GROUP_INFO_FROBBER	5
+
 // For generic test scores.
 %#define GTEST_SCORE_FROBBER	6
 // For psych test scores.
 %#define PTEST_SCORE_FROBBER	7
 // For member test scores.
 %#define MTEST_SCORE_FROBBER	8
-// For member test scores.
+// For cupid test scores.
 %#define CUPID_TEST_SCORE_FROBBER	9
+
+// For generic test sessions.
+%#define GTEST_SESSION_FROBBER	10
+// For psych test sessions.
+%#define PTEST_SESSION_FROBBER	11
+// For member test sessions.
+%#define MTEST_SESSION_FROBBER	12
+
+// For member test metadata
+%#define MTEST_METADATA_FROBBER	13
+// For member test stats
+%#define MTEST_STATS_FROBBER	14
+
 
 /* %#include "userid_prot.h" */
 
