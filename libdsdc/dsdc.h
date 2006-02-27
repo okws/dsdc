@@ -523,8 +523,8 @@ dsdc_smartcli_t::change_cache_cb_1 (ptr<cc_t<T> > cc, ptr<aclnt> cli)
     return;
   }
 
-  cli->call (cc->proc, cc->arg, cc->res,
-	     wrap (this, &dsdc_smartcli_t::change_cache_cb_2<T>, cc));
+  rpc_call (cli, cc->proc, cc->arg, cc->res,
+	    wrap (this, &dsdc_smartcli_t::change_cache_cb_2<T>, cc));
 }
 
 template<class T> void
