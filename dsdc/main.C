@@ -24,7 +24,7 @@ static void
 usage ()
 {
   warnx << "usage: " << progname << " -M [-d] [-P <packetsz>] [-p <port>]\n"
-	<< "       " << progname << " -S [-dR] [-P <packetsz>] [-n <n nodes>] "
+	<< "       " << progname << " -S [-dRD] [-P <packetsz>] [-n <n nodes>] "
 	<< "[-s <maxsize> (M|G|k|b)]  m1:p1 m2:p2 ...\n"
 	<< "       " << progname << " -L m1:p1 m2:p2 ...\n" ;
   exit (1);
@@ -88,7 +88,7 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   bool daemon_mode = false;
   int opts = 0;
 
-  while ((ch = getopt (argc, argv, "d:h:LMn:p:P:qRSs:Z:")) != -1) {
+  while ((ch = getopt (argc, argv, "d:h:LMn:p:P:qRSs:Z:D")) != -1) {
     switch (ch) {
     case 'd':
       if (!convertint (optarg, &dbg_opt)) {
@@ -127,6 +127,9 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
       break;
     case 'q':
       daemon_mode = true;
+      break;
+    case 'D':
+      opts = opts | SLAVE_NO_CLEAN;
       break;
     case 'R':
       opts = opts | SLAVE_DETERMINISTIC_SEEDS;

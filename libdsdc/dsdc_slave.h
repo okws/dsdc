@@ -100,6 +100,7 @@ private:
 };
 
 #define SLAVE_DETERMINISTIC_SEEDS    (1 << 0)
+#define SLAVE_NO_CLEAN (1 << 1)
 
 // There are two possible slave apps as of now:
 //

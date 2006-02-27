@@ -1637,7 +1637,7 @@ dnl
 dnl Find installed SFS libraries
 dnl This is not for SFS, but for other packages that use SFS.
 dnl
-AC_DEFUN(SFS_SFS,
+AC_DEFUN([SFS_SFS],
 [AC_ARG_WITH(sfs,
 --with-sfs[[=PATH]]         specify location of SFS libraries)
 AC_ARG_WITH(heavy,
@@ -2067,7 +2067,7 @@ dnl OKWS_MODULE
 dnl
 dnl  What to name this module; where to put it
 dnl
-AC_DEFUN(OKWS_MODULE,
+AC_DEFUN([OKWS_MODULE],
 [AC_ARG_WITH(module,
 --with-module=MODULE		Specify a name for this OKWS module)
 AC_ARG_WITH(module_prefix,
@@ -2090,7 +2090,7 @@ fi
 
 dnl OKJAILDIR
 dnl
-AC_DEFUN(OKJAILDIR,
+AC_DEFUN([OKJAILDIR],
 [AC_ARG_WITH(jaildir,
 --with-jaildir[[=PATH]]	     specify location of jail directory)
 if test "$with_jaildir" = yes -o "$with_jaildir" = ""; then

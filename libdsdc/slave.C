@@ -104,6 +104,10 @@ dsdc_slave_t::clean_cache ()
     dsdc_cache_obj_t *p, *n;
     size_t tot = 0;
     int nobj = 0;
+
+    if (_opts & SLAVE_NO_CLEAN)
+      return;
+
     for (p = _lru.first; p; p = n) {
         n = _lru.next (p);
         dsdc_ring_node_t *n = _hash_ring.successor (p->_key);
