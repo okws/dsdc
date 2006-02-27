@@ -8,6 +8,7 @@ extern int dsdc_missed_beats_to_death;
 extern int dsdc_port;
 extern int dsdc_slave_port;
 extern int dsdc_retry_wait_time;
+extern u_int dsdc_rpc_timeout;
 
 extern u_int dsdc_slave_nnodes;
 extern u_int dsdc_slave_maxsz;

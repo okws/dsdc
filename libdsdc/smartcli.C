@@ -219,8 +219,20 @@ dsdc_smartcli_t::get_cb_1 (ptr<dsdc_key_t> k, int time_to_expire,
   arg->key = *k;
   arg->time_to_expire = time_to_expire;
   ptr<dsdc_get_res_t> res = New refcounted<dsdc_get_res_t> ();
-  cli->call (DSDC_GET2, arg, res,
-	     wrap (this, &dsdc_smartcli_t::get_cb_2, k, cb, res));
+  rpc_call (cli, DSDC_GET2, arg, res, 
+	    wrap (this, &dsdc_smartcli_t::get_cb_2, k, cb, res));
+}
+
+void
+dsdc_smartcli_t::rpc_call (ptr<aclnt> cli,
+			   u_int32_t procno, const void *in, void *out,
+			   aclnt_cb cb)
+{
+  if (_timeout > 0) {
+    cli->timedcall (_timeout, 0, procno, in, out, cb);
+  } else {
+    cli->call (procno, in, out, cb);
+  }
 }
 
 void
@@ -337,17 +349,17 @@ release_cb_2 (cbi::ptr cb, ptr<int> res, clnt_stat err)
   (*cb) (*res);
 }
 
-static void
-acquire_cb_1 (ptr<dsdc_lock_acquire_arg_t> arg,
-	      dsdc_lock_acquire_res_cb_t cb,
-	      ptr<aclnt> cli)
+void
+dsdc_smartcli_t::acquire_cb_1 (ptr<dsdc_lock_acquire_arg_t> arg,
+			       dsdc_lock_acquire_res_cb_t cb,
+			       ptr<aclnt> cli)
 {
   if (!cli) {
     (*cb) (New refcounted<dsdc_lock_acquire_res_t> (DSDC_DEAD));
   } else {
     ptr<dsdc_lock_acquire_res_t> res =
       New refcounted<dsdc_lock_acquire_res_t> ();
-    cli->call (DSDC_LOCK_ACQUIRE, arg, res, wrap (acquire_cb_2, cb, res));
+    rpc_call (cli, DSDC_LOCK_ACQUIRE, arg, res, wrap (acquire_cb_2, cb, res));
   }
 }
 
@@ -358,6 +370,8 @@ release_cb_1 (ptr<dsdc_lock_release_arg_t> arg, cbi::ptr cb, ptr<aclnt> cli)
     (*cb) (DSDC_DEAD);
   } else {
     ptr<int> res = New refcounted<int> ();
+
+    // don't allow timouts on DSDC_LOCK_RELEASE, for now....
     cli->call (DSDC_LOCK_RELEASE, arg, res, wrap (release_cb_2, cb, res));
   }
 }
@@ -384,7 +398,8 @@ dsdc_smartcli_t::lock_acquire (ptr<dsdc_lock_acquire_arg_t> arg,
   } else if (!_lock_server) {
     (*cb) (New refcounted<dsdc_lock_acquire_res_t> (DSDC_NONODE));
   } else {
-    _lock_server->get_aclnt (wrap (acquire_cb_1, arg, cb));
+    _lock_server->get_aclnt (wrap (this, &dsdc_smartcli_t::acquire_cb_1, 
+				   arg, cb));
   }
 }
 //

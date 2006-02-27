@@ -12,6 +12,7 @@
 #include "dsdc_state.h"
 #include "qhash.h"
 #include "dsdc_lock.h"
+#include "dsdc_const.h"
 
 /**
  * @brief dsdc intelligent, which is the prefix for smart clients
@@ -251,9 +252,9 @@ public:
   void lock_release (const K &k, dsdcl_id_t id, cbi::ptr cb = NULL,
 		     bool safe = false);
 
-    private:
-        dsdc_smartcli_t *_cli;
-        int time_to_expire;
+private:
+  dsdc_smartcli_t *_cli;
+  int time_to_expire;
 };
 
 #define DSDC_RETRY_ON_STARTUP          0x1
@@ -269,7 +270,8 @@ public:
 //
 class dsdc_smartcli_t : public dsdc_system_state_cache_t {
 public:
-  dsdc_smartcli_t (u_int o = 0) : _curr_master (NULL), _opts (o) {}
+  dsdc_smartcli_t (u_int o = 0, u_int to = dsdc_rpc_timeout) 
+    : _curr_master (NULL), _opts (o), _timeout (to) {}
   ~dsdc_smartcli_t ();
 
   // adds a master from a string only, in the form
@@ -350,6 +352,10 @@ public:
   }
 
 protected:
+  // calls either with a timeout or no, depending on the value set
+  // for '_timeout'
+  void rpc_call (ptr<aclnt> cli,
+		 u_int32_t procno, const void *in, void *out, aclnt_cb cb);
 
   // fulfill the virtual interface of dsdc_system_cache_t
   ptr<aclnt> get_primary ();
@@ -363,6 +369,10 @@ protected:
                  ptr<aclnt> cli);
   void get_cb_2 (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
 		 ptr<dsdc_get_res_t> res, clnt_stat err);
+
+  void acquire_cb_1 (ptr<dsdc_lock_acquire_arg_t> arg,
+		     dsdc_lock_acquire_res_cb_t cb,
+		     ptr<aclnt> cli);
 
   template<class T> void
   get2_cb_1 (typename callback<void, dsdc_res_t, ptr<T> >::ref cb,
@@ -448,7 +458,7 @@ protected:
   bhash<str> _slaves_hash_tmp;
 
   u_int _opts;
-
+  u_int _timeout;
 };
 
 //-----------------------------------------------------------------------

@@ -268,8 +268,8 @@ dsdcs_master_t::schedule_retry ()
 void
 dsdc_slave_t::handle_mget (svccb *sbp)
 {
-    dsdc_mget2_arg_t *arg2;
-    dsdc_mget_arg_t *arg;
+    dsdc_mget2_arg_t *arg2 = NULL;
+    dsdc_mget_arg_t *arg = NULL;
     dsdc_mget_res_t res;
     u_int sz=0;
 
