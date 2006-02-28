@@ -59,14 +59,19 @@ dsdcs_master_t::ready_to_serve ()
     schedule_heartbeat ();
 }
 
-static void
-heartbeat_cb (ptr<int> i, clnt_stat e)
+void
+dsdcs_master_t::heartbeat_cb (ptr<int> i, clnt_stat e)
 {
+  bool succ = false;
   if (e) {
     warn << "RPC error in DSDC_HEARTBEAT: " << e << "\n";
   } else if (*i != DSDC_OK) {
     warn << "DSDC error in DSDC_HEARTBEAT: " << *i << "\n";
+  } else {
+    succ = true;
   }
+  if (!succ)
+    went_down ("Heartbeat ACK failed");
 }
 
 
@@ -75,7 +80,8 @@ dsdcs_master_t::heartbeat ()
 {
   if (_status == MASTER_STATUS_OK && _cli) {
     ptr<int> i = New refcounted<int> ();
-    _cli->call (DSDC_HEARTBEAT, NULL, i, wrap (heartbeat_cb, i));
+    _cli->call (DSDC_HEARTBEAT, NULL, i, 
+		wrap (this, &dsdcs_master_t::heartbeat_cb, i));
     schedule_heartbeat ();
   }
 }

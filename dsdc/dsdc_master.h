@@ -42,6 +42,8 @@ public:
   dsdc_master_t *get_master () { return _master; }
   const str &remote_peer_id () const { return _hostname; }
 
+  void unregister_slave () { _slave = NULL; }
+
 protected:
 
   void handle_heartbeat (svccb *b);
@@ -67,7 +69,7 @@ protected:
 class dsdcm_slave_base_t : public aclnt_wrap_t {
 public:
   dsdcm_slave_base_t (dsdcm_client_t *c, ptr<axprt> x);
-  virtual ~dsdcm_slave_base_t () {}
+  virtual ~dsdcm_slave_base_t () { _client->unregister_slave (); }
   void init (const dsdcx_slave_t &keys);
   void get_xdr_repr (dsdcx_slave_t *o) { *o = _xdr_repr; }
   const str &remote_peer_id () const { return _client->remote_peer_id (); }
@@ -184,11 +186,17 @@ public:
 
   dsdcm_lock_server_t *lock_server () { return _lock_servers.first; }
 
+  void watchdog_timer ();
+
   str startup_msg () const 
   {
     return strbuf ("master listening on %s:%d", dsdc_hostname.cstr (), _port);
   }
   str progname_xtra () const { return "_master"; }
+
+protected:
+  void check_all_slaves ();
+
 private:
 
   void broadcast_deletes (const dsdc_key_t &k, dsdcm_slave_t *skip);
@@ -214,6 +222,8 @@ private:
 
   // only the first is active, the rest are backups.
   tailq<dsdcm_lock_server_t, &dsdcm_lock_server_t::_lnk> _lock_servers;
+
+  timecb_t *_tmr;
 };
 
 #endif /* _DSDC_MASTER_H */

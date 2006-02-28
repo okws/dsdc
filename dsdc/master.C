@@ -12,6 +12,9 @@ dsdc_master_t::init ()
   close_on_exec (_lfd);
   listen (_lfd, 256);
   fdcb (_lfd, selread, wrap (this, &dsdc_master_t::new_connection));
+
+  // check periodically that nothing died on us with a bad heart.
+  watchdog_timer ();
   return true;
 }
 
@@ -43,7 +46,10 @@ dsdcm_client_t::dsdcm_client_t (dsdc_master_t *ma, int f, const str &h)
 
 dsdcm_slave_base_t::dsdcm_slave_base_t (dsdcm_client_t *c, ptr<axprt> x)
   : _client (c), _clnt_to_slave (aclnt::alloc (x, dsdc_prog_1))
-{}  
+{
+  // start them up with a heartbeat so not deleted right away!
+  handle_heartbeat ();
+}  
 
 dsdcm_slave_t::dsdcm_slave_t (dsdcm_client_t *c, ptr<axprt> x)
   : dsdcm_slave_base_t (c, x)
@@ -325,6 +331,9 @@ dsdcm_slave_base_t::is_dead ()
 {
   if (timenow - _last_heartbeat > 
       dsdc_heartbeat_interval * dsdc_missed_beats_to_death) {
+    if (show_debug (DSDC_DBG_LOW)) {
+      warn ("detected dead slave: %s\n", remote_peer_id ().cstr ());
+    }
     delete this;
     return true;
   }
@@ -477,3 +486,28 @@ dsdc_master_t::insert_lock_server (dsdcm_lock_server_t *ls)
   }
 }
 
+void 
+dsdc_master_t::check_all_slaves ()
+{
+  dsdcm_slave_t *sl;
+  dsdcm_lock_server_t *ls;
+  bool rst = false;
+  for (sl = _slaves.first; sl; sl = _slaves.next (sl)) {
+    if (sl->is_dead ())
+      rst = true;
+  }
+  for (ls = _lock_servers.first; ls; ls = _lock_servers.next (ls)) {
+    if (ls->is_dead ())
+      rst = true;
+  }
+  if (rst)
+    reset_system_state ();
+}
+
+void 
+dsdc_master_t::watchdog_timer ()
+{
+  check_all_slaves ();
+  // XXX hard-coded constant of 5 in there for now.
+  _tmr = delaycb (5, 0, wrap (this, &dsdc_master_t::watchdog_timer));
+}

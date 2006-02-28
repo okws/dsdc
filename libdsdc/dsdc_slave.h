@@ -58,6 +58,7 @@ private:
   void went_down (const str &w);
   void schedule_retry ();
   void heartbeat ();
+  void heartbeat_cb (ptr<int> i, clnt_stat err);
   void schedule_heartbeat ();
   void do_register ();
   void do_register_cb (ptr<int> res, clnt_stat err);
