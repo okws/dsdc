@@ -27,16 +27,17 @@ fi
 command="/disk/dsdc/0.2/${dsdc_buildtag}/bin/dsdc"
 if [ ! -x ${command} ] ; then
 	echo "${name}: unable to exec ${command}"
+	exit 1
 fi
 
 if [ "x${dsdc_masters}" = "x" ] ; then
-	dsdc_masters="stage0.okcupid.com stage1.okcupid.com"
+	echo "dsdc_masters unset, can't run dsdc_slave."
+	exit 1
 fi
 
-if [ "x${dsdc_slave_cachesize}" = "x" ] ; then
-	dsdc_slave_cachesize="512M"
+if [ "x${dsdc_slave_cachesize}" != "x" ] ; then
+	dsdc_slave_flags="${dsdc_slave_flags} -s ${dsdc_slave_cachesize}"
 fi
-dsdc_slave_flags="-s ${dsdc_slave_cachesize}"
 
 # Debug off.
 #dsdc_slave_flags="${dsdc_slave_flags} -d 0xffff"
