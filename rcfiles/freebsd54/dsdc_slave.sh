@@ -27,21 +27,8 @@ fi
 command="/disk/dsdc/0.2/${dsdc_buildtag}/bin/dsdc"
 if [ ! -x ${command} ] ; then
 	echo "${name}: unable to exec ${command}"
-	exit 1
 fi
 
-if [ "x${dsdc_masters}" = "x" ] ; then
-	echo "dsdc_masters unset, can't run dsdc_slave."
-	exit 1
-fi
-
-if [ "x${dsdc_slave_cachesize}" != "x" ] ; then
-	dsdc_slave_flags="${dsdc_slave_flags} -s ${dsdc_slave_cachesize}"
-fi
-
-# Debug off.
-#dsdc_slave_flags="${dsdc_slave_flags} -d 0xffff"
-dsdc_slave_flags="${dsdc_slave_flags} -d 0x01"
 dsdc_slave_flags="-S -q ${dsdc_slave_flags} ${dsdc_masters}"
 
 pidfile="/var/run/dsdc_slave.pid"
