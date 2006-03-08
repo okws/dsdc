@@ -236,10 +236,12 @@ dsdc_smartcli_t::rpc_call (ptr<aclnt> cli,
 }
 
 void
-dsdci_srv_t::connect_cb (cbb cb, int f)
+dsdci_srv_t::connect_cb (cbb cb, ptr<bool> df, int f)
 {
   bool ret = true;
-  if ((_fd = f) < 0) {
+  if (*df) {
+    ret = false;
+  } else if ((_fd = f) < 0) {
     if (show_debug (DSDC_DBG_LOW)) {
       warn << "connection to " << typ () << " failed: " << key () << "\n";
     }
@@ -262,13 +264,17 @@ dsdci_srv_t::connect (cbb cb)
     (*cb) (true);
     return;
   }
-  tcpconnect (_hostname, _port, wrap (this, &dsdci_srv_t::connect_cb, cb));
+  tcpconnect (_hostname, _port, wrap (this, &dsdci_srv_t::connect_cb, 
+				      cb, _destroyed));
 }
 
 void
-dsdci_srv_t::get_aclnt_cb (aclnt_cb_t cb, bool b)
+dsdci_srv_t::get_aclnt_cb (aclnt_cb_t cb, ptr<bool> df, bool b)
 {
-  (*cb) (_cli);
+  if (*df)
+    (*cb) (NULL);
+  else
+    (*cb) (_cli);
 }
 
 void
@@ -278,7 +284,7 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
     (*cb) (_cli);
     return;
   }
-  connect (wrap (this, &dsdci_srv_t::get_aclnt_cb, cb));
+  connect (wrap (this, &dsdci_srv_t::get_aclnt_cb, cb, _destroyed));
 }
 
 void

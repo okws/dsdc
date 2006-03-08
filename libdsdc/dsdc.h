@@ -27,7 +27,7 @@ public:
 
   const str &key () const { return _key; }
   void connect (cbb cb);
-  void connect_cb (cbb cb, int f);
+  void connect_cb (cbb cb, ptr<bool> df, int f);
 
   void hit_eof (ptr<bool> df); // call this when there is an EOF
 
@@ -63,7 +63,7 @@ public:
    * @param cb callback to call with the resulting ptr<aclnt>, or NULL on err
    */
   void get_aclnt (aclnt_cb_t cb);
-  void get_aclnt_cb (aclnt_cb_t cb, bool b);
+  void get_aclnt_cb (aclnt_cb_t cb, ptr<bool> df, bool b);
   bool is_dead () ;
 
   /**
