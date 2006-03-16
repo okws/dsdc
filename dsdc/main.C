@@ -18,7 +18,6 @@ class dsdc_run_t {
 public:
   dsdc_run_t () : _app (NULL) {}
   dsdc_app_t *_app;
-  void foo () {}
 };
 
 static void
@@ -91,6 +90,7 @@ usage (bool err = true)
 	<< "\n"
 	<< "dsdc version " << VERSION << "; built " 
 	<< __DATE__ << " " << __TIME__ << "\n";
+  warnx << "\n";
     
   exit (1);
 }
