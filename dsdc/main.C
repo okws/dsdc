@@ -18,6 +18,7 @@ class dsdc_run_t {
 public:
   dsdc_run_t () : _app (NULL) {}
   dsdc_app_t *_app;
+  void foo () {}
 };
 
 static void
@@ -241,7 +242,7 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
   }
 
   if (implicit_mode != DSDC_MODE_NONE) {
-    if (mode != implicit_mode) {
+    if (mode != DSDC_MODE_NONE && mode != implicit_mode) {
       warn << "Cannot use dsdc_slave->dsdc hard link and supply a "
 	   << "different operation mode.\n";
       usage ();
