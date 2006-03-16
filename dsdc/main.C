@@ -21,26 +21,32 @@ public:
 };
 
 static void
-usage ()
+usage (bool err = true)
 {
+  if (err) warnx << "\n";
+
   warnx << "usage: " << progname << " -M [-d<debug-level>] "
 	<< "[-P <packetsz>] [-p <port>]\n"
 	<< "       " << progname << " -S [-d<debug-level>] [-RD] "
 	<< "[-P <packetsz>] [-n <n nodes>]\n"
-	<< "            [-s <maxsize> (M|G|k|b)]  [-p<port>] m1:p1 m2:p2 ...\n"
-	<< "       " << progname << " [-d<debug-level>] [-p<port>] -L "
+	<< "                 [-s <maxsize> (M|G|k|b)]  [-p<port>] "
+	<< "m1:p1 m2:p2 ...\n"
+	<< "       " << progname << " -L [-d<debug-level>] [-p<port>] "
 	<< "m1:p1 m2:p2 ...\n" 
 	<< "\n"
 	<< "Summary:\n"
+	<< "\n"
 	<< "  Run dsdc in one of three modes: lock, master, or slave,\n"
 	<< "  by specifying one of the -L, -M or -S flags, respectively.\n"
 	<< "\n"
 	<< "  -L lock server:\n"
+	<< "\n"
 	<< "     Make this DSDC process run as a lock server, handling\n"
 	<< "     distributed requests for locks from clients and smart\n"
 	<< "     clients.\n"
 	<< "\n"
 	<<"   -M master node:\n"
+	<< "\n"
 	<< "     Make this DSDC node run as a master node, meaning that it\n"
 	<< "     will watch all slaves, and accumulate uptime statistics\n"
 	<< "     for the ring, then pass those on to the slaves and to\n"
@@ -48,10 +54,13 @@ usage ()
 	<< "     it directs traffic toward the correct nodes.\n"
 	<< "\n"
 	<< "  -S slave node:\n"
+	<< "\n"
 	<< "     Make this DSDC node run as a slave node, meaning that it\n"
 	<< "     will be storing data.  Supply the names of the masters\n"
 	<< "     to connect to as arguments, in <host>:<port> format.\n"
+	<< "\n"
 	<< "    Sub-options:\n"
+	<< "\n"
 	<< "     -R  Don't randomize, use deterministic seeds. Everytime\n"
 	<< "         a slave node starts up on this machine, with this port\n"
 	<< "         it will take the same seeds.  This will minimize the\n"
@@ -61,13 +70,27 @@ usage ()
 	<< "         while minimizing consistency.\n"
 	<< "\n"
 	<< " Global Options:\n"
+	<< "\n"
 	<< "     -P <packet-size>   Specify the largest allowable AXPRT "
 	<< "packet size.\n"
 	<< "     -p <port>          Listen on the given port\n"
 	<< "     -d <debug-level>   Specify a debug level for "
-	<< "error reporting.\n";
-
-
+	<< "error reporting.\n"
+	<< "\n"
+	<< "Shortcuts:\n"
+	<< "\n"
+	<< "   If dsdc is hardlinked to with the hardlinks:\n"
+	<< "\n"
+	<< "      dsdc_lockserver -> dsdc\n"
+	<< "      dsdc_master -> dsdc\n"
+	<< "      dsdc_slave -> slave\n"
+	<< "\n"
+	<< "  it runs automatically in lockserver, master, or slave mode, "
+	<< "respectively.\n"
+	<< "\n"
+	<< "dsdc version " << VERSION << "; built " 
+	<< __DATE__ << " " << __TIME__ << "\n";
+    
   exit (1);
 }
 
@@ -119,6 +142,7 @@ static bool
 parseargs (int argc, char *argv[], dsdc_app_t **app)
 {
   dsdc_mode_t mode = DSDC_MODE_NONE;
+  dsdc_mode_t implicit_mode = DSDC_MODE_NONE;
   int ch;
   u_int nnodes = 0;
   u_int maxsz = 0;
@@ -133,6 +157,7 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
     switch (ch) {
     case 'd':
       if (!convertint (optarg, &dbg_opt)) {
+	warn << "optarg to -d must be an int\n";
 	usage ();
       }
       if (dbg_opt == 0) {
@@ -145,26 +170,36 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
       hostname = optarg;
       break;
     case 'L':
-      if (mode != DSDC_MODE_NONE)
+      if (mode != DSDC_MODE_NONE) {
+	warn << "run mode supplied more than once.\n";
 	usage ();
+      }
       mode = DSDC_MODE_LOCKSERVER;
       break;
     case 'M':
-      if (mode != DSDC_MODE_NONE)
+      if (mode != DSDC_MODE_NONE) {
+	warn << "run mode supplied more than once.\n";
 	usage ();
+      }
       mode = DSDC_MODE_MASTER;
       break;
     case 'n':
-      if (!convertint (optarg, &nnodes))
+      if (!convertint (optarg, &nnodes)) {
+	warn << "optarg to -n must be type int.\n";
 	usage ();
+      }
       break;
     case 'p':
-      if (!convertint (optarg, &port))
+      if (!convertint (optarg, &port)) {
+	warn << "optarg to -p must be type int.\n";
 	usage ();
+      }
       break;
     case 'P':
-      if (!convertint (optarg, &dsdc_packet_sz))
+      if (!convertint (optarg, &dsdc_packet_sz)) {
+	warn << "optarg to -P must be type int.\n";
 	usage ();
+      }	
       break;
     case 'q':
       daemon_mode = true;
@@ -176,21 +211,42 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
       opts = opts | SLAVE_DETERMINISTIC_SEEDS;
       break;
     case 'S':
-      if (mode != DSDC_MODE_NONE)
+      if (mode != DSDC_MODE_NONE) {
+	warn << "run mode supplied more than once.\n";
 	usage ();
+      }
       mode = DSDC_MODE_SLAVE;
       break;
     case 's':
-      if (!parse_memsize (optarg, 'm', &maxsz))
+      if (!parse_memsize (optarg, 'm', &maxsz)) {
+	warn << "invalid memory size given to -m\n";
 	usage ();
+      }
       break;
     case 'Z':
       cmd_pidfile = optarg;
       break;
     default:
-      usage ();
+      usage (false);
       break;
     }
+  }
+
+  if (progname == "dsdc_slave") {
+    implicit_mode = DSDC_MODE_SLAVE;
+  } else if (progname == "dsdc_master") {
+    implicit_mode = DSDC_MODE_MASTER;
+  } else if (progname == "dsdc_lockserver") {
+    implicit_mode = DSDC_MODE_LOCKSERVER;
+  }
+
+  if (implicit_mode != DSDC_MODE_NONE) {
+    if (mode != implicit_mode) {
+      warn << "Cannot use dsdc_slave->dsdc hard link and supply a "
+	   << "different operation mode.\n";
+      usage ();
+    }
+    mode = implicit_mode;
   }
 
   set_debug (dbg_lev);
@@ -310,12 +366,6 @@ main (int argc, char *argv[])
       // With last arg = false, do not put pid into progname
       pidfile_name = app->progname (argv[0], false);
   }
-
-#ifdef __FreeBSD__
-  // If using FreeBSD's RC process management system...
-  setproctitle ("%s", pidfile_name.cstr ());
-  setprogname (const_cast<char*> (pidfile_name.cstr ()));
-#endif /* __FreeBSD__ */
 
   if (app->daemonize ()) 
     daemonize ();

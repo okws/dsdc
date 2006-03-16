@@ -61,7 +61,7 @@ str
 dsdc_app_t::progname (const str &in, bool usepid) const
 {
   strbuf b (in);
-  if (progname_xtra ())
+  if (progname_xtra () && ::progname == "dsdc")
     b << progname_xtra ();
   if (_daemonize && usepid) 
     b.fmt ("[%d]", getpid ());
