@@ -10,11 +10,11 @@ dsdc_SOURCES = master.C main.C
 #dsdc_lmgr_SOURCES = master.C main.C
 
 install-exec-hook:
-	ln $(dsdcbindir)/dsdc$(EXEEXT) \
+	ln -f $(dsdcbindir)/dsdc$(EXEEXT) \
                 $(dsdcbindir)/dsdc_slave$(EXEEXT)
-	ln $(dsdcbindir)/dsdc$(EXEEXT) \
+	ln -f $(dsdcbindir)/dsdc$(EXEEXT) \
                 $(dsdcbindir)/dsdc_master$(EXEEXT)
-	ln $(dsdcbindir)/dsdc$(EXEEXT) \
+	ln -f $(dsdcbindir)/dsdc$(EXEEXT) \
                 $(dsdcbindir)/dsdc_lockserver$(EXEEXT)
 
 CLEANFILES = core *.core *~
