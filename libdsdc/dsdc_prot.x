@@ -130,7 +130,7 @@ enum dsdc_res_t {
   DSDC_RPC_ERROR = 6,           /* RPC communication error */
   DSDC_DEAD = 7,                /* Node was found, but is DEAD */
   DSDC_LOCKED = 8,              /* In advisory locking, acquire failed */
-  DSDC_TIMEOUT = 9,             /*  */
+  DSDC_TIMEOUT = 9,             /* Not used yet.... */
   DSDC_ERRDECODE = 10,		/* Error decoding object. */
   DSDC_ERRENCODE = 11,		/* Error encoding object. */
 };
