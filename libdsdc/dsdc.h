@@ -564,7 +564,7 @@ dsdc_smartcli_t::get2_cb_1 (typename callback<void, dsdc_res_t,
   if (res->status == DSDC_OK) {
     obj = New refcounted<T> ();
     if (!bytes2xdr (*obj, *res->obj)) {
-	    (*cb) (DSDC_ERRDECODE, obj);
+	    (*cb) (DSDC_ERRDECODE, NULL);
 	    return;
     }
   }
