@@ -563,7 +563,10 @@ dsdc_smartcli_t::get2_cb_1 (typename callback<void, dsdc_res_t,
   ptr<T> obj;
   if (res->status == DSDC_OK) {
     obj = New refcounted<T> ();
-    bytes2xdr (*obj, *res->obj);
+    if (!bytes2xdr (*obj, *res->obj)) {
+	    (*cb) (DSDC_ERRDECODE, obj);
+	    return;
+    }
   }
   (*cb) (res->status, obj);
 }
@@ -583,8 +586,11 @@ dsdc_smartcli_t::put2 (const dsdc_key_t &k, const T &obj,
 {
   ptr<dsdc_put_arg_t> arg = New refcounted<dsdc_put_arg_t> ();
   arg->key = k;
-  xdr2bytes (arg->obj, obj);
-  put (arg, cb, false);
+  if (!xdr2bytes (arg->obj, obj)) {
+    cb(DSDC_ERRENCODE);
+  } else {
+    put (arg, cb, false);
+  }
 }
 
 //

@@ -121,16 +121,18 @@ struct dsdc_key_template_t {
 };
 
 enum dsdc_res_t {
-	DSDC_OK = 0,
-	DSDC_REPLACED = 1,
-	DSDC_INSERTED = 2,
-	DSDC_NOTFOUND = 3,
-	DSDC_NONODE = 4,
-	DSDC_ALREADY_REGISTERED = 5,
-	DSDC_RPC_ERROR = 6,
-	DSDC_DEAD = 7,
-	DSDC_LOCKED = 8,
-	DSDC_TIMEOUT = 9
+  DSDC_OK = 0,			/* All good. */
+  DSDC_REPLACED = 1,            /* Insert succeeded; object replaced */
+  DSDC_INSERTED = 2,            /* Insert succeeded; object created */
+  DSDC_NOTFOUND = 3,		/* Key lookup failed. */
+  DSDC_NONODE = 4,              /* No slave nodes found in the ring */
+  DSDC_ALREADY_REGISTERED = 5,  /* Second attempt to register */
+  DSDC_RPC_ERROR = 6,           /* RPC communication error */
+  DSDC_DEAD = 7,                /* Node was found, but is DEAD */
+  DSDC_LOCKED = 8,              /* In advisory locking, acquire failed */
+  DSDC_TIMEOUT = 9,             /*  */
+  DSDC_ERRDECODE = 10,		/* Error decoding object. */
+  DSDC_ERRENCODE = 11,		/* Error encoding object. */
 };
 
 typedef opaque dsdc_obj_t<>;
