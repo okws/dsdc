@@ -105,9 +105,9 @@ dnl tag situation
 dnl
 DSDC_SYSTEMBIN
 if test -z "$sfstag" -o "$dsdc_systembin" = "yes" ; then
-   dsdcbindir='${prefix}/bin'
+   dsdcexecbindir='${prefix}/bin'
 else
-   dsdcbindir='${dsdctopdir}/bin'
+   dsdcexecbindir='${dsdctopdir}/bin'
 fi
 
 ETAGS_ARGS='-C /dev/null'
@@ -117,7 +117,7 @@ AC_SUBST(okm_prefix)
 AC_SUBST(okm_name)
 AC_SUBST(dsdctopdir)
 AC_SUBST(dsdclibdir)
-AC_SUBST(dsdcbindir)
+AC_SUBST(dsdcexecbindir)
 AC_SUBST(dsdcexecdir)
 AC_SUBST(dsdcincludedir)
 

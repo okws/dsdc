@@ -2,7 +2,7 @@
 $(PROGRAMS): $(LDEPS)
 
 noinst_HEADERS = dsdc_master.h 
-dsdcbin_PROGRAMS = dsdc
+dsdcexecbin_PROGRAMS = dsdc
 dsdc_SOURCES = master.C main.C
 #dsdcbin_PROGRAMS = dsdc_master dsdc_slave dsdc_lmgr
 #dsdc_master_SOURCES = master.C main.C
@@ -10,12 +10,12 @@ dsdc_SOURCES = master.C main.C
 #dsdc_lmgr_SOURCES = master.C main.C
 
 install-exec-hook:
-	ln -f $(dsdcbindir)/dsdc$(EXEEXT) \
-                $(dsdcbindir)/dsdc_slave$(EXEEXT)
-	ln -f $(dsdcbindir)/dsdc$(EXEEXT) \
-                $(dsdcbindir)/dsdc_master$(EXEEXT)
-	ln -f $(dsdcbindir)/dsdc$(EXEEXT) \
-                $(dsdcbindir)/dsdc_lockserver$(EXEEXT)
+	ln -f $(dsdcexecbindir)/dsdc$(EXEEXT) \
+                $(dsdcexecbindir)/dsdc_slave$(EXEEXT)
+	ln -f $(dsdcexecbindir)/dsdc$(EXEEXT) \
+                $(dsdcexecbindir)/dsdc_master$(EXEEXT)
+	ln -f $(dsdcexecbindir)/dsdc$(EXEEXT) \
+                $(dsdcexecbindir)/dsdc_lockserver$(EXEEXT)
 
 CLEANFILES = core *.core *~
 EXTRA_DIST = .cvsignore
