@@ -567,6 +567,8 @@ dsdc_smartcli_t::get2_cb_1 (typename callback<void, dsdc_res_t,
 	    (*cb) (DSDC_ERRDECODE, NULL);
 	    return;
     }
+  } else if (res->status == DSDC_RPC_ERROR) {
+	  warn << __func__ << ": DSDC RPC ERROR: " << (int)*(res->err) << "\n";
   }
   (*cb) (res->status, obj);
 }
