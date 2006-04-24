@@ -35,6 +35,9 @@
 // For member test stats
 %#define MTEST_STATS_FROBBER	14
 
+// For user settings
+%#define SETTINGS_FROBBER	15
+
 
 /* %#include "userid_prot.h" */
 
