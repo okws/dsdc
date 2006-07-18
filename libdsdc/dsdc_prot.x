@@ -135,7 +135,7 @@ enum dsdc_res_t {
   DSDC_LOCKED = 8,              /* In advisory locking, acquire failed */
   DSDC_TIMEOUT = 9,             /* Not used yet.... */
   DSDC_ERRDECODE = 10,		/* Error decoding object. */
-  DSDC_ERRENCODE = 11,		/* Error encoding object. */
+  DSDC_ERRENCODE = 11		/* Error encoding object. */
 };
 
 typedef opaque dsdc_obj_t<>;
