@@ -13,6 +13,7 @@
 #include "ihash.h"
 #include "async.h"
 #include "arpc.h"
+#include "tame.h"
 
 //
 // a glossary:
@@ -116,6 +117,14 @@ public:
   void remove_node (dsdc_master_t *m, dsdc_ring_node_t *n);
   void insert_node (dsdc_master_t *m, dsdc_ring_node_t *n);
   list_entry<dsdcm_slave_t> _lnk;
+  ihash_entry<dsdcm_slave_t> _hlnk;
+};
+
+template<> struct keyfn<dsdcm_slave_t, str>
+{
+  keyfn () {}
+  const str & operator () (dsdcm_slave_t *s) const
+  { return s->remote_peer_id (); }
 };
 
 /**
@@ -139,7 +148,7 @@ public:
 class dsdc_master_t : public dsdc_app_t {
 public:
   dsdc_master_t (int p = -1) : 
-    _port (p > 0 ? p : dsdc_port), _lfd (-1) {}
+    _port (p > 0 ? p : dsdc_port), _lfd (-1), _n_slaves (0), _tmr (NULL) {}
   virtual ~dsdc_master_t () {}
 
   bool init ();                      // launch this master
@@ -156,9 +165,9 @@ public:
   { _clients.remove (cli); }
 
   void insert_slave (dsdcm_slave_t *sl)
-  { _slaves.insert_head (sl); }
+  { _slaves.insert_head (sl); _n_slaves ++; _slave_hash.insert (sl); }
   void remove_slave (dsdcm_slave_t *sl)
-  { _slaves.remove (sl); }
+  { _slaves.remove (sl); _n_slaves --; _slave_hash.remove (sl); }
 
   void insert_lock_server (dsdcm_lock_server_t *ls);
   void remove_lock_server (dsdcm_lock_server_t *ls)
@@ -171,12 +180,13 @@ public:
   // host
   dsdc_res_t get_aclnt (const dsdc_key_t &k, ptr<aclnt> *cli);
 
-  void handle_get (svccb *b);
+  void handle_get (svccb *b, CLOSURE);
   void handle_remove (svccb *b);
   void handle_put (svccb *b);
   void handle_getstate (svccb *b);
   void handle_lock_release (svccb *b);
   void handle_lock_acquire (svccb *b);
+  void handle_get_stats (svccb *b, CLOSURE);
 
   void broadcast_newnode (const dsdcx_slave_t &x, dsdcm_slave_t *skip);
 
@@ -196,9 +206,11 @@ public:
 
 protected:
   void check_all_slaves ();
-
+  void get_stats (dsdc_slave_statistic_t *out,
+		  const dsdc_get_stats_single_arg_t *arg,
+		  dsdcm_slave_t *sl, cbv cb, CLOSURE);
 private:
-
+  
   void broadcast_deletes (const dsdc_key_t &k, dsdcm_slave_t *skip);
 
   int _port;                         // the port it should listen on
@@ -210,6 +222,8 @@ private:
 
   // keep track of all of the slave pointers
   list<dsdcm_slave_t, &dsdcm_slave_t::_lnk> _slaves;
+  fhash<str, dsdcm_slave_t, &dsdcm_slave_t::_hlnk> _slave_hash;
+  int _n_slaves;
 
   // the itree containing all of the nodes in the consistent hash ring
   // for all of the slaves.  note that every slave in the ring can

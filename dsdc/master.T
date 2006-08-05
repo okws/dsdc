@@ -1,5 +1,8 @@
+// -*-c++-*-
+
 #include "dsdc_master.h"
 #include "crypt.h"
+#include "tame.h"
 
 bool
 dsdc_master_t::init ()
@@ -89,6 +92,8 @@ dsdcm_client_t::dispatch (svccb *sbp)
 
   switch (sbp->proc ()) {
   case DSDC_GET:
+  case DSDC_GET2:
+  case DSDC_GET3:
     _master->handle_get (sbp);
     break;
   case DSDC_REMOVE:
@@ -111,6 +116,9 @@ dsdcm_client_t::dispatch (svccb *sbp)
     break;
   case DSDC_LOCK_RELEASE:
     _master->handle_lock_release (sbp);
+    break;
+  case DSDC_GET_STATS:
+    _master->handle_get_stats (sbp);
     break;
   default:
     sbp->reject (PROC_UNAVAIL);
@@ -340,16 +348,6 @@ dsdcm_slave_base_t::is_dead ()
   return false;
 }
 
-static void 
-handle_get_cb (ptr<dsdc_get_res_t> res, svccb *sbp, clnt_stat err)
-{
-  if (sbp->getsrv ()->xprt ()->ateof ())
-    return;
-  if (err) 
-    res->set_status (DSDC_RPC_ERROR);
-  sbp->reply (res);
-}
-
 static void
 handle_vanilla_cb (ptr<int> res, svccb *sbp, clnt_stat err)
 {
@@ -360,19 +358,52 @@ handle_vanilla_cb (ptr<int> res, svccb *sbp, clnt_stat err)
   sbp->reply (res);
 }
 
-void
+TAMED void
 dsdc_master_t::handle_get (svccb *sbp)
 {
-  dsdc_key_t *k = sbp->Xtmpl getarg<dsdc_key_t> ();
-  ptr<dsdc_get_res_t> res = New refcounted<dsdc_get_res_t> ();
-  ptr<aclnt> cli;
+  VARS {
+    const dsdc_get_arg_t *a1;
+    const dsdc_req_t *a2;
+    const dsdc_get3_arg_t *a3;
+    const void *av (NULL);
+    dsdc_get_res_t res;
+    ptr<aclnt> cli;
+    dsdc_res_t r;
+    clnt_stat err;
+    dsdc_key_t key;
+  }
 
-  dsdc_res_t r = get_aclnt (*k, &cli);
-  if (r != DSDC_OK) {
-    res->set_status (r);
-    sbp->reply (res);
-  } else 
-    cli->call (DSDC_GET, k, res, wrap (handle_get_cb, res, sbp));
+  switch (sbp->proc ()) {
+  case DSDC_GET: 
+    a1 = sbp->Xtmpl getarg<dsdc_get_arg_t> ();
+    key = *a1;
+    av = a1;
+    break;
+  case DSDC_GET2:
+    a2 = sbp->Xtmpl getarg<dsdc_req_t> ();
+    av = a2;
+    key = a2->key;
+    break;
+  case DSDC_GET3:
+    a3 = sbp->Xtmpl getarg<dsdc_get3_arg_t> ();
+    av = a3;
+    key = a3->key;
+    break;
+  default:
+    panic ("Unexpected key; shouldn't be here.\n");
+    break;
+  }
+    
+  if ((r = get_aclnt (key, &cli)) != DSDC_OK) {
+    res.set_status (r);
+  } else {
+    BLOCK { cli->call (sbp->proc (), av, &res, @(err)); }
+    if (err) 
+      res.set_status (DSDC_RPC_ERROR);
+  }
+  
+  if (!sbp->getsrv ()->xprt ()->ateof ()) 
+    sbp->replyref (res);
 }
 
 static void
@@ -510,4 +541,94 @@ dsdc_master_t::watchdog_timer ()
   check_all_slaves ();
   // XXX hard-coded constant of 5 in there for now.
   _tmr = delaycb (5, 0, wrap (this, &dsdc_master_t::watchdog_timer));
+}
+
+TAMED void
+dsdc_master_t::get_stats (dsdc_slave_statistic_t *out,
+			  const dsdc_get_stats_single_arg_t *arg,
+			  dsdcm_slave_t *sl, cbv cb)
+{
+  VARS {
+    clnt_stat err;
+    ptr<aclnt> c;
+  }
+  out->host = sl->remote_peer_id ();
+  c = sl->get_aclnt ();
+  if (!c) {
+    out->stats.set_status (DSDC_DEAD);
+  } else {
+    BLOCK { c->call (DSDC_GET_STATS_SINGLE, arg, &out->stats, @(err)); }
+    if (err) {
+      out->stats.set_status (DSDC_RPC_ERROR);
+      warn << __func__ << ": DSDC RPC ERROR [" << out->host 
+	   << "]: " << err << "\n";
+    }
+  }
+  SIGNAL (cb);
+}
+
+TAMED void
+dsdc_master_t::handle_get_stats (svccb *sbp)
+{
+  VARS {
+    dsdc_get_stats_arg_t *a;
+    dsdc_slave_statistics_t res;
+    dsdcm_slave_t *sl, *p;
+    u_int r, max;
+    size_t s, i;
+    str nm;
+  }
+  a = sbp->Xtmpl getarg<dsdc_get_stats_arg_t> ();
+  switch (a->hosts.typ) {
+  case DSDC_SET_FIRST:
+  case DSDC_SET_RANDOM:
+    {
+      max = 0;
+      for (sl = p = _slaves.first; p && a->hosts.typ != DSDC_SET_FIRST; 
+	   p = _slaves.next (p)) {
+	if ((r = rand ()) >= max) {
+	  max = r;
+	  sl = p;
+	}
+      }
+      if (sl) {
+	res.setsize (1);
+	BLOCK { get_stats (&res[0], &a->getparams, sl, @()); }
+      } else {
+	res.setsize (0);
+      }
+      break;
+    }
+  case DSDC_SET_SOME:
+    {
+      s = a->hosts.some->size ();
+      res.setsize (s);
+      BLOCK {
+	for (i = 0; i < s; i++) {
+	  nm = (*a->hosts.some)[i];
+	  if ((p = _slave_hash[nm])) {
+	    get_stats (&res[i], &a->getparams, p, @()); 
+	  } else {
+	    res[i].host = nm;
+	    res[i].stats.set_status (DSDC_NOTFOUND);
+	  }
+	}
+      }
+      break;
+    }
+  case DSDC_SET_ALL:
+    {
+      res.setsize (_n_slaves);
+      BLOCK {
+	for (p = _slaves.first; p; p = _slaves.next (p)) {
+	  get_stats (&res[0], &a->getparams, p, @());
+	}
+      }
+      break;
+    }
+  default:
+    break;
+  }
+  if (!sbp->getsrv ()->xprt ()->ateof ())
+    sbp->replyref (res);
 }

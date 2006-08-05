@@ -199,11 +199,11 @@ put_cli_t::do_cmd ()
 void
 get_cli_t::do_cmd ()
 {
-  dsdc_key_t outkey;
-  hash_key (_key, &outkey);
+  dsdc_get_arg_t arg;
+  hash_key (_key, &arg);
   
   ptr<dsdc_get_res_t> res = New refcounted<dsdc_get_res_t> ();
-  _cli->call (DSDC_GET, &outkey, res,
+  _cli->call (DSDC_GET, &arg, res,
 	      wrap (this, &get_cli_t::do_cmd_cb, res));
 }
 

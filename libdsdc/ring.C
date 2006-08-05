@@ -17,6 +17,11 @@ dsdc_hash_ring_t::successor (const dsdc_key_t &k) const
   dsdc_ring_node_t *ret = NULL;
   dsdc_ring_node_t *n = root ();
 
+  if (!n && show_debug (DSDC_DBG_MED)) {
+    warn ("DSDC ring is empty; successor lookup will fail for key: %s\n",
+	  key_to_str (k).cstr ());
+  }
+
   while (n) {
     // i'm pretty sure that res > 0 implies that
     // n->get_key () < k, but let's check on that...

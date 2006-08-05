@@ -9,13 +9,19 @@
 #include "dsdc_prot.h"
 #include "dsdc_util.h"
 #include "dsdc_match.h"
+#include "dsdc_stats.h"
 #include "crypt.h"
 
 void
-dsdc_cache_obj_t::set (const dsdc_key_t &k, const dsdc_obj_t &o)
+dsdc_cache_obj_t::set (const dsdc_key_t &k, const dsdc_obj_t &o,
+		       dsdc::annotation::base_t *a)
 {
     _key = k;
     _obj = o;
+
+    if ((_annotation = a)) {
+      a->elem_create (_obj.size ());
+    }
 }
 
 void
@@ -116,13 +122,17 @@ dsdc_slave_t::clean_cache ()
 
     for (p = _lru.first; p; p = n) {
         n = _lru.next (p);
-        dsdc_ring_node_t *n = _hash_ring.successor (p->_key);
-        if (!_khash[n->_key]) {
-            if (show_debug (DSDC_DBG_MED)) {
-                warn ("CLEAN: removed object: %s\n", key_to_str (p->_key).cstr () );
-            }
-            tot += lru_remove_obj (p, true);
-            nobj ++;
+
+        dsdc_ring_node_t *nn = _hash_ring.successor (p->_key);
+        if (!nn || !_khash[nn->_key]) {
+
+	  if (show_debug (DSDC_DBG_MED)) {
+	    warn ("CLEAN: removed object: %s\n", 
+		  key_to_str (p->_key).cstr () );
+	  }
+
+	  tot += lru_remove_obj (p, true, REMOVE_CLEAN);
+	  nobj ++;
         }
     }
     _n_updates_since_clean = 0;
@@ -190,35 +200,63 @@ dsdcs_lockserver_t::dispatch (svccb *sbp)
 }
 
 void
+dsdc_slave_t::handle_get_stats (svccb *sbp)
+{
+  dsdc_get_stats_single_arg_t *a =
+    sbp->Xtmpl getarg<dsdc_get_stats_single_arg_t> ();
+
+  dsdc_get_stats_single_res_t res;
+
+  dsdc::annotation::collector.prepare_sweep ();
+
+  for (dsdc_cache_obj_t *o = _lru.first; o; o = _lru.next (o)) {
+    o->collect_statistics (false);
+  }
+  res.set_status (DSDC_OK);
+  dsdc_res_t rc = 
+    dsdc::annotation::collector.output (res.stats, a->params);
+  if (rc != DSDC_OK)
+    res.set_status (rc);
+
+  sbp->replyref (res);
+}
+
+void
 dsdc_slave_t::dispatch (svccb *sbp)
 {
     switch (sbp->proc ()) {
-        case DSDC_GET:
-            handle_get (sbp);
-            break;
-        case DSDC_MGET:
-            handle_mget (sbp);
-            break;
-        case DSDC_PUT:
-            handle_put (sbp);
-            break;
-        case DSDC_REMOVE:
-            handle_remove (sbp);
-            break;
-        case DSDC_GET2:
-            handle_get (sbp);
-            break;
-        case DSDC_MGET2:
-            handle_mget (sbp);
-            break;
+    case DSDC_GET:
+    case DSDC_GET2:
+    case DSDC_GET3:
+      handle_get (sbp);
+      break;
+    case DSDC_MGET:
+      handle_mget (sbp);
+      break;
+    case DSDC_PUT:
+      handle_put (sbp);
+      break;
+    case DSDC_PUT3:
+      handle_put3 (sbp);
+      break;
+    case DSDC_REMOVE:
+      handle_remove (sbp);
+      break;
+    case DSDC_MGET2:
+      handle_mget (sbp);
+      break;
 #ifndef DSDC_NO_CUPID
-        case DSDC_COMPUTE_MATCHES:
-            handle_compute_matches(sbp);
-            break;
+    case DSDC_COMPUTE_MATCHES:
+      handle_compute_matches(sbp);
+      break;
 #endif
-        default:
-            sbp->reject (PROC_UNAVAIL);
-            break;
+    case DSDC_GET_STATS_SINGLE:
+      handle_get_stats (sbp);
+      break;
+      
+    default:
+      sbp->reject (PROC_UNAVAIL);
+      break;
     }
 }
 
@@ -315,20 +353,40 @@ void
 dsdc_slave_t::handle_get (svccb *sbp)
 {
     dsdc_obj_t *o;
-    if (sbp->proc() == DSDC_GET2) {
+
+    switch (sbp->proc ()) {
+    case DSDC_GET2:
+      {
         dsdc_req_t *k = sbp->Xtmpl getarg<dsdc_req_t> ();
         o = lru_lookup (k->key, k->time_to_expire);
-    } else {
+	break;
+      }
+    case DSDC_GET3:
+      {
+	dsdc_get3_arg_t *a = sbp->Xtmpl getarg<dsdc_get3_arg_t> ();
+	if (!(o = lru_lookup (a->key, a->time_to_expire))) {
+	  dsdc::annotation::collector.missed_get (a->annotation);
+	}
+	break;
+      }
+    case DSDC_GET:
+      {
         dsdc_key_t *k = sbp->Xtmpl getarg<dsdc_key_t> ();
         o = lru_lookup (*k);
+	break;
+      }
+    default:
+      panic ("Unexpected DSDC_GET type.\n");
     }
+
     dsdc_get_res_t res;
     if (o) {
         res.set_status (DSDC_OK);
-        *res.obj = *o; // XXX might need to copy
+        *res.obj = *o;
     } else {
         res.set_status (DSDC_NOTFOUND);
     }
+
     sbp->replyref (res);
 }
 
@@ -352,30 +410,57 @@ void
 dsdc_slave_t::handle_put (svccb *sbp)
 {
     dsdc_put_arg_t *a = sbp->Xtmpl getarg<dsdc_put_arg_t> ();
-    bool rc = lru_insert (a->key, a->obj);
+    dsdc_res_t res = handle_put (a->key, a->obj);
+    sbp->replyref (res);
+}
+
+void
+dsdc_slave_t::handle_put3 (svccb *sbp)
+{
+  dsdc_put3_arg_t *a = sbp->Xtmpl getarg<dsdc_put3_arg_t> ();
+  dsdc::annotation::base_t *n = 
+    dsdc::annotation::collector.alloc (a->annotation);
+  dsdc_res_t res = handle_put (a->key, a->obj, n);
+  sbp->replyref (res);
+}
+
+dsdc_res_t
+dsdc_slave_t::handle_put (const dsdc_key_t &k, const dsdc_obj_t &o,
+			  dsdc::annotation::base_t *a)
+{
+    bool rc = lru_insert (k, o, a);
     dsdc_res_t res = rc ? DSDC_REPLACED : DSDC_INSERTED;
     if (show_debug (DSDC_DBG_MED)) {
-        warn ("insert issued (rc=%d): %s\n", res, key_to_str (a->key).cstr ());
+        warn ("insert issued (rc=%d): %s\n", res, key_to_str (k).cstr ());
     }
-    sbp->replyref (res);
+    return res;
 }
 
 dsdc_obj_t *
 dsdc_slave_t::lru_lookup (const dsdc_key_t &k, const int expire)
 {
     dsdc_cache_obj_t *o = _objs[k];
-    if (o && timenow - expire < o->_timein) {
+    if (o && (expire <= 0 || timenow - expire < o->_timein)) {
         _lru.remove (o);
         _lru.insert_tail (o);
+	o->inc_gets ();
         return &o->_obj;
-//     } else if (o && timenow - expire < o->_timein) {
-//         warn ("Exists, but expired\n");
     }
     return NULL;
 }
 
+void
+dsdc_cache_obj_t::collect_statistics (bool del, remove_type_t t)
+{
+  if (_annotation) {
+    _annotation->collect (_n_gets, _n_gets_in_epoch, lifetime (),
+			  _obj.size (), del, t);
+    _n_gets_in_epoch = 0;
+  }
+}
+
 size_t
-dsdc_slave_t::lru_remove_obj (dsdc_cache_obj_t *o, bool del)
+dsdc_slave_t::lru_remove_obj (dsdc_cache_obj_t *o, bool del, remove_type_t t)
 {
     if (!o) {
         o = _lru.first;
@@ -394,6 +479,8 @@ dsdc_slave_t::lru_remove_obj (dsdc_cache_obj_t *o, bool del)
   
     _lru.remove (o);
     _objs.remove (o);
+    o->collect_statistics (true, t);
+      
     size_t sz = o->size ();
     assert (_lrusz >= sz);
     _lrusz -= sz;
@@ -410,34 +497,40 @@ dsdc_slave_t::lru_remove (const dsdc_key_t &k)
     dsdc_cache_obj_t *o = _objs[k];
     bool ret = false;
     if (o) {
-        lru_remove_obj (o, true);
+        lru_remove_obj (o, true, REMOVE_EXPLICIT);
         ret = true;
     }
     return ret;
 }
 
 bool
-dsdc_slave_t::lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o)
+dsdc_slave_t::lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o,
+			  dsdc::annotation::base_t *a)
 {
     bool ret = false;
     dsdc_cache_obj_t *co;
 
     if ((co = _objs[k])) {
+
+        lru_remove_obj (co, false, REMOVE_REPLACE);
+
+	// this reset needs to come after the above lru_remove_obj
+	// to preserve statistics.
         co->reset ();
-        lru_remove_obj (co, false);
+
         ret = true;
     } else {    
         co = New dsdc_cache_obj_t ();
     }
 
-    co->set (k, o);
+    co->set (k, o, a);
 
     size_t sz = co->size ();
   
     // stop looping when either (1) we've made enough room or
     // (2) there is nothing more to delete!
     while (_lrusz && sz + _lrusz > _maxsz) {
-        lru_remove_obj (NULL, true);
+        lru_remove_obj (NULL, true, REMOVE_MAKE_ROOM);
     }
 
     _lru.insert_tail (co);

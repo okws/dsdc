@@ -1681,6 +1681,11 @@ elif test -f ${with_sfs}/include/${sfsprfx}/autoconf.h \
     then
 	RPCC="$PATH_RPCC"
     fi
+    SFS_PATH_PROG(tame, ${sfslibdir})
+    if test "$PATH_TAME" -a -x "$PATH_TAME" 
+    then
+	TAME="$PATH_TAME"
+    fi
 else
     AC_MSG_ERROR("Can\'t find SFS libraries")
 fi
@@ -1713,6 +1718,7 @@ AC_SUBST(LIBSFSMISC)
 dnl AC_SUBST(LIBSVC)
 dnl AC_SUBST(LIBSFS)
 AC_SUBST(RPCC)
+AC_SUBST(TAME)
 AC_SUBST(MALLOCK)
 AC_SUBST(NOPAGING)
 

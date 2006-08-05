@@ -1,4 +1,7 @@
 
+// -*-c++-*-
+/* $Id$ */
+
 #include "dsdc.h"
 #include "dsdc_const.h"
 
@@ -160,25 +163,53 @@ dsdc_smartcli_t::post_construct ()
   }
 }
 
-void
+TAMED void
 dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
-                      bool safe, int time_to_expire)
+                      bool safe, int time_to_expire,
+		      const annotation_t *a)
 {
-  ptr<aclnt> cli;
-  if (safe) {
-    get_cb_1 (k, time_to_expire, cb, get_primary ());
-  } else {
-    dsdc_ring_node_t *n = _hash_ring.successor (*k);
-    if (!n) {
-      (*cb) (New refcounted<dsdc_get_res_t> (DSDC_NONODE));
-      return;
-    }
-    n->get_aclnt_wrap ()
-      ->get_aclnt (wrap (this, &dsdc_smartcli_t::get_cb_1,
-                         k, time_to_expire, cb));
+  VARS {
+    ptr<aclnt> cli;
+    dsdc_ring_node_t *n;
+    ptr<dsdc_get_res_t> res (New refcounted<dsdc_get_res_t> (DSDC_OK));
+    bool tried (false);
+    dsdc_get3_arg_t arg;
+    clnt_stat err;
   }
+
+  if (safe) {
+    cli = get_primary ();
+  } else {
+    if ((n = _hash_ring.successor (*k))) {
+      tried = true;
+      BLOCK { n->get_aclnt_wrap ()->get_aclnt (@(cli)); }
+    }
+  }
+
+  if (cli) {
+    arg.key = *k;
+    arg.time_to_expire = time_to_expire;
+    annotation_t::to_xdr (a, &arg.annotation);
+
+    BLOCK { rpc_call (cli, DSDC_GET3, &arg, res, @(err)); }
+    if (err) {
+      if (show_debug (DSDC_DBG_LOW)) {
+	warn << "lookup failed with RPC error: " << err << "\n";
+      }
+      res->set_status (DSDC_RPC_ERROR);
+      *res->err = err;
+    }
+  } else {
+    res->set_status (tried ? DSDC_DEAD : DSDC_NONODE);
+  }
+  (*cb) (res);
 }
 
+void
+dsdc_smartcli_t::put (ptr<dsdc_put3_arg_t> arg, cbi::ptr cb, bool safe)
+{
+  change_cache<dsdc_put3_arg_t> (arg->key, arg, int (DSDC_PUT3), cb, safe);
+}
 
 void
 dsdc_smartcli_t::put (ptr<dsdc_put_arg_t> arg, cbi::ptr cb, bool safe)
@@ -190,37 +221,6 @@ void
 dsdc_smartcli_t::remove (ptr<dsdc_key_t> key, cbi::ptr cb, bool safe)
 {
   change_cache<dsdc_key_t> (*key, key, int (DSDC_REMOVE), cb, safe);
-}
-
-void
-dsdc_smartcli_t::get_cb_2 (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
-			   ptr<dsdc_get_res_t> res, clnt_stat err)
-{
-  if (err) {
-    if (show_debug (DSDC_DBG_LOW)) {
-      warn << "lookup failed with RPC error: " << err << "\n";
-    }
-    res->set_status (DSDC_RPC_ERROR);
-    *res->err = err;
-  }
-  (*cb) (res);
-}
-
-void
-dsdc_smartcli_t::get_cb_1 (ptr<dsdc_key_t> k, int time_to_expire,
-                           dsdc_get_res_cb_t cb,
-                           ptr<aclnt> cli)
-{
-  if (!cli) {
-      (*cb) (New refcounted<dsdc_get_res_t> (DSDC_DEAD));
-      return;
-  }
-  ptr<dsdc_req_t> arg = New refcounted<dsdc_req_t> ();
-  arg->key = *k;
-  arg->time_to_expire = time_to_expire;
-  ptr<dsdc_get_res_t> res = New refcounted<dsdc_get_res_t> ();
-  rpc_call (cli, DSDC_GET2, arg, res, 
-	    wrap (this, &dsdc_smartcli_t::get_cb_2, k, cb, res));
 }
 
 void

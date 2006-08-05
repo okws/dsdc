@@ -81,6 +81,9 @@
 /* Full path of rpcc command */
 #undef PATH_RPCC
 
+/* Full path of tame command */
+#undef PATH_TAME
+
 /* Use Python memory alloc funcs */
 #undef PYMALLOC
 

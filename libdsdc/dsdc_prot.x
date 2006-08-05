@@ -3,47 +3,34 @@
  */
 
 #ifndef DSDC_NO_CUPID
-// For question data loaded into match.
-%#define MATCHD_FRONTD_FROBBER	0
-// For user information loaded into match
-%#define MATCHD_FRONTD_USERCACHE_FROBBER	1
-%#define UBER_USER_FROBBER	2
-%#define PROFILE_STALKER_FROBBER	3
-// For cached match results.
-%#define MATCHD_FRONTD_MATCHCACHE_FROBBER	4
-// For groups.
-%#define GROUP_INFO_FROBBER	5
 
-// For generic test scores.
-%#define GTEST_SCORE_FROBBER	6
-// For psych test scores.
-%#define PTEST_SCORE_FROBBER	7
-// For member test scores.
-%#define MTEST_SCORE_FROBBER	8
-// For cupid test scores.
-%#define CUPID_TEST_SCORE_FROBBER	9
-
-// For generic test sessions.
-%#define GTEST_SESSION_FROBBER	10
-// For psych test sessions.
-%#define PTEST_SESSION_FROBBER	11
-// For member test sessions.
-%#define MTEST_SESSION_FROBBER	12
-
-// For member test metadata
-%#define MTEST_METADATA_FROBBER	13
-// For member test stats
-%#define MTEST_STATS_FROBBER	14
-
-// For user settings
-%#define SETTINGS_FROBBER	15
+enum ok_frobber_t {
+	// For question data loaded into match.
+	MATCHD_FRONTD_FROBBER =	0,            
+	// For user information loaded into match  
+	MATCHD_FRONTD_USERCACHE_FROBBER = 1,
+	UBER_USER_FROBBER = 2,
+	PROFILE_STALKER_FROBBER = 3,
+	MATCHD_FRONTD_MATCHCACHE_FROBBER = 4, // For cached match results.
+	GROUP_INFO_FROBBER = 5,
+	GTEST_SCORE_FROBBER = 6, 	      // For generic test scores.
+	PTEST_SCORE_FROBBER = 7,
+	MTEST_SCORE_FROBBER = 8,
+	CUPID_TEST_SCORE_FROBBER = 9,
+	GTEST_SESSION_FROBBER =	10,
+	PTEST_SESSION_FROBBER =	11,
+	MTEST_SESSION_FROBBER =	12,
+	MTEST_METADATA_FROBBER	= 13,
+	MTEST_STATS_FROBBER = 14,
+	SETTINGS_FROBBER = 15
+};
 
 
 /* %#include "userid_prot.h" */
 
 /* 64 bit key */
 struct dsdc_key64_t {
-	int frobber;
+	ok_frobber_t frobber;
 	u_int64_t key64;	/**< user id */
 };
 
@@ -51,7 +38,7 @@ struct dsdc_key64_t {
  * Identifier for most uber user structs.
  */
 struct uber_key_t {
-    int frobber;
+    ok_frobber_t frobber;
     u_int64_t userid;
     unsigned int load_type;
 };
@@ -108,6 +95,134 @@ typedef opaque dsdc_key_t[DSDC_KEYSIZE];
 
 typedef dsdc_key_t dsdc_keyset_t<>;
 
+enum dsdc_res_t {
+  DSDC_OK = 0,			/* All good. */
+  DSDC_REPLACED = 1,            /* Insert succeeded; object replaced */
+  DSDC_INSERTED = 2,            /* Insert succeeded; object created */
+  DSDC_NOTFOUND = 3,		/* Key lookup failed. */
+  DSDC_NONODE = 4,              /* No slave nodes found in the ring */
+  DSDC_ALREADY_REGISTERED = 5,  /* Second attempt to register */
+  DSDC_RPC_ERROR = 6,           /* RPC communication error */
+  DSDC_DEAD = 7,                /* Node was found, but is DEAD */
+  DSDC_LOCKED = 8,              /* In advisory locking, acquire failed */
+  DSDC_TIMEOUT = 9,             /* Not used yet.... */
+  DSDC_ERRDECODE = 10,		/* Error decoding object. */
+  DSDC_ERRENCODE = 11,		/* Error encoding object. */
+  DSDC_BAD_STATS = 12           /* Error in statistics collection */
+};
+
+/*
+ *=======================================================================
+ * DSDC Statistics Structures
+ */
+
+enum dsdc_annotation_type_t {
+	DSDC_NO_ANNOTATION = 0,
+#ifndef DSDC_NO_CUPID
+	DSDC_CUPID_ANNOTATION = 1,
+#endif /* DSDC_NO_CUPID */
+	DSDC_INT_ANNOTATION = 2
+};
+
+union dsdc_annotation_t switch (dsdc_annotation_type_t typ) {
+case DSDC_INT_ANNOTATION:
+	int i;
+#ifndef DSDC_NO_CUPID
+case DSDC_CUPID_ANNOTATION:
+	ok_frobber_t frobber;
+#endif /* DSDC_NO_CUPID */
+default:
+	void;
+};
+
+
+struct dsdc_histogram_t {
+	hyper           scale_factor;
+	unsigned	samples;
+	hyper		avg;
+	hyper		min;
+	hyper		max;
+	unsigned	buckets<>;
+	hyper 		total;
+};
+
+struct dsdc_dataset_t {
+	hyper creations;
+	hyper puts;
+	hyper missed_gets;
+	hyper rm_explicit;
+	hyper rm_make_room;
+	hyper rm_clean;
+	hyper rm_replace;
+	unsigned duration;
+	dsdc_histogram_t gets;
+	dsdc_histogram_t objsz;
+	dsdc_histogram_t do_gets;
+	dsdc_histogram_t do_lifetime;
+	dsdc_histogram_t do_objsz;
+	dsdc_histogram_t *lifetime; /* not useful on a per-epoch basis */
+	hyper *n_active;            /* ditto */
+};
+
+struct dsdc_statistic_t {
+	dsdc_annotation_t annotation;
+	dsdc_dataset_t  epoch_data;
+	dsdc_dataset_t  alltime_data;
+};
+
+typedef dsdc_statistic_t dsdc_statistics_t<>;
+
+struct dsdc_dataset_params_t {
+	unsigned lifetime_n_buckets;
+	unsigned gets_n_buckets;
+	unsigned objsz_n_buckets;
+};
+
+struct dsdc_get_stats_single_arg_t {
+	dsdc_dataset_params_t params;
+};
+
+typedef string dsdc_hostname_t<>;
+typedef dsdc_hostname_t dsdc_hostnames_t<>;
+
+enum dsdc_settype_t {
+	DSDC_SET_NONE = 0,
+	DSDC_SET_ALL = 1,
+	DSDC_SET_SOME = 2,
+	DSDC_SET_RANDOM = 3,
+	DSDC_SET_FIRST = 4
+};
+
+union dsdc_slaveset_t switch (dsdc_settype_t typ) {
+case DSDC_SET_SOME:
+	dsdc_hostnames_t some;
+default: 
+	void;
+};
+
+struct dsdc_get_stats_arg_t {
+	dsdc_slaveset_t              hosts;
+	dsdc_get_stats_single_arg_t  getparams;
+};
+
+union dsdc_get_stats_single_res_t switch (dsdc_res_t status) {
+case DSDC_OK:
+	dsdc_statistics_t stats;
+default:
+	void;
+};
+
+struct dsdc_slave_statistic_t {
+	dsdc_hostname_t   host;
+	dsdc_get_stats_single_res_t stats;
+};
+
+typedef dsdc_slave_statistic_t dsdc_slave_statistics_t<>;
+
+/*
+ * End statistic structures
+ *=======================================================================
+ */
 
 struct dsdc_req_t {
     dsdc_key_t key;
@@ -123,26 +238,11 @@ struct dsdc_key_template_t {
 	string hostname<>;
 };
 
-enum dsdc_res_t {
-  DSDC_OK = 0,			/* All good. */
-  DSDC_REPLACED = 1,            /* Insert succeeded; object replaced */
-  DSDC_INSERTED = 2,            /* Insert succeeded; object created */
-  DSDC_NOTFOUND = 3,		/* Key lookup failed. */
-  DSDC_NONODE = 4,              /* No slave nodes found in the ring */
-  DSDC_ALREADY_REGISTERED = 5,  /* Second attempt to register */
-  DSDC_RPC_ERROR = 6,           /* RPC communication error */
-  DSDC_DEAD = 7,                /* Node was found, but is DEAD */
-  DSDC_LOCKED = 8,              /* In advisory locking, acquire failed */
-  DSDC_TIMEOUT = 9,             /* Not used yet.... */
-  DSDC_ERRDECODE = 10,		/* Error decoding object. */
-  DSDC_ERRENCODE = 11		/* Error encoding object. */
-};
-
 typedef opaque dsdc_obj_t<>;
 
 struct dsdc_put_arg_t {
-	dsdc_key_t key;
-	dsdc_obj_t obj;
+	dsdc_key_t 		key;
+	dsdc_obj_t 		obj;
 };
 
 union dsdc_get_res_t switch (dsdc_res_t status) {
@@ -167,6 +267,20 @@ typedef dsdc_mget_1res_t dsdc_mget_res_t<>;
 typedef dsdc_key_t       dsdc_mget_arg_t<>;
 typedef dsdc_req_t       dsdc_mget2_arg_t<>;
 
+typedef dsdc_key_t dsdc_get_arg_t;
+
+struct dsdc_get3_arg_t {
+	dsdc_key_t 	   key;
+    	int 		   time_to_expire;
+	dsdc_annotation_t  annotation;
+};
+typedef dsdc_get3_arg_t dsdc_mget3_arg_t<>;
+
+struct dsdc_put3_arg_t {
+	dsdc_key_t 		key;
+	dsdc_obj_t 		obj;
+	dsdc_annotation_t  annotation;
+};
 
 struct dsdcx_slave_t {
  	dsdc_keyset_t keys;
@@ -212,7 +326,6 @@ struct dsdc_lock_acquire_arg_t {
 struct dsdc_lock_release_arg_t {
 	dsdc_key_t key;	          // original key that was locked
 	unsigned hyper lockid;    // provide the lock-ID to catch bugs
-
 };
 
 
@@ -237,7 +350,7 @@ program DSDC_PROG
 		DSDC_REMOVE (dsdc_key_t) = 2;
 
 		dsdc_get_res_t
-		DSDC_GET (dsdc_key_t) = 3;
+		DSDC_GET (dsdc_get_arg_t) = 3;
 
 		dsdc_mget_res_t
 		DSDC_MGET (dsdc_mget_arg_t) = 4;
@@ -314,6 +427,27 @@ program DSDC_PROG
          */
 		dsdc_mget_res_t
 		DSDC_MGET2 (dsdc_mget2_arg_t) = 13;
+
+
+	/*
+	 * Newest interface: with JY's expiration times, and
+	 * also support for statistics.
+	 */
+	 dsdc_get_res_t
+	 DSDC_GET3 (dsdc_get3_arg_t) = 14;
+
+	 dsdc_mget_res_t
+	 DSDC_MGET3 (dsdc_mget3_arg_t) = 15;
+
+	 dsdc_res_t 
+	 DSDC_PUT3 (dsdc_put3_arg_t) = 16;
+
+	 dsdc_slave_statistics_t
+	 DSDC_GET_STATS(dsdc_get_stats_arg_t) = 17;
+
+	 dsdc_get_stats_single_res_t
+	 DSDC_GET_STATS_SINGLE(dsdc_get_stats_single_arg_t) = 18;
+	  
 
 #ifndef DSDC_NO_CUPID
 /*

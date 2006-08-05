@@ -15,16 +15,25 @@
 #include "async.h"
 #include "arpc.h"
 #include "qhash.h"
+#include "dsdc_stats.h"
 
 struct dsdc_cache_obj_t {
-  dsdc_cache_obj_t () : _timein (timenow) {}
+  dsdc_cache_obj_t () : _timein (timenow), _annotation (NULL), 
+			_n_gets (0), _n_gets_in_epoch (0) {}
   void reset () { _timein = timenow; }
-  void set (const dsdc_key_t &k, const dsdc_obj_t &o);
+  void set (const dsdc_key_t &k, const dsdc_obj_t &o,
+	    dsdc::annotation::base_t *a = NULL);
   dsdc_cache_obj_t (const dsdc_key_t &k, const dsdc_obj_t &o);
   dsdc_key_t _key;
   dsdc_obj_t _obj;
+  time_t lifetime () const { return timenow - _timein; }
+  void inc_gets () { _n_gets ++; _n_gets_in_epoch ++; }
+  const dsdc::annotation::base_t *annotation () const { return _annotation; }
   time_t _timein;
+  dsdc::annotation::base_t *_annotation;
+  u_int _n_gets, _n_gets_in_epoch;
   size_t size () const { return _key.size () + _obj.size () + sizeof (*this); }
+  void collect_statistics (bool del = true, remove_type_t t = REMOVE_NONE);
   ihash_entry<dsdc_cache_obj_t> _hlnk;
   tailq_entry<dsdc_cache_obj_t> _qlnk;
 };
@@ -168,7 +177,9 @@ public:
   void handle_get (svccb *sbp);
   void handle_mget (svccb *sbp);
   void handle_put (svccb *sbp);
+  void handle_put3 (svccb *sbp);
   void handle_remove (svccb *sbp);
+  void handle_get_stats (svccb *sbp);
 
         // Match function addition.
   void handle_compute_matches (svccb *sbp);
@@ -182,11 +193,15 @@ public:
   ptr<aclnt> get_primary () { return dsdc_slave_app_t::get_primary (); }
 protected:
 
+  dsdc_res_t handle_put (const dsdc_key_t &k, const dsdc_obj_t &o,
+			 dsdc::annotation::base_t *a = NULL);
   void genkeys ();
-  dsdc_obj_t * lru_lookup (const dsdc_key_t &k, const int expire=INT_MAX);
-  size_t lru_remove_obj (dsdc_cache_obj_t *o, bool del);
+  dsdc_obj_t * lru_lookup (const dsdc_key_t &k, const int expire=-1);
+  size_t lru_remove_obj (dsdc_cache_obj_t *o, bool del,
+			 remove_type_t t);
   bool lru_remove (const dsdc_key_t &k);
-  bool lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o);
+  bool lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o,
+		   dsdc::annotation::base_t *a = NULL);
   size_t _lrusz;
 
   void clean_cache ();

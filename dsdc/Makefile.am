@@ -2,12 +2,23 @@
 $(PROGRAMS): $(LDEPS)
 
 noinst_HEADERS = dsdc_master.h 
-dsdcexecbin_PROGRAMS = dsdc
+dsdcexecbin_PROGRAMS = dsdc dsdc-admin
 dsdc_SOURCES = master.C main.C
+dsdc_admin_SOURCES = admin.C output.C
 #dsdcbin_PROGRAMS = dsdc_master dsdc_slave dsdc_lmgr
 #dsdc_master_SOURCES = master.C main.C
 #dsdc_slave_SOURCES = master.C main.C
 #dsdc_lmgr_SOURCES = master.C main.C
+
+SUFFIXES = .C .T .h
+
+.T.C:
+	-$(TAME) -o $@ $< || rm -f $@
+
+master.o:	master.C
+master.lo:	master.C
+admin.o:	admin.C
+admin.lo:	admin.C
 
 install-exec-hook:
 	ln -f $(dsdcexecbindir)/dsdc$(EXEEXT) \
@@ -18,5 +29,8 @@ install-exec-hook:
                 $(dsdcexecbindir)/dsdc_lockserver$(EXEEXT)
 
 CLEANFILES = core *.core *~
-EXTRA_DIST = .cvsignore
+EXTRA_DIST = .cvsignore master.T admin.T
 MAINTAINERCLEANFILES = Makefile.in
+
+.PHONY: tameclean
+	rm -f $(srcdir)/master.C $(srcdir)/admin.C

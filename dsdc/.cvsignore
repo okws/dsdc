@@ -1,3 +1,4 @@
 Makefile.in
 stamp-h.in
 configure
+master.C

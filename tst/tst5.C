@@ -10,6 +10,7 @@
 #include "dsdc_const.h"
 #include "aios.h"
 #include "dsdc_lock.h"
+#include "dsdc_stats.h"
 
 typedef enum { NONE = 0,
 	       GET = 1,
@@ -95,7 +96,7 @@ put_cb (str mapping, int res)
 }
 
 static void
-put (tst_key_t k, str v, bool safe)
+put (tst_key_t k, str v, bool safe, int annt = -1)
 {
   tst_obj_checked_t obj;
   obj.obj.key = k;
@@ -106,9 +107,13 @@ put (tst_key_t k, str v, bool safe)
   // for debug purposes
   str tmp = key_to_str (obj.checksum);
   strbuf mapping ("%d -> %s", k, tmp.cstr ());
- 
+
+  annotation_t *a = NULL;
+  if (annt >= 0) 
+    a = dsdc::annotation::collector.int_alloc (annt);
+  
   tst2_cbct++;
-  cli->put (k, obj, wrap (put_cb, str (mapping)), safe);
+  cli->put (k, obj, wrap (put_cb, str (mapping)), safe, a);
 }
 
 static void
@@ -171,10 +176,15 @@ acquire_cb (tst_key_t k, ptr<dsdc_lock_acquire_res_t> res)
 }
 
 static void
-get (tst_key_t k, bool safe)
+get (tst_key_t k, bool safe, int annt = -1)
 {
   tst2_cbct++;
-  cli->get (k, wrap (get_cb, k), safe);
+
+  annotation_t *a = NULL;
+  if (annt >= 0) 
+    a = dsdc::annotation::collector.int_alloc (annt);
+    
+  cli->get (k, wrap (get_cb, k), safe, a);
 }
 
 static void
@@ -328,14 +338,28 @@ rdline (str ln, int err)
     }
     break;
   case 'r':
-    if (args.size () == 1) {
-      generate_kv (&key, &val);
-      put (key, val, safe);
+    {
+      bool ok = true;
+      int annt = -1;
+      if (args.size () == 2) 
+	ok = convertint (args.pop_back (), &annt);
+      
+      if (ok && args.size () == 1) {
+	generate_kv (&key, &val);
+	put (key, val, safe, annt);
+      }
     }
     break;
   case 'g':
-    if (args.size () == 2 && convertint (args[1], &key))
-      get (key, safe);
+    {
+      bool ok = true;
+      int annt = -1;
+      if (args.size () == 3)
+	ok = convertint (args.pop_back (), &annt);
+	
+      if (ok && args.size () == 2 && convertint (args[1], &key))
+	get (key, safe, annt);
+    }
     break;
   case 'd':
     if (args.size () == 2 && convertint (args[1], &key))
