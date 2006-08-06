@@ -150,6 +150,7 @@ struct dsdc_dataset_t {
 	hyper creations;
 	hyper puts;
 	hyper missed_gets;
+	hyper missed_removes;
 	hyper rm_explicit;
 	hyper rm_make_room;
 	hyper rm_clean;
@@ -279,6 +280,11 @@ typedef dsdc_get3_arg_t dsdc_mget3_arg_t<>;
 struct dsdc_put3_arg_t {
 	dsdc_key_t 		key;
 	dsdc_obj_t 		obj;
+	dsdc_annotation_t  annotation;
+};
+
+struct dsdc_remove3_arg_t {
+	dsdc_key_t	   key;
 	dsdc_annotation_t  annotation;
 };
 
@@ -428,7 +434,6 @@ program DSDC_PROG
 		dsdc_mget_res_t
 		DSDC_MGET2 (dsdc_mget2_arg_t) = 13;
 
-
 	/*
 	 * Newest interface: with JY's expiration times, and
 	 * also support for statistics.
@@ -447,6 +452,9 @@ program DSDC_PROG
 
 	 dsdc_get_stats_single_res_t
 	 DSDC_GET_STATS_SINGLE(dsdc_get_stats_single_arg_t) = 18;
+	  
+	 dsdc_res_t
+	 DSDC_REMOVE3 (dsdc_remove3_arg_t) = 19;
 	  
 
 #ifndef DSDC_NO_CUPID

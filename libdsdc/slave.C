@@ -240,6 +240,7 @@ dsdc_slave_t::dispatch (svccb *sbp)
       handle_put3 (sbp);
       break;
     case DSDC_REMOVE:
+    case DSDC_REMOVE3:
       handle_remove (sbp);
       break;
     case DSDC_MGET2:
@@ -393,17 +394,34 @@ dsdc_slave_t::handle_get (svccb *sbp)
 void
 dsdc_slave_t::handle_remove (svccb *sbp)
 {
-    dsdc_key_t *k = sbp->Xtmpl getarg<dsdc_key_t> ();
-    dsdc_res_t res;
-    if (lru_remove (*k)) {
-        res = DSDC_OK;
-    } else {
-        res = DSDC_NOTFOUND;
+  dsdc_key_t *k = NULL;
+  dsdc_remove3_arg_t *a3 = NULL;
+  dsdc_res_t res;
+
+  switch (sbp->proc ()) {
+  case DSDC_REMOVE:
+    k = sbp->Xtmpl getarg<dsdc_key_t> ();
+    break;
+  case DSDC_REMOVE3:
+    a3 = sbp->Xtmpl getarg<dsdc_remove3_arg_t> ();
+    k = &a3->key;
+    break;
+  default:
+    panic ("Unexpected case in REMOVE handling.\n");
+  }
+    
+  if (lru_remove (*k)) {
+    res = DSDC_OK;
+  } else {
+    res = DSDC_NOTFOUND;
+    if (a3) {
+      dsdc::annotation::collector.missed_remove (a3->annotation);
     }
-    if (show_debug (DSDC_DBG_MED)) {
-        warn ("remove issued (rc=%d): %s\n", res, key_to_str (*k).cstr ());
-    }
-    sbp->replyref (res);
+  }
+  if (show_debug (DSDC_DBG_MED)) {
+    warn ("remove issued (rc=%d): %s\n", res, key_to_str (*k).cstr ());
+  }
+  sbp->replyref (res);
 }
 
 void

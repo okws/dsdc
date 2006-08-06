@@ -187,7 +187,8 @@ public:
    * @param cb get called back at cb with a status code
    * @param safe if on, route remove through the master.
    */
-  void remove (const K &k, cbi::ptr cb = NULL, bool safe = false);
+  void remove (const K &k, cbi::ptr cb = NULL, bool safe = false,
+	       const annotation_t *a = NULL);
 
   /**
    * @brief Acquire a lock from the DSDC lock server
@@ -312,6 +313,8 @@ public:
             bool safe = false, int time_to_expire=-1,
 	    const annotation_t *a = NULL, CLOSURE);
   void remove (ptr<dsdc_key_t> key, cbi::ptr cb = NULL, bool safe = false);
+  void remove (ptr<dsdc_remove3_arg_t> arg, cbi::ptr cb = NULL, 
+	       bool safe = false);
   void mget (ptr<vec<dsdc_key_t> > keys, dsdc_mget_res_cb_t cb);
   void lock_acquire (ptr<dsdc_lock_acquire_arg_t> arg,
 		     dsdc_lock_acquire_res_cb_t cb, bool safe = false);
@@ -339,7 +342,8 @@ public:
         bool safe = false, int time_to_expire = -1,
 	const annotation_t *a = NULL);
   template<class K> void
-  remove3 (const K &k, cbi::ptr cb = NULL, bool safe = false);
+  remove3 (const K &k, cbi::ptr cb = NULL, bool safe = false,
+	   const annotation_t *a = NULL);
 
   template<class K> void
   lock_acquire3 (const K &k, dsdc_lock_acquire_res_cb_t cb, u_int timeout,
@@ -595,15 +599,25 @@ dsdc_smartcli_t::put2 (const dsdc_key_t &k, const T &obj,
 		       cbi::ptr cb, bool safe,
 		       const annotation_t *a)
 {
-  ptr<dsdc_put3_arg_t> arg = New refcounted<dsdc_put3_arg_t> ();
-  arg->key = k;
-
-  annotation_t::to_xdr (a, &arg->annotation);
-
+  ptr<dsdc_put3_arg_t> arg3;
+  ptr<dsdc_put_arg_t> arg;
+  if (a) {
+    arg3 = New refcounted<dsdc_put3_arg_t> ();
+    arg3->key = k;
+    annotation_t::to_xdr (a, &arg3->annotation);
+  } else {
+    // Use compatibility layer if not using annotations
+    arg = New refcounted<dsdc_put_arg_t> ();
+    arg->key = k;
+  }
+    
   if (!xdr2bytes (arg->obj, obj)) {
     cb(DSDC_ERRENCODE);
   } else {
-    put (arg, cb, false);
+    if (arg3)
+      put (arg3, cb, false);
+    else
+      put (arg, cb, false);
   }
 }
 
@@ -630,9 +644,16 @@ dsdc_smartcli_t::put3 (const K &k, const V &obj, cbi::ptr cb, bool safe,
 }
 
 template<class K> void
-dsdc_smartcli_t::remove3 (const K &k, cbi::ptr cb, bool safe)
+dsdc_smartcli_t::remove3 (const K &k, cbi::ptr cb, bool safe,
+			  const annotation_t *a)
 {
-  remove (mkkey_ptr (k), cb, safe);
+  if (!a) {
+    remove (mkkey_ptr (k), cb, safe);
+  } else {
+    ptr<dsdc_remove3_arg_t> arg = New refcounted<dsdc_remove3_arg_t> ();
+    mkkey (&arg->key, k);
+    remove (arg, cb, safe);
+  }
 }
 
 template<class K> void
@@ -673,8 +694,9 @@ dsdc_iface_t<K,V>::put (const K &k, const V &obj, cbi::ptr cb, bool safe,
 { _cli->put3 (k, obj, cb, safe, a); }
 
 template<class K, class V> void 
-dsdc_iface_t<K,V>::remove (const K &k, cbi::ptr cb, bool safe)
-{ _cli->remove3 (k, cb, safe); }
+dsdc_iface_t<K,V>::remove (const K &k, cbi::ptr cb, bool safe,
+			   const annotation_t *a)
+{ _cli->remove3 (k, cb, safe, a); }
 
 template<class K, class V> void
 dsdc_iface_t<K,V>::lock_acquire (const K &k, dsdc_lock_acquire_res_cb_t cb,

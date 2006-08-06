@@ -173,7 +173,8 @@ dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
     dsdc_ring_node_t *n;
     ptr<dsdc_get_res_t> res (New refcounted<dsdc_get_res_t> (DSDC_OK));
     bool tried (false);
-    dsdc_get3_arg_t arg;
+    dsdc_get3_arg_t arg3;
+    dsdc_req_t arg2;
     clnt_stat err;
   }
 
@@ -187,11 +188,23 @@ dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
   }
 
   if (cli) {
-    arg.key = *k;
-    arg.time_to_expire = time_to_expire;
-    annotation_t::to_xdr (a, &arg.annotation);
 
-    BLOCK { rpc_call (cli, DSDC_GET3, &arg, res, @(err)); }
+    if (a) {
+      arg3.key = *k;
+      arg3.time_to_expire = time_to_expire;
+      annotation_t::to_xdr (a, &arg3.annotation);
+      BLOCK { rpc_call (cli, DSDC_GET3, &arg3, res, @(err)); }
+      
+    } else {
+      // Use compatibility RPC if not using annotation
+      // features.
+      arg2.key = *k;
+      if (time_to_expire < 0)
+	time_to_expire = INT_MAX;
+      arg2.time_to_expire = time_to_expire;
+      BLOCK { rpc_call (cli, DSDC_GET2, &arg2, res, @(err)); }
+    }
+
     if (err) {
       if (show_debug (DSDC_DBG_LOW)) {
 	warn << "lookup failed with RPC error: " << err << "\n";
@@ -221,6 +234,12 @@ void
 dsdc_smartcli_t::remove (ptr<dsdc_key_t> key, cbi::ptr cb, bool safe)
 {
   change_cache<dsdc_key_t> (*key, key, int (DSDC_REMOVE), cb, safe);
+}
+
+void
+dsdc_smartcli_t::remove (ptr<dsdc_remove3_arg_t> arg, cbi::ptr cb, bool safe)
+{
+  change_cache (arg->key, arg, int (DSDC_REMOVE3), cb, safe);
 }
 
 void

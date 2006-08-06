@@ -121,6 +121,13 @@ namespace dsdc {
     }
 
     void
+    collector_t::missed_remove (const dsdc_annotation_t &a)
+    {
+      base_t *b = alloc (a, true);
+      if (b) b->missed_remove ();
+    }
+
+    void
     base_t::to_xdr (const base_t *in, dsdc_annotation_t *out)
     {
       if (in) {
@@ -206,6 +213,7 @@ namespace dsdc {
       _creations = 0;
       _puts = 0;
       _missed_gets = 0;
+      _missed_removes = 0;
       
       _rm_explicit = _rm_make_room = _rm_clean = _rm_replace = 0;
       
@@ -218,6 +226,7 @@ namespace dsdc {
       out->creations = _creations;
       out->puts = _puts;
       out->missed_gets = _missed_gets;
+      out->missed_removes = _missed_removes;
       out->rm_explicit = _rm_explicit;
       out->rm_make_room  = _rm_make_room;
       out->rm_clean = _rm_clean;

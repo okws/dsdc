@@ -61,7 +61,7 @@ namespace dsdc {
 
       int _creations;
       int _puts;
-      int _missed_gets;
+      int _missed_gets, _missed_removes;
       int _rm_explicit, _rm_make_room, _rm_clean, _rm_replace;
       int *_n_active;
 
@@ -108,6 +108,8 @@ namespace dsdc {
       void n_gets (int g, int gie);
       void missed_get ()
       { _alltime._missed_gets ++; _per_epoch._missed_gets ++; }
+      void missed_remove ()
+      { _alltime._missed_removes ++; _per_epoch._missed_removes ++; }
       void put ()
       { _alltime._puts ++ ; _per_epoch._puts ++; }
 
@@ -190,6 +192,7 @@ namespace dsdc {
       void new_annotation (base_t *b);
       base_t *alloc (const dsdc_annotation_t &a, bool newobj = true);
       void missed_get (const dsdc_annotation_t &a);
+      void missed_remove (const dsdc_annotation_t &a);
       list<base_t, &base_t::_llnk> _lst;
       int_factory_t _int_factory;
       dsdc_res_t output (dsdc_statistics_t *sz, 
