@@ -5,6 +5,7 @@
 #include "dsdc_admin.h"
 #include "dsdc_util.h"
 #include "parseopt.h"
+#include "dsdc_signal.h"
 
 int columns;
 
@@ -43,7 +44,7 @@ connect (str s, callback<void, ptr<aclnt> >::ref cb)
       ret = aclnt::alloc (x, dsdc_prog_1);
     }
   }
-  SIGNAL (cb, ret);
+  DSDC_SIGNAL (cb, ret);
 }
 
 TAMED static void
@@ -72,7 +73,7 @@ get_stats (str m, const dsdc_get_stats_arg_t *arg, cbi cb)
       b.tosuio ()->output (0);
     }
   }
-  SIGNAL (cb, rc);
+  DSDC_SIGNAL (cb, rc);
 }
 
 TAMED static void
@@ -98,7 +99,7 @@ get_stat_direct (str h, const dsdc_get_stats_single_arg_t *a, int *rc, cbv cb)
       b.tosuio ()->output (0);
     }
   }
-  SIGNAL (cb);
+  DSDC_SIGNAL (cb);
 
 }
 
@@ -115,7 +116,7 @@ get_stats_direct (const vec<str> *s, const dsdc_get_stats_single_arg_t *a,
       get_stat_direct ((*s)[i], a, &rc, @());
     }
   }
-  SIGNAL (cb, rc);
+  DSDC_SIGNAL (cb, rc);
 }
 
 

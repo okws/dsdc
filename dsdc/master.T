@@ -3,6 +3,7 @@
 #include "dsdc_master.h"
 #include "crypt.h"
 #include "tame.h"
+#include "dsdc_signal.h"
 
 bool
 dsdc_master_t::init ()
@@ -564,7 +565,7 @@ dsdc_master_t::get_stats (dsdc_slave_statistic_t *out,
 	   << "]: " << err << "\n";
     }
   }
-  SIGNAL (cb);
+  DSDC_SIGNAL (cb);
 }
 
 TAMED void
