@@ -109,6 +109,9 @@ output_dataset (tabbuf_t &b, const char *l, const dsdc_dataset_t &d)
   if (OUTPUT(MISSED_GETS))
     output_hyper (b, "Missed Gets", d.missed_gets);
 
+  if (OUTPUT(MISSED_RMS))
+    output_hyper (b, "Missed Removes", d.missed_removes);
+
   if (OUTPUT(RM_STATS)) {
     output_hyper (b, "Removals (explicit) ", d.rm_explicit);
     output_hyper (b, "Removals (make room)", d.rm_make_room);
@@ -202,6 +205,7 @@ case u: _display_flags &= ~(DISPLAY_##F); break
 	C ('a', 'A', ALLTIME);
 	C ('c', 'C', CREATIONS);
 	C ('n', 'N', N_ACTIVE);
+	C ('z', 'Z', MISSED_RMS);
 	  
       default: 
 	warn ("Unrecognized format flag: '%c'\n", *in);

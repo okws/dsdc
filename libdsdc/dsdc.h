@@ -601,24 +601,29 @@ dsdc_smartcli_t::put2 (const dsdc_key_t &k, const T &obj,
 {
   ptr<dsdc_put3_arg_t> arg3;
   ptr<dsdc_put_arg_t> arg;
+  bool bad_encode = false;
   if (a) {
     arg3 = New refcounted<dsdc_put3_arg_t> ();
     arg3->key = k;
     annotation_t::to_xdr (a, &arg3->annotation);
+    if (xdr2bytes (arg3->obj, obj)) {
+      put (arg3, cb, false);
+    } else {
+      bad_encode = true;
+    }
   } else {
     // Use compatibility layer if not using annotations
     arg = New refcounted<dsdc_put_arg_t> ();
     arg->key = k;
-  }
-    
-  if (!xdr2bytes (arg->obj, obj)) {
-    cb(DSDC_ERRENCODE);
-  } else {
-    if (arg3)
-      put (arg3, cb, false);
-    else
+    if (xdr2bytes (arg->obj, obj)) {
       put (arg, cb, false);
+    } else {
+      bad_encode = true;
+    }
   }
+
+  if (bad_encode)
+    cb(DSDC_ERRENCODE);
 }
 
 //

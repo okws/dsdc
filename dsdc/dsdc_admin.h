@@ -22,6 +22,7 @@
 #define DISPLAY_PER_EPOCH   (1 << 9)
 #define DISPLAY_ALLTIME     (1 << 10)
 #define DISPLAY_N_ACTIVE    (1 << 11)
+#define DISPLAY_MISSED_RMS  (1 << 12)
 
 struct output_opts_t {
   output_opts_t () : _display_flags (0) {}
