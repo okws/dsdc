@@ -24,7 +24,7 @@ load_rc_config $name
 if [ "x${dsdc_buildtag}" = "x" ] ; then
 	dsdc_buildtag=shared
 fi
-command="/disk/dsdc/0.2/${dsdc_buildtag}/bin/dsdc_slave"
+command="/disk/dsdc/0.3/${dsdc_buildtag}/bin/dsdc_slave"
 if [ ! -x ${command} ] ; then
 	echo "${name}: unable to exec ${command}"
 fi
