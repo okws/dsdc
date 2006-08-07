@@ -5,6 +5,10 @@
 #ifndef _DSDC_SMARTCLI_H
 #define _DSDC_SMARTCLI_H
 
+// when we hit a major version it should go to 100000
+// Version 0.3.000
+#define DSDC_VERSION	3000
+
 #include "dsdc_prot.h"
 #include "dsdc.h"
 #include "dsdc_ring.h"
