@@ -9,4 +9,4 @@
 #
 #	 -f -i -s
 
-autoreconf $*
+autoreconf -f -i -s $*
