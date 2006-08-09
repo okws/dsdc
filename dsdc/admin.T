@@ -6,6 +6,7 @@
 #include "dsdc_util.h"
 #include "parseopt.h"
 #include "dsdc_signal.h"
+#include "dsdc_const.h"
 
 int columns;
 
@@ -29,8 +30,8 @@ connect (str s, callback<void, ptr<aclnt> >::ref cb)
 {
   VARS {
     int fd (-1);
-    str hn;
-    int port;
+    str hn ("127.0.0.1");
+    int port (dsdc_port);
     ptr<aclnt> ret;
   }
   if (!parse_hn (s, &hn, &port)) {
