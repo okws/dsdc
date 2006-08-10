@@ -14,13 +14,13 @@
 
 void
 dsdc_cache_obj_t::set (const dsdc_key_t &k, const dsdc_obj_t &o,
-		       dsdc::annotation::base_t *a)
+                       dsdc::annotation::base_t *a)
 {
     _key = k;
     _obj = o;
 
     if ((_annotation = a)) {
-      a->elem_create (_obj.size ());
+        a->elem_create (_obj.size ());
     }
 }
 
@@ -28,12 +28,11 @@ void
 dsdcs_master_t::connect_cb (int f)
 {
     if (f < 0) {
-      if (show_debug (DSDC_DBG_MED))
-        went_down (strbuf ("could not connect to host: %m"));
-      return;
+        went_down (strbuf ("could not connect to host: %m"), DSDC_DEBUG_LOW);
+        return;
     }
     if (show_debug (DSDC_DBG_LOW))
-      master_warn ("connection succeeded");
+        master_warn ("connection succeeded");
 
     _fd = f;
     assert ((_x = axprt_stream::alloc (_fd, dsdc_packet_sz)));
@@ -68,34 +67,34 @@ dsdcs_master_t::ready_to_serve ()
 void
 dsdcs_master_t::heartbeat_cb (ptr<int> i, clnt_stat e)
 {
-  bool succ = false;
-  if (e) {
-    warn << "RPC error in DSDC_HEARTBEAT: " << e << "\n";
-  } else if (*i != DSDC_OK) {
-    warn << "DSDC error in DSDC_HEARTBEAT: " << *i << "\n";
-  } else {
-    succ = true;
-  }
-  if (!succ)
-    went_down ("Heartbeat ACK failed");
+    bool succ = false;
+    if (e) {
+        warn << "RPC error in DSDC_HEARTBEAT: " << e << "\n";
+    } else if (*i != DSDC_OK) {
+        warn << "DSDC error in DSDC_HEARTBEAT: " << *i << "\n";
+    } else {
+        succ = true;
+    }
+    if (!succ)
+        went_down ("Heartbeat ACK failed");
 }
 
 
 void
 dsdcs_master_t::heartbeat ()
 {
-  if (_status == MASTER_STATUS_OK && _cli) {
-    ptr<int> i = New refcounted<int> ();
-    _cli->call (DSDC_HEARTBEAT, NULL, i, 
-		wrap (this, &dsdcs_master_t::heartbeat_cb, i));
-    schedule_heartbeat ();
-  }
+    if (_status == MASTER_STATUS_OK && _cli) {
+        ptr<int> i = New refcounted<int> ();
+        _cli->call (DSDC_HEARTBEAT, NULL, i,
+                    wrap (this, &dsdcs_master_t::heartbeat_cb, i));
+        schedule_heartbeat ();
+    }
 }
 
 void
 dsdcs_master_t::schedule_heartbeat ()
 {
-    delaycb (dsdc_heartbeat_interval, 0, 
+    delaycb (dsdc_heartbeat_interval, 0,
              wrap (this, &dsdcs_master_t::heartbeat));
 }
 
@@ -118,7 +117,7 @@ dsdc_slave_t::clean_cache ()
     int nobj = 0;
 
     if (_opts & SLAVE_NO_CLEAN)
-      return;
+        return;
 
     for (p = _lru.first; p; p = n) {
         n = _lru.next (p);
@@ -126,17 +125,17 @@ dsdc_slave_t::clean_cache ()
         dsdc_ring_node_t *nn = _hash_ring.successor (p->_key);
         if (!nn || !_khash[nn->_key]) {
 
-	  if (show_debug (DSDC_DBG_MED)) {
-	    warn ("CLEAN: removed object: %s\n", 
-		  key_to_str (p->_key).cstr () );
-	  }
+            if (show_debug (DSDC_DBG_MED)) {
+                warn ("CLEAN: removed object: %s\n",
+                      key_to_str (p->_key).cstr () );
+            }
 
-	  tot += lru_remove_obj (p, true, REMOVE_CLEAN);
-	  nobj ++;
+            tot += lru_remove_obj (p, true, REMOVE_CLEAN);
+            nobj ++;
         }
     }
     _n_updates_since_clean = 0;
-    if (show_debug (DSDC_DBG_LOW)) 
+    if (show_debug (DSDC_DBG_LOW))
         warn ("CLEAN: cleaned %d objects (%d bytes in total)\n", nobj, tot);
 }
 
@@ -174,90 +173,91 @@ void
 dsdcs_p2p_cli_t::dispatch (svccb *sbp)
 {
     if (!sbp) {
-        warn << "EOF from " << _hn << "\n";
+        if (show_debug (DSDC_DBG_MED))
+            warn << "EOF from " << _hn << "\n";
         delete (this);
     } else if (_x->getfd () < 0) {
-      warn << "Swallowing RPC from destroyed client: " << _hn << "\n";
+        warn << "Swallowing RPC from destroyed client: " << _hn << "\n";
     } else {
-      _parent->dispatch (sbp);
+        _parent->dispatch (sbp);
     }
 }
 
 void
 dsdcs_lockserver_t::dispatch (svccb *sbp)
 {
-  switch (sbp->proc ()) {
-  case DSDC_LOCK_ACQUIRE:
-    acquire (sbp);
-    break;
-  case DSDC_LOCK_RELEASE:
-    release (sbp);
-    break;
-  default:
-    sbp->reject (PROC_UNAVAIL);
-    break;
-  }
+    switch (sbp->proc ()) {
+        case DSDC_LOCK_ACQUIRE:
+            acquire (sbp);
+            break;
+        case DSDC_LOCK_RELEASE:
+            release (sbp);
+            break;
+        default:
+            sbp->reject (PROC_UNAVAIL);
+            break;
+    }
 }
 
 void
 dsdc_slave_t::handle_get_stats (svccb *sbp)
 {
-  dsdc_get_stats_single_arg_t *a =
-    sbp->Xtmpl getarg<dsdc_get_stats_single_arg_t> ();
+    dsdc_get_stats_single_arg_t *a =
+        sbp->Xtmpl getarg<dsdc_get_stats_single_arg_t> ();
 
-  dsdc_get_stats_single_res_t res;
+    dsdc_get_stats_single_res_t res;
 
-  dsdc::annotation::collector.prepare_sweep ();
+    dsdc::annotation::collector.prepare_sweep ();
 
-  for (dsdc_cache_obj_t *o = _lru.first; o; o = _lru.next (o)) {
-    o->collect_statistics (false);
-  }
-  res.set_status (DSDC_OK);
-  dsdc_res_t rc = 
-    dsdc::annotation::collector.output (res.stats, a->params);
-  if (rc != DSDC_OK)
-    res.set_status (rc);
+    for (dsdc_cache_obj_t *o = _lru.first; o; o = _lru.next (o)) {
+        o->collect_statistics (false);
+    }
+    res.set_status (DSDC_OK);
+    dsdc_res_t rc =
+        dsdc::annotation::collector.output (res.stats, a->params);
+    if (rc != DSDC_OK)
+        res.set_status (rc);
 
-  sbp->replyref (res);
+    sbp->replyref (res);
 }
 
 void
 dsdc_slave_t::dispatch (svccb *sbp)
 {
     switch (sbp->proc ()) {
-    case DSDC_GET:
-    case DSDC_GET2:
-    case DSDC_GET3:
-      handle_get (sbp);
-      break;
-    case DSDC_MGET:
-      handle_mget (sbp);
-      break;
-    case DSDC_PUT:
-      handle_put (sbp);
-      break;
-    case DSDC_PUT3:
-      handle_put3 (sbp);
-      break;
-    case DSDC_REMOVE:
-    case DSDC_REMOVE3:
-      handle_remove (sbp);
-      break;
-    case DSDC_MGET2:
-      handle_mget (sbp);
-      break;
+        case DSDC_GET:
+        case DSDC_GET2:
+        case DSDC_GET3:
+            handle_get (sbp);
+            break;
+        case DSDC_MGET:
+            handle_mget (sbp);
+            break;
+        case DSDC_PUT:
+            handle_put (sbp);
+            break;
+        case DSDC_PUT3:
+            handle_put3 (sbp);
+            break;
+        case DSDC_REMOVE:
+        case DSDC_REMOVE3:
+            handle_remove (sbp);
+            break;
+        case DSDC_MGET2:
+            handle_mget (sbp);
+            break;
 #ifndef DSDC_NO_CUPID
-    case DSDC_COMPUTE_MATCHES:
-      handle_compute_matches(sbp);
-      break;
+        case DSDC_COMPUTE_MATCHES:
+            handle_compute_matches(sbp);
+            break;
 #endif
-    case DSDC_GET_STATS_SINGLE:
-      handle_get_stats (sbp);
-      break;
-      
-    default:
-      sbp->reject (PROC_UNAVAIL);
-      break;
+        case DSDC_GET_STATS_SINGLE:
+            handle_get_stats (sbp);
+            break;
+
+        default:
+            sbp->reject (PROC_UNAVAIL);
+            break;
     }
 }
 
@@ -271,7 +271,8 @@ dsdc_slave_app_t::new_connection ()
     int nfd = accept (_lfd, reinterpret_cast<sockaddr *> (&sin), &sinlen);
     if (nfd >= 0) {
         strbuf hn ("%s:%d", inet_ntoa (sin.sin_addr), sin.sin_port);
-        warn << "accepting connection from " << hn << "\n";
+        if (show_debug (DSDC_DBG_MED))
+            warn << "accepting connection from " << hn << "\n";
         vNew dsdcs_p2p_cli_t (this, nfd, hn);
     } else if (errno != EAGAIN)
         warn ("accept failed: %m\n");
@@ -285,14 +286,15 @@ dsdcs_master_t::master_warn (const str &m)
 }
 
 void
-dsdcs_master_t::went_down (const str &why)
+dsdcs_master_t::went_down (const str &why, u_int lev)
 {
     _x = NULL;
     _cli = NULL;
     _srv = NULL;
 
-    master_warn (why);
-  
+    if (lev == 0 || show_debug (lev))
+        master_warn (why);
+
     _status = MASTER_STATUS_DOWN;
     schedule_retry ();
 }
@@ -306,7 +308,7 @@ dsdcs_master_t::retry ()
 void
 dsdcs_master_t::schedule_retry ()
 {
-    delaycb (dsdc_retry_wait_time, 0, 
+    delaycb (dsdc_retry_wait_time, 0,
              wrap (this, &dsdcs_master_t::retry));
 }
 
@@ -338,7 +340,7 @@ dsdc_slave_t::handle_mget (svccb *sbp)
             o = lru_lookup ( k );
             res[i].key = k;
         }
-        
+
         if (o) {
             res[i].res.set_status (DSDC_OK);
             *(res[i].res.obj) = *o;
@@ -356,28 +358,28 @@ dsdc_slave_t::handle_get (svccb *sbp)
     dsdc_obj_t *o;
 
     switch (sbp->proc ()) {
-    case DSDC_GET2:
-      {
-        dsdc_req_t *k = sbp->Xtmpl getarg<dsdc_req_t> ();
-        o = lru_lookup (k->key, k->time_to_expire);
-	break;
-      }
-    case DSDC_GET3:
-      {
-	dsdc_get3_arg_t *a = sbp->Xtmpl getarg<dsdc_get3_arg_t> ();
-	if (!(o = lru_lookup (a->key, a->time_to_expire))) {
-	  dsdc::annotation::collector.missed_get (a->annotation);
-	}
-	break;
-      }
-    case DSDC_GET:
-      {
-        dsdc_key_t *k = sbp->Xtmpl getarg<dsdc_key_t> ();
-        o = lru_lookup (*k);
-	break;
-      }
-    default:
-      panic ("Unexpected DSDC_GET type.\n");
+        case DSDC_GET2:
+        {
+            dsdc_req_t *k = sbp->Xtmpl getarg<dsdc_req_t> ();
+            o = lru_lookup (k->key, k->time_to_expire);
+            break;
+        }
+        case DSDC_GET3:
+        {
+            dsdc_get3_arg_t *a = sbp->Xtmpl getarg<dsdc_get3_arg_t> ();
+            if (!(o = lru_lookup (a->key, a->time_to_expire))) {
+                dsdc::annotation::collector.missed_get (a->annotation);
+            }
+            break;
+        }
+        case DSDC_GET:
+        {
+            dsdc_key_t *k = sbp->Xtmpl getarg<dsdc_key_t> ();
+            o = lru_lookup (*k);
+            break;
+        }
+        default:
+            panic ("Unexpected DSDC_GET type.\n");
     }
 
     dsdc_get_res_t res;
@@ -394,34 +396,34 @@ dsdc_slave_t::handle_get (svccb *sbp)
 void
 dsdc_slave_t::handle_remove (svccb *sbp)
 {
-  dsdc_key_t *k = NULL;
-  dsdc_remove3_arg_t *a3 = NULL;
-  dsdc_res_t res;
+    dsdc_key_t *k = NULL;
+    dsdc_remove3_arg_t *a3 = NULL;
+    dsdc_res_t res;
 
-  switch (sbp->proc ()) {
-  case DSDC_REMOVE:
-    k = sbp->Xtmpl getarg<dsdc_key_t> ();
-    break;
-  case DSDC_REMOVE3:
-    a3 = sbp->Xtmpl getarg<dsdc_remove3_arg_t> ();
-    k = &a3->key;
-    break;
-  default:
-    panic ("Unexpected case in REMOVE handling.\n");
-  }
-    
-  if (lru_remove (*k)) {
-    res = DSDC_OK;
-  } else {
-    res = DSDC_NOTFOUND;
-    if (a3) {
-      dsdc::annotation::collector.missed_remove (a3->annotation);
+    switch (sbp->proc ()) {
+        case DSDC_REMOVE:
+            k = sbp->Xtmpl getarg<dsdc_key_t> ();
+            break;
+        case DSDC_REMOVE3:
+            a3 = sbp->Xtmpl getarg<dsdc_remove3_arg_t> ();
+            k = &a3->key;
+            break;
+        default:
+            panic ("Unexpected case in REMOVE handling.\n");
     }
-  }
-  if (show_debug (DSDC_DBG_MED)) {
-    warn ("remove issued (rc=%d): %s\n", res, key_to_str (*k).cstr ());
-  }
-  sbp->replyref (res);
+
+    if (lru_remove (*k)) {
+        res = DSDC_OK;
+    } else {
+        res = DSDC_NOTFOUND;
+        if (a3) {
+            dsdc::annotation::collector.missed_remove (a3->annotation);
+        }
+    }
+    if (show_debug (DSDC_DBG_MED)) {
+        warn ("remove issued (rc=%d): %s\n", res, key_to_str (*k).cstr ());
+    }
+    sbp->replyref (res);
 }
 
 void
@@ -435,16 +437,16 @@ dsdc_slave_t::handle_put (svccb *sbp)
 void
 dsdc_slave_t::handle_put3 (svccb *sbp)
 {
-  dsdc_put3_arg_t *a = sbp->Xtmpl getarg<dsdc_put3_arg_t> ();
-  dsdc::annotation::base_t *n = 
-    dsdc::annotation::collector.alloc (a->annotation);
-  dsdc_res_t res = handle_put (a->key, a->obj, n);
-  sbp->replyref (res);
+    dsdc_put3_arg_t *a = sbp->Xtmpl getarg<dsdc_put3_arg_t> ();
+    dsdc::annotation::base_t *n =
+        dsdc::annotation::collector.alloc (a->annotation);
+    dsdc_res_t res = handle_put (a->key, a->obj, n);
+    sbp->replyref (res);
 }
 
 dsdc_res_t
 dsdc_slave_t::handle_put (const dsdc_key_t &k, const dsdc_obj_t &o,
-			  dsdc::annotation::base_t *a)
+                          dsdc::annotation::base_t *a)
 {
     bool rc = lru_insert (k, o, a);
     dsdc_res_t res = rc ? DSDC_REPLACED : DSDC_INSERTED;
@@ -461,7 +463,7 @@ dsdc_slave_t::lru_lookup (const dsdc_key_t &k, const int expire)
     if (o && (expire <= 0 || timenow - expire < o->_timein)) {
         _lru.remove (o);
         _lru.insert_tail (o);
-	o->inc_gets ();
+        o->inc_gets ();
         return &o->_obj;
     }
     return NULL;
@@ -470,11 +472,11 @@ dsdc_slave_t::lru_lookup (const dsdc_key_t &k, const int expire)
 void
 dsdc_cache_obj_t::collect_statistics (bool del, remove_type_t t)
 {
-  if (_annotation) {
-    _annotation->collect (_n_gets, _n_gets_in_epoch, lifetime (),
-			  _obj.size (), del, t);
-    _n_gets_in_epoch = 0;
-  }
+    if (_annotation) {
+        _annotation->collect (_n_gets, _n_gets_in_epoch, lifetime (),
+                              _obj.size (), del, t);
+        _n_gets_in_epoch = 0;
+    }
 }
 
 size_t
@@ -489,16 +491,16 @@ dsdc_slave_t::lru_remove_obj (dsdc_cache_obj_t *o, bool del, remove_type_t t)
         if (!o)
             return 0;
 
-        if (show_debug (DSDC_DBG_MED)) 
+        if (show_debug (DSDC_DBG_MED))
             warn ("LRU Delete triggered: %s\n", key_to_str (o->_key).cstr ());
     }
-  
+
     assert (o);
-  
+
     _lru.remove (o);
     _objs.remove (o);
     o->collect_statistics (true, t);
-      
+
     size_t sz = o->size ();
     assert (_lrusz >= sz);
     _lrusz -= sz;
@@ -523,7 +525,7 @@ dsdc_slave_t::lru_remove (const dsdc_key_t &k)
 
 bool
 dsdc_slave_t::lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o,
-			  dsdc::annotation::base_t *a)
+                          dsdc::annotation::base_t *a)
 {
     bool ret = false;
     dsdc_cache_obj_t *co;
@@ -532,19 +534,19 @@ dsdc_slave_t::lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o,
 
         lru_remove_obj (co, false, REMOVE_REPLACE);
 
-	// this reset needs to come after the above lru_remove_obj
-	// to preserve statistics.
+        // this reset needs to come after the above lru_remove_obj
+        // to preserve statistics.
         co->reset ();
 
         ret = true;
-    } else {    
+    } else {
         co = New dsdc_cache_obj_t ();
     }
 
     co->set (k, o, a);
 
     size_t sz = co->size ();
-  
+
     // stop looping when either (1) we've made enough room or
     // (2) there is nothing more to delete!
     while (_lrusz && sz + _lrusz > _maxsz) {
@@ -575,9 +577,9 @@ dsdc_slave_t::genkeys ()
     t.port = _port;
 
     if (_opts & SLAVE_DETERMINISTIC_SEEDS)
-      t.pid = 0;
+        t.pid = 0;
     else
-      t.pid = getpid ();
+        t.pid = getpid ();
 
     if (!(t.hostname = dsdc_hostname))
         t.hostname = myname ();
@@ -594,23 +596,23 @@ dsdc_slave_t::genkeys ()
 bool
 dsdc_slave_app_t::init ()
 {
-  if (!get_port ())
-    return false;
-  for (dsdcs_master_t *m = _masters.first; m ; m = _masters.next (m)) {
-    m->connect ();
-  }
-  return true;
+    if (!get_port ())
+        return false;
+    for (dsdcs_master_t *m = _masters.first; m ; m = _masters.next (m)) {
+        m->connect ();
+    }
+    return true;
 }
 
 bool
 dsdc_slave_t::init ()
 {
-  if (!dsdc_slave_app_t::init ())
-    return false;
+    if (!dsdc_slave_app_t::init ())
+        return false;
 
-  genkeys ();
-  schedule_refresh ();
-  return true;
+    genkeys ();
+    schedule_refresh ();
+    return true;
 }
 
 bool
@@ -622,20 +624,20 @@ dsdc_slave_app_t::get_port ()
     for (i = 0; i < dsdcs_port_attempts && i < USHRT_MAX && _lfd < 0; i++) {
         _lfd = inetsocket (SOCK_STREAM, _port);
         if (_lfd < 0) {
-	  if (show_debug (DSDC_DBG_MED)) 
-            warn ("port=%d attempt failed: %m\n", _port);
-	  _port++;
+            if (show_debug (DSDC_DBG_LOW))
+                warn ("port=%d attempt failed: %m\n", _port);
+            _port++;
         }
     }
     if (_lfd > 0) {
-        if (show_debug (DSDC_DBG_LOW)) 
-	  warn ("found port = %d\n", _lfd);
-	close_on_exec (_lfd);
+        if (show_debug (DSDC_DBG_LOW))
+            warn ("found port = %d\n", _port);
+        close_on_exec (_lfd);
         listen (_lfd, 256);
         fdcb (_lfd, selread, wrap (this, &dsdc_slave_t::new_connection));
         return true;
     } else {
-        warn << "tried ports from " << p_begin << " to " << p_begin + i 
+        warn << "tried ports from " << p_begin << " to " << p_begin + i
              << "; all failed\n";
         return false;
     }
@@ -645,31 +647,31 @@ str
 dsdc_slave_app_t::startup_msg () const
 {
     strbuf b ("listening on %s:%d", dsdc_hostname.cstr (), _port);
-      startup_msg_v (&b);
+    startup_msg_v (&b);
     return b;
 }
 
 void
 dsdc_slave_t::startup_msg_v (strbuf *b) const
 {
-  if (show_debug (DSDC_DBG_LOW)) 
-    b->fmt ("; nnodes=%d, maxsz=0x%x", _n_nodes, _maxsz);
+    if (show_debug (DSDC_DBG_LOW))
+        b->fmt ("; nnodes=%d, maxsz=0x%x", _n_nodes, _maxsz);
 }
 
 
 dsdc_slave_t::dsdc_slave_t (u_int n, u_int s, int p, int o)
-  : dsdc_slave_app_t (p, o),
-    dsdc_system_state_cache_t (),
-    _lrusz (0),
-    _n_nodes (n ? n : dsdc_slave_nnodes),
-    _maxsz (s ? s : dsdc_slave_maxsz) {}
+    : dsdc_slave_app_t (p, o),
+      dsdc_system_state_cache_t (),
+      _lrusz (0),
+      _n_nodes (n ? n : dsdc_slave_nnodes),
+      _maxsz (s ? s : dsdc_slave_maxsz) {}
 
 dsdc_slave_app_t::dsdc_slave_app_t (int p, int o)
-  : dsdc_app_t (),
-    _primary (false), _port (p < 0 ? dsdc_slave_port : p), _lfd (-1),
-    _opts (o) {}
+    : dsdc_app_t (),
+      _primary (false), _port (p < 0 ? dsdc_slave_port : p), _lfd (-1),
+      _opts (o) {}
 
-void 
+void
 dsdc_slave_app_t::get_xdr_repr (dsdcx_slave_t *x)
 {
     x->port = _port;
@@ -679,13 +681,13 @@ dsdc_slave_app_t::get_xdr_repr (dsdcx_slave_t *x)
 void
 dsdc_slave_t::get_xdr_repr (dsdcx_slave_t *x)
 {
-  dsdc_slave_app_t::get_xdr_repr (x);
-  x->keys = _keys;
+    dsdc_slave_app_t::get_xdr_repr (x);
+    x->keys = _keys;
 }
 
 void
 dsdcs_lockserver_t::get_xdr_repr (dsdcx_slave_t *x)
 {
-  dsdc_slave_app_t::get_xdr_repr (x);
-  x->keys.setsize (0);
+    dsdc_slave_app_t::get_xdr_repr (x);
+    x->keys.setsize (0);
 }
