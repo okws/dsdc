@@ -28,7 +28,7 @@ void
 dsdcs_master_t::connect_cb (int f)
 {
     if (f < 0) {
-        went_down (strbuf ("could not connect to host: %m"), DSDC_DEBUG_LOW);
+        went_down (strbuf ("could not connect to host: %m"), DSDC_DBG_LOW);
         return;
     }
     if (show_debug (DSDC_DBG_LOW))
