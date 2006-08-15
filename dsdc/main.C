@@ -11,6 +11,7 @@
 #include "dsdc_slave.h"
 #include "dsdc_master.h"
 #include "rxx.h"
+#include "dsdc.h"
 
 str cmd_pidfile("");
 
@@ -171,11 +172,10 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
                 hostname = optarg;
                 break;
             case 'v':
-                warn <<
-                    "DSDC (Dirt-simple Distributed Cache)\n"
-                    "  Version " DSDC_VERSION_STR "\n"
-                    "  Compiled " __DATE__ " " __TIME "\n"
-                    "  w/ sfslite, Version " SFSLITE_PATCHLEVEL_STR "\n";
+                warnx << "DSDC (Dirt-simple Distributed Cache)\n"
+                      << "  Version " DSDC_VERSION_STR "\n"
+                      << "  Compiled " __DATE__ " " __TIME__ "\n"
+                      << "  w/ sfslite, Version " SFSLITE_PATCHLEVEL_STR "\n";
                 exit (0);
                 break;
             case 'L':
