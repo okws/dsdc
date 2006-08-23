@@ -293,9 +293,10 @@ compute_match(
     if (show_debug(DSDC_DBG_MATCH_HIGH)) {
 	warn << "ENEMY ***************************************\n";
     }
-    double enemy_avg = calcMatchAvg(common,
-	    u1possible, u2possible,
-	    friend_u1actual, friend_u2actual, false);
+    double enemy_avg = 1.0 - calcMatchAvg(common,
+                                          u1possible, u2possible,
+                                          match_u1actual, match_u2actual, false);
+
 
     if (show_debug(DSDC_DBG_MATCH_HIGH)) {
 	warn << "ADJUSTING ***************************************\n";
@@ -312,9 +313,10 @@ compute_match(
     // In theory no one should score an enemy percentage of 100%
     // If they do, that means they just do not have any intersecting
     // questions, so make them go to 0.
-    if (enemy_avg == 0)
-	enemy_avg = 1;
-    datum.epercent = (int)((1.0 - enemy_avg) * 100.0 * DSDC_MATCH_T_PERC_MULT);
+    if (enemy_avg == 0) {
+        enemy_avg = 1;
+    }
+    datum.epercent = (int)(enemy_avg * 100.0 * DSDC_MATCH_T_PERC_MULT);
 
     if (show_debug(DSDC_DBG_MATCH_HIGH)) {
 	warn << "two arrays, size1: "
