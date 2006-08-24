@@ -104,11 +104,8 @@ calcMatchAvg(
     double delta(0.0);
     if (common > 0) {
         delta = 1 / sqrt(common);
-	// If we're not using lower confidence, then we're
-	// doing an enemy match, so adjust the delta even more.
-	if (!lowerconfidence) {
-	    delta *= 2;
-	}
+        // If we're not using lower confidence, then we're
+        // doing an enemy match, so adjust the delta even more.
     }
 
     if (show_debug(DSDC_DBG_MATCH_HIGH)) {
@@ -310,11 +307,12 @@ compute_match(
 
     datum.mpercent = (int)(match_avg * 100.0 * DSDC_MATCH_T_PERC_MULT);
     datum.fpercent = (int)(friend_avg * 100.0 * DSDC_MATCH_T_PERC_MULT);
+
     // In theory no one should score an enemy percentage of 100%
     // If they do, that means they just do not have any intersecting
     // questions, so make them go to 0.
-    if (enemy_avg == 0) {
-        enemy_avg = 1;
+    if (enemy_avg > 0.99) {
+        enemy_avg = 0.0;
     }
     datum.epercent = (int)(enemy_avg * 100.0 * DSDC_MATCH_T_PERC_MULT);
 
