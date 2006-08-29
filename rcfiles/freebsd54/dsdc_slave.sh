@@ -7,7 +7,7 @@
 #
 #   Usage: dsdc_slave [fast|force](start|stop|restart|rcvar|status|poll)
 #
-# In order for it to work, dsdc_slave_enable="YES" needs to be set in 
+# In order for it to work, dsdc_slave_enable="YES" needs to be set in
 # /etc/rc.conf.
 #
 # Author:  Alfred Perlstein <alfred@okcupid.com>
@@ -52,7 +52,7 @@ case "$1" in
 		pkill ${name}
 		;;
 	*)
-		echo "$1 isn't supposed" 
+		echo "$1 isn't supported"
 		;;
 esac
 
