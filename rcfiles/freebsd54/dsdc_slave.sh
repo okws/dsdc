@@ -40,7 +40,7 @@ cd ${dir}
 case "$1" in
 	start)
 		if [ "x${dsdc_slave_instances}" = "x" ] ; then
-			${dsdc_slave_instances}=1
+			dsdc_slave_instances=1
 		fi
 		for i in $(jot ${dsdc_slave_instances}) ; do
 			pidfile="/var/run/${name}-${i}.pid"
