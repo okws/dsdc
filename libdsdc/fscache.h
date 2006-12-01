@@ -68,9 +68,9 @@ class iface_t {
         void store (const file_id_t &id, time_t tm, str data, cbi cb, CLOSURE);
         void remove (const file_id_t &id, cbi cb, CLOSURE);
 
-    private:
         str filename (const file_id_t &id) const;
 
+    private:
         const cfg_t *_cfg;
         backend_t *_backend;
 };

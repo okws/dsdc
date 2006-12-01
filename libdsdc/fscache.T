@@ -237,7 +237,7 @@ aiod_backend_t::file2str_T (str fn, cbis_t cb)
                     }
                 }
                 if (rc == 0) {
-                    if (b.tosuio ()->resid () != sz) {
+                    if (b.tosuio ()->resid () != size_t (sz)) {
                         warn << "While reading " << fn << ": "
                              << "exepcted " << sz << "bytes; got "
                              << b.tosuio ()->resid () << " bytes instead\n";
