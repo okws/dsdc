@@ -470,3 +470,21 @@ program DSDC_PROG
 
 	} = 1;
 } = 30002;
+
+/*
+ * Some XDR sturctures for writing/reading files in FS cache.
+ */
+
+%#define SHA1SZ 20
+
+typedef opaque checksum_t[SHA1SZ];
+
+struct fscache_file_data_t {
+	unsigned timestamp;
+	opaque data<>;
+};
+
+struct fscache_file_t {
+	checksum_t checksum;
+	fscache_file_data_t data;
+};
