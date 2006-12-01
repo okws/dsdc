@@ -214,7 +214,9 @@ aiod_backend_t::file2str_T (str fn, cbis_t cb)
     BLOCK { _aiod->open (fn, O_RDONLY, 0, @(fh, rc)); }
     if (rc == 0) {
         BLOCK { fh->fstat (@(sb, rc)); }
-        if (rc == 0) {
+        if (rc != 0) {
+            warn << "fstat failed on file: " << fn << "\n";
+        } else {
             sz = sb->st_size;
             if (!(buf = _aiod->bufalloc (blocksz))) {
                 rc = ENOMEM;
@@ -225,7 +227,8 @@ aiod_backend_t::file2str_T (str fn, cbis_t cb)
                     if (rc != 0) {
                         warn ("Read error on file (%s): %m\n", fn.cstr ());
                     } else if (rsz < 0) {
-                        warn ("Got unexpected failed read on file: %s\n", fn.cstr ());
+                        warn ("Got unexpected failed read on file: %s\n",
+                              fn.cstr ());
                     } else {
                         if (rsz < blocksz) {
                             eof = true;
@@ -242,8 +245,6 @@ aiod_backend_t::file2str_T (str fn, cbis_t cb)
                     ret = b;
                 }
             }
-        } else {
-            warn << "fstat failed on file: " << fn << "\n";
         }
     }
     cb->signal (rc, ret);
@@ -279,7 +280,8 @@ aiod_backend_t::str2file_T (str fn, str s, int mode, cbi cb)
                 if (rc != 0) {
                     warn ("Bad write to file (%s): %d\n", fn.cstr (), rc);
                 } else if (wsz != bsz) {
-                    warn ("Short write to file (%s): expected %d bytes, got %d\n",
+                    warn ("Short write to file (%s): "
+                          "expected %d bytes, got %d\n",
                           fn.cstr (), bsz, wsz);
                     rc = EIO;
                 }

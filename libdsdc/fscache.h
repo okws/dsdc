@@ -89,7 +89,9 @@ class aiod_backend_t : public backend_t {
         ~aiod_backend_t ();
 
         void file2str (str fn, cbis_t cb) { file2str_T (fn, cb); }
-        void str2file (str f, str s, int m, cbi cb) { str2file_T (f, s, m, cb); }
+        void str2file (str f, str s, int m, cbi cb)
+        { str2file_T (f, s, m, cb); }
+
         void remove (str f, cbi cb) { remove_T (f, cb); }
 
     private:
