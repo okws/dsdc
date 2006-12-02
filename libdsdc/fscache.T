@@ -17,8 +17,9 @@ cfg_t::cfg_t ()
       _root ("/disk/fscache"),
       _n_aiods (5),
       _shmsize (0x200000),
-      _maxbuf (0x1000),
-      _blocksz (0x4000)
+      _maxbuf (0x10000),
+      _blocksz (0x4000),
+      _file_mode (0664)
 {
 }
 
@@ -30,7 +31,7 @@ file_id_t::fullpath (int lev) const
 
 #define SZ 32
     char buf[SZ];
-    int rc = snprintf (buf, SZ, "%llx", _index);
+    int rc = snprintf (buf, SZ, "%08x", _index);
 #undef SZ
 
     assert (lev < rc);
@@ -89,7 +90,7 @@ iface_t::load (const file_id_t &id, cbits_t cb)
     if (rc == 0) {
         fscache_file_t file;
         char digest[SHA1SZ];
-        if (str2xdr (file, out)) {
+        if (!str2xdr (file, out)) {
             warn ("Cannot decode file: %s\n", fn.cstr ());
             rc = -EINVAL;
         } else if (!sha1_hashxdr (digest, file.data)) {
@@ -219,10 +220,10 @@ aiod_backend_t::file2str_T (str fn, cbis_t cb)
         } else {
             sz = sb->st_size;
             if (!(buf = _aiod->bufalloc (blocksz))) {
-                rc = ENOMEM;
+                rc = -ENOMEM;
             } else {
                 eof = false;
-                for (pos = 0; pos < sz && rc == 0 && eof; pos += blocksz) {
+                for (pos = 0; pos < sz && rc == 0 && !eof; pos += rsz) {
                     BLOCK { fh->read (pos, buf, @(b2, rsz, rc)); }
                     if (rc != 0) {
                         warn ("Read error on file (%s): %m\n", fn.cstr ());
@@ -239,13 +240,15 @@ aiod_backend_t::file2str_T (str fn, cbis_t cb)
                 if (rc == 0) {
                     if (b.tosuio ()->resid () != size_t (sz)) {
                         warn << "While reading " << fn << ": "
-                             << "exepcted " << sz << "bytes; got "
+                             << "exepcted " << sz << " bytes; got "
                              << b.tosuio ()->resid () << " bytes instead\n";
                     }
                     ret = b;
                 }
             }
         }
+    } else {
+        rc = 0 - rc;
     }
     cb->signal (rc, ret);
 }
@@ -267,7 +270,7 @@ aiod_backend_t::str2file_T (str fn, str s, int mode, cbi cb)
     }
     blocksz = _cfg->blocksz ();
 
-    BLOCK { _aiod->open (fn, O_WRONLY, mode, @(fh, rc)); }
+    BLOCK { _aiod->open (fn, O_WRONLY|O_CREAT, mode, @(fh, rc)); }
     if (rc == 0) {
         if (!(buf = _aiod->bufalloc (blocksz))) {
             rc = ENOMEM;
@@ -276,7 +279,7 @@ aiod_backend_t::str2file_T (str fn, str s, int mode, cbi cb)
                  pos += blocksz, cp += blocksz) {
                 bsz = min<ssize_t> (blocksz, ep - cp);
                 memcpy (buf->base (), cp, bsz);
-                BLOCK { fh->write (pos, buf, @(b2, wsz, rc)); }
+                BLOCK { fh->swrite (pos, buf, 0, bsz, @(b2, wsz, rc)); }
                 if (rc != 0) {
                     warn ("Bad write to file (%s): %d\n", fn.cstr (), rc);
                 } else if (wsz != bsz) {

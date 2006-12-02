@@ -41,13 +41,13 @@ typedef callback<void,int,str>::ref cbis_t;
 
 class file_id_t {
     public:
-        file_id_t (const str &name, u_int64_t index)
+        file_id_t (const str &name, u_int32_t index)
             : _name (name), _index (index) {}
         str name () const { return _name; }
         str fullpath (int lev) const;
     private:
         const str _name;
-        const u_int64_t _index;
+        const u_int32_t _index;
 };
 
 class backend_t {
