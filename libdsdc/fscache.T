@@ -51,7 +51,7 @@ file_id_t::fullpath (int lev) const
 
 //-----------------------------------------------------------------------
 
-iface_t::iface_t (const cfg_t *c) : _cfg (c)
+engine_t::engine_t (const cfg_t *c) : _cfg (c)
 {
     switch (c->backend ()) {
         case BACKEND_SIMPLE:
@@ -68,7 +68,7 @@ iface_t::iface_t (const cfg_t *c) : _cfg (c)
 
 //-----------------------------------------------------------------------
 
-iface_t::~iface_t ()
+engine_t::~engine_t ()
 {
     delete _backend;
 }
@@ -76,7 +76,7 @@ iface_t::~iface_t ()
 //-----------------------------------------------------------------------
 
 TAMED void
-iface_t::load (const file_id_t &id, cbits_t cb)
+engine_t::load (const file_id_t &id, cbits_t cb)
 {
     VARS {
         str fn;
@@ -112,7 +112,7 @@ iface_t::load (const file_id_t &id, cbits_t cb)
 //-----------------------------------------------------------------------
 
 TAMED void
-iface_t::store (const file_id_t &id, time_t tm, str data, cbi cb)
+engine_t::store (const file_id_t &id, time_t tm, str data, cbi cb)
 {
     VARS {
         str fn;
@@ -138,7 +138,7 @@ iface_t::store (const file_id_t &id, time_t tm, str data, cbi cb)
 //-----------------------------------------------------------------------
 
 TAMED void
-iface_t::remove (const file_id_t &id, cbi cb)
+engine_t::remove (const file_id_t &id, cbi cb)
 {
     VARS {
         str fn;
@@ -152,7 +152,7 @@ iface_t::remove (const file_id_t &id, cbi cb)
 //-----------------------------------------------------------------------
 
 str
-iface_t::filename (const file_id_t &id) const
+engine_t::filename (const file_id_t &id) const
 {
     strbuf b;
     str s;

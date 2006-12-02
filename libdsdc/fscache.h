@@ -59,10 +59,10 @@ class backend_t {
         virtual void remove (str f, cbi cb) = 0;
 };
 
-class iface_t {
+class engine_t {
     public:
-        iface_t (const cfg_t *c);
-        ~iface_t ();
+        engine_t (const cfg_t *c);
+        ~engine_t ();
 
         void load (const file_id_t &id, cbits_t cb, CLOSURE);
         void store (const file_id_t &id, time_t tm, str data, cbi cb, CLOSURE);
@@ -102,6 +102,60 @@ class aiod_backend_t : public backend_t {
         const cfg_t *_cfg;
         aiod *_aiod;
 };
+
+
+template<class C>
+class iface_t {
+    public:
+        iface_t (engine_t *e) : _engine (e) {}
+
+        typedef typename callback<void, int, time_t, ptr<C> >::ref load_cb_t;
+
+        void load (const file_id_t &id, load_cb_t cb)
+        {
+            _engine->load (id, wrap (this, &iface_t<C>::load_cb, id, cb));
+        }
+
+        void store (const file_id_t &id, time_t tm, const C &obj, cbi cb)
+        {
+            str s;
+            str fn = filename (id);
+            int ret;
+            if (!xdr2str (obj, s)) {
+                warn << "Failed to marshal data struct: " << fn << "\n";
+                ret = -EINVAL;
+                (*cb) (ret);
+            } else {
+                _engine->store (id, tm, s, cb);
+            }
+        }
+
+        void remove (const file_id_t &id, cbi cb) { _engine->remove (id, cb); }
+        str filename (const file_id_t &id) const
+        { return _engine->filename (id); }
+
+    private:
+
+        void load_cb (file_id_t id, load_cb_t cb, int rc, time_t tm, str s)
+        {
+            ptr<C> ret;
+            if (rc == 0) {
+                ret = New refcounted<C> ();
+                if (!str2xdr (*ret, s)) {
+                    str fn = filename (id);
+                    warn << "Failed to demarshall data struct: " << fn << "\n";
+                    rc = -EINVAL;
+                }
+            }
+            (*cb) (rc, tm, ret);
+        }
+
+
+        engine_t *_engine;
+
+};
+
+
 };
 
 #endif /* _DSDC_FSCACHE_H_ */

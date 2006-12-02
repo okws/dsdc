@@ -12,7 +12,7 @@ TAMED static void
 main2 (fscache::cfg_t *cfg, str name, u_int32_t key, str fn, int opts)
 {
     VARS {
-        fscache::iface_t fsc (cfg);
+        fscache::engine_t fsc (cfg);
         str fdat, fdat2;
         fscache::file_id_t id (name, key);
         time_t t, t2;
