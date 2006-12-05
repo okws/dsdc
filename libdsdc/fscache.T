@@ -250,7 +250,7 @@ aiod_backend_t::file2str_T (str fn, cbis_t cb)
     } else {
         rc = 0 - rc;
     }
-    cb->signal (rc, ret);
+    SIGNAL (cb, rc, ret);
 }
 
 //-----------------------------------------------------------------------
@@ -295,7 +295,7 @@ aiod_backend_t::str2file_T (str fn, str s, int mode, cbi cb)
             warn ("Close failed on file (%s): %d\n", fn.cstr (), rc);
         }
     }
-    cb->signal (rc);
+    SIGNAL (cb, rc);
 }
 
 //-----------------------------------------------------------------------
