@@ -7,6 +7,7 @@
 #include "async.h"
 #include "tame.h"
 #include "aiod.h"
+#include "crypt.h"
 
 namespace fscache {
 
@@ -121,7 +122,7 @@ class iface_t {
             str s;
             str fn = filename (id);
             int ret;
-            if (!xdr2str (obj, s)) {
+            if (!(s = xdr2str (obj))) {
                 warn << "Failed to marshal data struct: " << fn << "\n";
                 ret = -EINVAL;
                 (*cb) (ret);
