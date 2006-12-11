@@ -7,6 +7,10 @@
 #include "arpc.h"
 #include "sha1.h"
 
+#ifndef SIGNAL
+#define SIGNAL(x,...) (*cb)(__VA_ARGS__)
+#endif
+
 namespace fscache {
 
 //-----------------------------------------------------------------------
