@@ -65,11 +65,11 @@ class engine_t {
         engine_t (const cfg_t *c);
         ~engine_t ();
 
-        void load (const file_id_t &id, cbits_t cb, CLOSURE);
-        void store (const file_id_t &id, time_t tm, str data, cbi cb, CLOSURE);
-        void remove (const file_id_t &id, cbi cb, CLOSURE);
+        void load (file_id_t id, cbits_t cb, CLOSURE);
+        void store (file_id_t id, time_t tm, str data, cbi cb, CLOSURE);
+        void remove (file_id_t id, cbi cb, CLOSURE);
 
-        str filename (const file_id_t &id) const;
+        str filename (file_id_t id) const;
 
     private:
         const cfg_t *_cfg;
@@ -112,12 +112,12 @@ class iface_t {
 
         typedef typename callback<void, int, time_t, ptr<C> >::ref load_cb_t;
 
-        void load (const file_id_t &id, load_cb_t cb)
+        void load (file_id_t id, load_cb_t cb)
         {
             _engine->load (id, wrap (this, &iface_t<C>::load_cb, id, cb));
         }
 
-        void store (const file_id_t &id, time_t tm, const C &obj, cbi cb)
+        void store (file_id_t id, time_t tm, const C &obj, cbi cb)
         {
             str s;
             str fn = filename (id);
@@ -131,8 +131,8 @@ class iface_t {
             }
         }
 
-        void remove (const file_id_t &id, cbi cb) { _engine->remove (id, cb); }
-        str filename (const file_id_t &id) const
+        void remove (file_id_t id, cbi cb) { _engine->remove (id, cb); }
+        str filename (file_id_t id) const
         { return _engine->filename (id); }
 
     private:

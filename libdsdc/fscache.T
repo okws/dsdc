@@ -76,7 +76,7 @@ engine_t::~engine_t ()
 //-----------------------------------------------------------------------
 
 TAMED void
-engine_t::load (const file_id_t &id, cbits_t cb)
+engine_t::load (file_id_t id, cbits_t cb)
 {
     VARS {
         str fn;
@@ -112,7 +112,7 @@ engine_t::load (const file_id_t &id, cbits_t cb)
 //-----------------------------------------------------------------------
 
 TAMED void
-engine_t::store (const file_id_t &id, time_t tm, str data, cbi cb)
+engine_t::store (file_id_t id, time_t tm, str data, cbi cb)
 {
     VARS {
         str fn;
@@ -138,7 +138,7 @@ engine_t::store (const file_id_t &id, time_t tm, str data, cbi cb)
 //-----------------------------------------------------------------------
 
 TAMED void
-engine_t::remove (const file_id_t &id, cbi cb)
+engine_t::remove (file_id_t id, cbi cb)
 {
     VARS {
         str fn;
@@ -152,7 +152,7 @@ engine_t::remove (const file_id_t &id, cbi cb)
 //-----------------------------------------------------------------------
 
 str
-engine_t::filename (const file_id_t &id) const
+engine_t::filename (file_id_t id) const
 {
     strbuf b;
     str s;
