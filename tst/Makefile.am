@@ -33,3 +33,8 @@ tstfscache.lo:	tstfscache.C
 CLEANFILES = core *.core *~ tstfscache.C
 EXTRA_DIST = .cvsignore tstfscache.T
 MAINTAINERCLEANFILES = Makefile.in
+
+.PHONY: tameclean
+
+tameclean:
+	@rm -f tstfscache.C

@@ -33,4 +33,6 @@ EXTRA_DIST = .cvsignore master.T admin.T
 MAINTAINERCLEANFILES = Makefile.in
 
 .PHONY: tameclean
-	rm -f $(srcdir)/master.C $(srcdir)/admin.C
+
+tameclean:
+	@rm -f master.C admin.C

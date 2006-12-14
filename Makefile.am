@@ -30,8 +30,13 @@ DISTCLEANFILES = config.h stamp-auto-h autom4te*.cache
 #distclean-recursive: aux-distclean
 #maintainer-clean-recursive: aux-maintainer-clean
 
-.PHONY: rpcclean
+.PHONY: rpcclean tameclean
 rpcclean:
 	for dir in libdsdc; do \
 		(cd $$dir && $(MAKE) rpcclean); \
+	done
+
+tameclean:
+	for dir in $(SUBDIRS) ; do \
+		(cd $$dir && $(MAKE) tameclean); \
 	done
