@@ -12,6 +12,8 @@
 #include "dsdc_lock.h"
 #include "dsdc_stats.h"
 
+#include <inttypes.h>
+
 typedef enum { NONE = 0,
 	       GET = 1,
 	       PUT = 2 } tst_mode_t;
@@ -163,7 +165,7 @@ acquire_cb (tst_key_t k, ptr<dsdc_lock_acquire_res_t> res)
 {
   switch (res->status) {
   case DSDC_OK:
-    aout << strbuf ("LOCK ACQUIRED: %d -> %llx\n", k, *res->lockid);
+    aout << strbuf ("LOCK ACQUIRED: %d -> %" PRIx64 "\n", k, *res->lockid);
     break;
   case DSDC_RPC_ERROR:
     warn << "** LOCK_ACQUIRE: RPC error\n";
@@ -199,13 +201,13 @@ release_cb (tst_key_t key, dsdcl_id_t lockid, int status)
 {
   switch (status) {
   case DSDC_NOTFOUND:
-    aout << strbuf ("LOCK_RELEASE: (%d, %llx) not found\n", key, lockid);
+    aout << strbuf ("LOCK_RELEASE: (%d, %" PRIx64 ") not found\n", key, lockid);
     break;
   case DSDC_RPC_ERROR:
     warn << "** LOCK_RELEASE: RPC error\n";
     break;
   case DSDC_OK:
-    aout << strbuf ("LOCK_RELEASED: (%d, %llx)\n", key, lockid);
+    aout << strbuf ("LOCK_RELEASED: (%d, %" PRIx64 ")\n", key, lockid);
     break;
   default:
     warn << "** LOCK_RELEASE: DSDC error " << status << "\n";

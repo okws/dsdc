@@ -136,7 +136,7 @@ dsdc_slave_t::clean_cache ()
     }
     _n_updates_since_clean = 0;
     if (show_debug (DSDC_DBG_LOW))
-        warn ("CLEAN: cleaned %d objects (%d bytes in total)\n", nobj, tot);
+        warn ("CLEAN: cleaned %d objects (%zu bytes in total)\n", nobj, tot);
 }
 
 void
@@ -655,7 +655,7 @@ void
 dsdc_slave_t::startup_msg_v (strbuf *b) const
 {
     if (show_debug (DSDC_DBG_LOW))
-        b->fmt ("; nnodes=%d, maxsz=0x%x", _n_nodes, _maxsz);
+        b->fmt ("; nnodes=%d, maxsz=0x%zx", _n_nodes, _maxsz);
 }
 
 

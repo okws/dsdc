@@ -288,7 +288,7 @@ aiod_backend_t::str2file_T (str fn, str s, int mode, cbi cb)
                     warn ("Bad write to file (%s): %d\n", fn.cstr (), rc);
                 } else if (wsz != bsz) {
                     warn ("Short write to file (%s): "
-                          "expected %d bytes, got %d\n",
+                          "expected %zd bytes, got %zd\n",
                           fn.cstr (), bsz, wsz);
                     rc = EIO;
                 }

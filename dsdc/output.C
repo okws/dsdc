@@ -2,6 +2,8 @@
 #include "dsdc_admin.h"
 #include "aios.h"
 
+#include <inttypes.h>
+
 void 
 tabbuf_t::indent ()
 {
@@ -66,7 +68,7 @@ output_histogram (tabbuf_t &b, const char *l, const dsdc_histogram_t &h)
   b.indent (); b.fmt ("avg   = %d\n", int (h.avg / h.scale_factor) );
   b.indent (); b.fmt ("min   = %d\n", int ( h.min / h.scale_factor) );
   b.indent (); b.fmt ("max   = %d\n", int ( h.max / h.scale_factor) );
-  b.indent (); b.fmt ("total = %lld\n", h.total / h.scale_factor );
+  b.indent (); b.fmt ("total = %" PRId64 "\n", h.total / h.scale_factor );
   b.indent (); b.fmt ("nsamp = %d\n", int (h.samples));
   b.tab_in ();
   

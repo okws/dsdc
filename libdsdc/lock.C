@@ -3,6 +3,8 @@
 #include "dsdc_util.h"
 #include "dsdc_const.h"
 
+#include <inttypes.h>
+
 dsdcl_id_t g_serial_no = 0;
 
 static dsdcl_id_t nxt_id () { return ++g_serial_no; }
@@ -83,7 +85,7 @@ dsdc_lock_t::release (dsdcl_id_t l)
     if (l != h->id ()) {
       if (show_debug (DSDC_DBG_LOW))
 	warn ("Key %s: release of write lock failed; "
-	      "expected ID %llx, got ID 0x%llx\n",
+	      "expected ID %" PRIx64 ", got ID 0x%" PRIx64 "\n",
 	      key_to_str (_key).cstr (), h->id (), l);
       ret = false;
       h = NULL; /* set h to NULL so it's not deleted ... */
@@ -94,7 +96,7 @@ dsdc_lock_t::release (dsdcl_id_t l)
   } else {
     if (!(h = _readers[l])) {
       if (show_debug (DSDC_DBG_LOW)) 
-	warn ("Key %s: no lock found for lock ID 0x%llx\n",
+	warn ("Key %s: no lock found for lock ID 0x%" PRIx64 "\n",
 	      key_to_str (_key).cstr (), l);
       ret = false;
     } else {
@@ -210,7 +212,7 @@ dsdc_lock_t::remove_holder (dsdcl_holder_t *h, ptr<bool> df, bool timed_out)
   if (!timed_out)
     h->cancel_timeout ();
   else if (show_debug (DSDC_DBG_LOW)) {
-    warn ("Key %s: lock timed out for ID 0x%llx\n", 
+    warn ("Key %s: lock timed out for ID 0x%" PRIx64 "\n", 
 	  key_to_str (_key).cstr (), h->id ());
   }
   if (h->is_writer ()) {
@@ -282,7 +284,7 @@ dsdcl_mgr_t::release (svccb *sbp)
     if (show_debug (DSDC_DBG_MED))
       // This warning at level 2, since a warning is already sounded in
       // l->release() if something weird happened.
-      warn ("Key %s: no lock for ID 0x%llx\n", key_to_str (arg->key).cstr (), 
+      warn ("Key %s: no lock for ID 0x%" PRIx64 "\n", key_to_str (arg->key).cstr (), 
 	    arg->lockid);
 
   } else
