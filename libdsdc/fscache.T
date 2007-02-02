@@ -186,7 +186,12 @@ void
 simple_backend_t::str2file (str fn, str s, int mode, cbi cb)
 {
     bool b = ::str2file (fn, s, mode);
-    SIGNAL (cb, b ? 0-errno : 0);
+    int rc = 0;
+    if (!b) {
+      rc = (errno > 0) ? -errno : -1;
+    }
+    
+    SIGNAL (cb, rc);
 }
 
 //-----------------------------------------------------------------------
@@ -277,7 +282,7 @@ aiod_backend_t::str2file_T (str fn, str s, int mode, cbi cb)
     BLOCK { _aiod->open (fn, O_WRONLY|O_CREAT, mode, @(fh, rc)); }
     if (rc == 0) {
         if (!(buf = _aiod->bufalloc (blocksz))) {
-            rc = ENOMEM;
+            rc = -ENOMEM;
         } else {
             for (pos = 0, cp = s.cstr (); cp < ep && rc == 0;
                  pos += blocksz, cp += blocksz) {
@@ -290,7 +295,7 @@ aiod_backend_t::str2file_T (str fn, str s, int mode, cbi cb)
                     warn ("Short write to file (%s): "
                           "expected %zd bytes, got %zd\n",
                           fn.cstr (), bsz, wsz);
-                    rc = EIO;
+                    rc = -EIO;
                 }
             }
         }
