@@ -188,7 +188,7 @@ simple_backend_t::str2file (str fn, str s, int mode, cbi cb)
     bool b = ::str2file (fn, s, mode);
     int rc = 0;
     if (!b) {
-      rc = (errno > 0) ? -errno : -1;
+      rc = (errno > 0) ? -errno : -EIO;
     }
     
     SIGNAL (cb, rc);
