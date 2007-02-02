@@ -183,9 +183,9 @@ simple_backend_t::file2str (str fn, cbis_t cb)
 //-----------------------------------------------------------------------
 
 void
-simple_backend_t::str2file (str s, str f, int mode, cbi cb)
+simple_backend_t::str2file (str fn, str s, int mode, cbi cb)
 {
-    bool b = ::str2file (f, s, mode);
+    bool b = ::str2file (fn, s, mode);
     SIGNAL (cb, b ? 0-errno : 0);
 }
 
