@@ -88,22 +88,12 @@ namespace fscache {
     void insert (const K &key, ptr<V> value, cbi::ptr cb = NULL, CLOSURE);
     void get (K key, typename callback<void, ptr<V> >::ref cb, CLOSURE);
     void write_out (const K &key, const V &val, cbi::ptr cb, CLOSURE);
+    void remove (const K &key, cbi::ptr cb = NULL, CLOSURE);
 
     void insert (const K &key, const V &value, cbi::ptr cb = NULL) 
     {
       ptr<V> v = New refcounted<V> (value);
       insert (key, v, cb, NULL);
-    }
-
-    void remove (const K &key, cbi cb)
-    {
-      entry *e = _tab[key];
-      if (e) {
-	remove_from_mem (e);
-	_iface.remove (_file_id_maker (key), cb);
-      } else {
-	(*cb) (-ENOENT);
-      }
     }
     
   protected:
@@ -272,5 +262,36 @@ namespace fscache {
     SIGNAL (cb, v);
     if (dorelease)
       rce->releaselock ();
+  }
+  
+  
+  TAMED template<class K, class V, class F> void 
+  lru_t<K,V,F>::remove (const K &key, cbi::ptr cb)
+  {
+    VARS {
+      typename lru_t<K,V,F>::entry *e;
+      ptr<typename lru_t<K,V,F>::entry> rce;
+      int rc;
+    }
+    e = _tab[key];
+    if (e) {
+      rce = mkref (e);
+      while (rce->is_locked ()) {
+	BLOCK { rce->waitfor (@()); }
+      }
+      rce->makelock ();
+      BLOCK { _iface.remove (_file_id_maker (key), @(rc)); }
+      if (rc != 0) {
+	str s = _iface.filename (_file_id_maker (key));
+	warn ("Cannot remove file '%s': %d\n", s.cstr (), rc);
+      }
+      rce->releaselock ();
+      remove_from_mem (rce);
+      rc = 0;
+    } else {
+      rc = -ENOENT;
+    }
+    if (cb)
+      (*cb) (rc);
   }
 };
