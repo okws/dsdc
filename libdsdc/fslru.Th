@@ -250,8 +250,6 @@ namespace fscache {
 	rce->set_data (v);
 	clean ();
       } else {
-	warn << "get failed from disk (rc=" << rc << "; diff="
-	     << timenow - tm << ")\n";
 	remove_from_mem (rce);
       }
       warn << "get from disk...\n";
