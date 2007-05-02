@@ -121,6 +121,7 @@ namespace fscache {
       e->set_in_mem (true);
       _q.insert_tail (e);
       _tab.insert (e);
+      clean ();
     }
     
     void remove_from_mem (entry *e)
@@ -191,7 +192,6 @@ namespace fscache {
     } else {
       rce = New refcounted<entry> (key, value);
       insert_into_mem (rce);
-      clean ();
     }
     rce->makelock ();
     BLOCK { this->write_out (key, *value, @(rc), NULL); }
@@ -227,6 +227,8 @@ namespace fscache {
       int rc;
       time_t tm;
       bool dorelease (false);
+      int rrc;
+      ptr<file_id_t> id;
     }
     e = _tab[key];
     if (e) {
@@ -243,16 +245,29 @@ namespace fscache {
       insert_into_mem (rce);
       rce->makelock ();
       dorelease = true;
-      BLOCK { _iface.load (_file_id_maker (key), @(rc, tm, v)); }
-      if (rc == 0 && 
-	  (_timeout == 0 || 
-	   (int (timenow - tm) < int (_timeout)))) {
-	rce->set_data (v);
-	clean ();
-      } else {
+      id = New refcounted<file_id_t> (_file_id_maker (key));
+      BLOCK { _iface.load (*id, @(rc, tm, v)); }
+
+      if (rc != 0) {
 	remove_from_mem (rce);
+      } else if (int (timenow - tm) > int (_timeout)) {
+
+	remove_from_mem (rce);
+	BLOCK { _iface.remove (*id, @(rrc)); }
+	if (rrc != 0) {
+	  str s = _iface.filename (*id);
+	  warn ("Failed to remove stale file '%s': %d\n", s.cstr (), rrc);
+	}
+
+	// Discard 'v' since it's expired....
+	v = NULL;
+
+      } else {
+	
+	// Success case!
+	assert (v);
+	rce->set_data (v);
       }
-      warn << "get from disk...\n";
     }
     SIGNAL (cb, v);
     if (dorelease)
