@@ -3,6 +3,7 @@
 #include "dsdc_util.h"
 #include "dsdc_const.h"
 
+#define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
 dsdcl_id_t g_serial_no = 0;

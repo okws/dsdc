@@ -1,0 +1,253 @@
+
+// -*-c++-*-
+
+#include "fscache.h"
+#include "dsdc_prot.h"
+#include "crypt.h"
+#include "arpc.h"
+#include "sha1.h"
+
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
+
+//
+// For sfslite 1.x upgrade, need to move timenow -> sfs_get_timenow()
+//
+
+namespace fscache {
+
+  enum { DAY = 24 * 60 * 60 } ;
+
+  template<class C> class file_id_maker_t;
+
+  template<class K, class V, class F = file_id_maker_t<K> >
+  class lru_t {
+
+  public:
+    
+    class entry : public virtual refcount { 
+    public:
+      K _key;
+      ihash_entry<entry> _hlnk;
+      tailq_entry<entry> _qlnk;
+    private:
+      ptr<V> _data;
+      ptr<entry> _hold;
+      vec<cbv> *_waiters;
+      time_t _timein;
+      bool _in_mem;
+
+    public:
+
+      entry (const K &key, ptr<V> d = NULL) 
+	: _key (key),
+	  _data (d),
+	  _hold (mkref (this)),
+	  _waiters (NULL),
+	  _timein (timenow),
+	  _in_mem (false)
+      {}
+
+      void release () { _hold = NULL; }
+
+      bool is_locked () const { return _waiters; }
+      void waitfor (cbv c) { _waiters->push_back (c); } 
+      void makelock ()
+      {
+	assert (!_waiters);
+	_waiters = New vec<cbv> ();
+      }
+
+      void set_in_mem (bool b) { _in_mem = b;}
+      bool in_mem () const { return _in_mem; }
+
+      void releaselock ()
+      {
+	vec<cbv> *tmp = _waiters;
+	_waiters = NULL;
+	for (size_t i = 0; i < tmp->size (); i++) {
+	  (*tmp)[i]();
+	}
+	delete tmp;
+      }
+
+      ptr<V> data () const { return _data; }
+      void set_data (ptr<V> v) { _data = v; }
+    };
+    
+  public:
+    
+    lru_t (const str &n, engine_t *e,
+	   u_int timeout = DAY, size_t sz = 0x1000) 
+      : _name (n),
+	_iface (e),
+	_timeout (timeout),
+	_max_size (sz),
+	_file_id_maker (n) {}
+
+    void insert (const K &key, ptr<V> value, cbi::ptr cb = NULL, CLOSURE);
+    void get (K key, callback<void, ptr<V> > cb, CLOSURE);
+    void write_out (const K &key, const V &val, cbi::ptr cb, CLOSURE);
+
+    void insert (const K &key, const V &value, cbi::ptr cb = NULL) 
+    {
+      ptr<V> v = New refcounted<V> (value);
+      insert (key, v, cb, NULL);
+    }
+
+    void remove (const K &key, cbi cb)
+    {
+      entry *e = _tab[key];
+      if (e) {
+	remove_from_mem (e);
+	_iface.remove (_file_id_maker (key), cb);
+      } else {
+	(*cb) (-ENOENT);
+      }
+    }
+    
+  protected:
+    
+    void remove_from_mem (const K &key)
+    {
+      entry *e = _tab[key];
+      if (e)
+	remove_from_mem (e);
+    }
+    
+    void insert_into_mem (entry *e)
+    {
+      assert (!e->in_mem());
+      e->set_in_mem (true);
+      _q.insert_tail (e);
+      _tab.insert (e);
+    }
+    
+    void remove_from_mem (entry *e)
+    {
+      assert (e->in_mem ());
+      e->set_in_mem (false);
+      _q.remove (e);
+      _tab.remove (e);
+      e->release ();
+    }
+    
+    void touch_in_memory (entry *e)
+    {
+      assert (e->in_mem ());
+      _q.remove (e);
+      _q.insert_tail (e);
+    }
+
+    void clean ()
+    {
+      if (_max_size > 0) {
+	while (_tab.size () > _max_size) {
+	  remove_from_mem (_q.first);
+	}
+      }
+    }
+
+
+  protected:
+    const str _name;
+    iface_t<V> _iface;
+    u_int _timeout;
+    size_t _max_size;
+    const F _file_id_maker;
+
+    tailq<entry, &entry::_qlnk> _q;
+    ihash<K, entry, &entry::_key, &entry::_hlnk> _tab;
+    
+  };
+  
+  template<>
+  class file_id_maker_t<u_int64_t> 
+  {
+  public:
+    file_id_maker_t (const str &n) : _name (n) {}
+    file_id_t operator () (const u_int64_t &u) const
+    {
+      strbuf b ("%s-%" PRIx64 , _name.cstr (), u);
+      return file_id_t (b, u_int32_t (u));
+    }
+  private:
+    const str _name;
+  };
+  
+  TAMED template<class K, class V, class F> void 
+  lru_t<K,V,F>::insert (const K &key, ptr<V> value, cbi::ptr cb)
+  {
+    VARS {
+      typename lru_t<K,V,F>::entry *e;
+      ptr<typename lru_t<K,V,F>::entry > rce;
+      int rc;
+    }
+    e = _tab[key];
+    if (e) {
+      rce = mkref (e);
+      touch_in_memory (rce);
+    } else {
+      rce = New refcounted<entry> (key, value);
+      insert_into_mem (rce);
+      clean ();
+    }
+    rce->makelock ();
+    BLOCK { this->write_out (key, *value, @(rc), NULL); }
+    rce->releaselock ();
+    if (cb)
+      (*cb) (rc);
+  }
+
+  TAMED template<class K, class V, class F> void 
+  lru_t<K,V,F>::write_out (const K &key, const V &val, cbi::ptr cb)
+  {
+    VARS {
+      ptr<file_id_t> id;
+      int rc;
+    }
+    id = New refcounted<file_id_t> (_file_id_maker (key));
+    BLOCK { _iface.store (*id, timenow, val, @(rc)); }
+    if (rc != 0) {
+      str s = _iface.filename (*id);
+      warn ("write_out('%s') returned error %d\n", s.cstr (), rc);
+    }
+    if (cb)
+      (*cb) (rc);
+  }
+  
+  TAMED template<class K, class V, class F> void 
+  lru_t<K,V,F>::get (K key, callback<void, ptr<V> > cb)
+  {
+    VARS {
+      ptr<V> v;
+      typename lru_t<K,V,F>::entry *e;
+      ptr<typename lru_t<K,V,F>::entry> rce;
+      int rc;
+      time_t tm;
+    }
+    e = _tab[key];
+    if (e) {
+      rce = mkref (e);
+      if (rce->is_locked ()) {
+	BLOCK { rce->waitfor (@()); }
+      } else {
+	touch_in_memory (rce);
+      }
+      v = rce->value ();
+    } else {
+      rce = New refcounted<entry> (key);
+      insert_into_mem (rce);
+      rce->makelock ();
+      BLOCK { _iface.load (_file_id_maker (key), @(rc, tm, v)); }
+      if (rc == 0 && (_timeout == 0 || (timenow - tm < _timeout))) {
+	rce->set_value (v);
+	clean ();
+      } else {
+	remove_from_mem (rce);
+      }
+      rce->releaselock ();
+    }
+    SIGNAL (cb, v);
+  }
+};
