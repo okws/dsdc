@@ -14,10 +14,38 @@ main2 (fscache::cfg_t *cfg)
     VARS {
         holdvar fscache::engine_t fsc (cfg);
 	fscache::lru_t<u_int64_t, my_str_t> l ("foos", &fsc, 60, 1);
-	my_str_t s ("foo");
+	my_str_t s;
+	int rc;
+	u_int64_t k (0x100);
+	ptr<my_str_t> sp;
+	int i, j;
+    }
+    
+    // make 1 trip through the select loop
+    BLOCK { delaycb (0, 0, @()); }
+
+    for (i = 0 ; i < 10; i++, k+= 3) {
+      {
+	strbuf b;
+	b << "hello-world--" << k << "." << i << "." << k;
+	s = b;
+      }
+      BLOCK { l.insert (k, s, @(rc)); }
+      warn ("insert: %" PRIx64 " -> %s : rc=%d\n", k, s.cstr (), rc);
     }
 
-    l.insert (0x10, s);
+    k = 0x100;
+    for (i = 0; i < 10; i++, k+= 3) {
+      
+      for (j = 0; j < 2; j++) {
+	BLOCK { l.get (k, @(sp)); }
+	if (!sp) {
+	  warn ("get failed (key=%" PRIx64 ")\n", k);
+	} else {
+	  warn ("get: %" PRIx64 " -> %s\n", k, sp->cstr ());
+	}
+      }
+    }
 
     exit (0);
 }

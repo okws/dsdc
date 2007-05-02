@@ -209,7 +209,7 @@ TAMED void
 aiod_backend_t::file2str_T (str fn, cbis_t cb)
 {
     VARS {
-        int rc;
+        int rc, crc;
         ptr<aiofh> fh;
         ptr<aiobuf> buf, b2;
         off_t pos, sz;
@@ -256,6 +256,8 @@ aiod_backend_t::file2str_T (str fn, cbis_t cb)
                 }
             }
         }
+	BLOCK { fh->close (@(crc)); }
+	fh = NULL;
     } else {
         rc = 0 - rc;
     }

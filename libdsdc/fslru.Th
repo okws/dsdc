@@ -86,7 +86,7 @@ namespace fscache {
 	_file_id_maker (n) {}
 
     void insert (const K &key, ptr<V> value, cbi::ptr cb = NULL, CLOSURE);
-    void get (K key, callback<void, ptr<V> > cb, CLOSURE);
+    void get (K key, typename callback<void, ptr<V> >::ref cb, CLOSURE);
     void write_out (const K &key, const V &val, cbi::ptr cb, CLOSURE);
 
     void insert (const K &key, const V &value, cbi::ptr cb = NULL) 
@@ -143,6 +143,7 @@ namespace fscache {
     {
       if (_max_size > 0) {
 	while (_tab.size () > _max_size) {
+	  warn << "Clean " << _tab.size () << "\n";
 	  remove_from_mem (_q.first);
 	}
       }
@@ -194,9 +195,9 @@ namespace fscache {
     }
     rce->makelock ();
     BLOCK { this->write_out (key, *value, @(rc), NULL); }
-    rce->releaselock ();
     if (cb)
       (*cb) (rc);
+    rce->releaselock ();
   }
 
   TAMED template<class K, class V, class F> void 
@@ -217,7 +218,7 @@ namespace fscache {
   }
   
   TAMED template<class K, class V, class F> void 
-  lru_t<K,V,F>::get (K key, callback<void, ptr<V> > cb)
+  lru_t<K,V,F>::get (K key, typename callback<void, ptr<V> >::ref cb)
   {
     VARS {
       ptr<V> v;
@@ -225,6 +226,7 @@ namespace fscache {
       ptr<typename lru_t<K,V,F>::entry> rce;
       int rc;
       time_t tm;
+      bool dorelease (false);
     }
     e = _tab[key];
     if (e) {
@@ -234,20 +236,28 @@ namespace fscache {
       } else {
 	touch_in_memory (rce);
       }
-      v = rce->value ();
+      warn << "get from mem...\n";
+      v = rce->data ();
     } else {
       rce = New refcounted<entry> (key);
       insert_into_mem (rce);
       rce->makelock ();
+      dorelease = true;
       BLOCK { _iface.load (_file_id_maker (key), @(rc, tm, v)); }
-      if (rc == 0 && (_timeout == 0 || (timenow - tm < _timeout))) {
-	rce->set_value (v);
+      if (rc == 0 && 
+	  (_timeout == 0 || 
+	   (int (timenow - tm) < int (_timeout)))) {
+	rce->set_data (v);
 	clean ();
       } else {
+	warn << "get failed from disk (rc=" << rc << "; diff="
+	     << timenow - tm << ")\n";
 	remove_from_mem (rce);
       }
-      rce->releaselock ();
+      warn << "get from disk...\n";
     }
     SIGNAL (cb, v);
+    if (dorelease)
+      rce->releaselock ();
   }
 };
