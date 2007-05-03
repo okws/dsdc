@@ -6,6 +6,7 @@
 #include "crypt.h"
 #include "arpc.h"
 #include "sha1.h"
+#include "lock.h"
 
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
@@ -19,60 +20,93 @@ namespace fscache {
   enum { DAY = 24 * 60 * 60 } ;
 
   template<class C> class file_id_maker_t;
+  
+  //
+  // Hold onto this to 'pin' an entry in memory.
+  //
+  class entry_pin : public virtual refcount {
+  public:
+    entry_pin (int *r) : _count (r) {}
+    ~entry_pin () { (*_count) -- ; assert (*_count >= 0); }
+  private:
+    int *_count;
+  };
 
+  template<class C> ptr<C> 
+  safe_mkref (C *in)
+  {
+    if (!in) return NULL;
+    else return mkref (in);
+  }
+  
   template<class K, class V, class F = file_id_maker_t<K> >
   class lru_t {
 
   public:
     
-    class entry : public virtual refcount { 
+    class my_lock_t : public lock_t {
+    public:
+      my_lock_t (mode_t m = OPEN) : lock_t (m) {}
+      ~my_lock_t () { assert (_mode == OPEN); }
+    }; 
+    
+    class entry : public virtual refcount {
     public:
       K _key;
       ihash_entry<entry> _hlnk;
       tailq_entry<entry> _qlnk;
     private:
-      ptr<V> _data;
+      ptr<V> _value;
       ptr<entry> _hold;
-      vec<cbv> *_waiters;
       time_t _timein;
       bool _in_mem;
+      my_lock_t  _lock;
+      bool _valid;
+      int _refs;
 
     public:
 
       entry (const K &key, ptr<V> d = NULL) 
 	: _key (key),
-	  _data (d),
+	  _value (d),
 	  _hold (mkref (this)),
-	  _waiters (NULL),
 	  _timein (timenow),
-	  _in_mem (false)
+	  _in_mem (false),
+	  _lock (lock_t::EXCLUSIVE),
+	  _valid (true),
+	  _refs (0)
       {}
 
       void release () { _hold = NULL; }
 
-      bool is_locked () const { return _waiters; }
-      void waitfor (cbv c) { _waiters->push_back (c); } 
-      void makelock ()
+      ptr<entry_pin> getpin ()
       {
-	assert (!_waiters);
-	_waiters = New vec<cbv> ();
+	_refs ++;
+	return New refcounted<entry_pin> (&_refs);
       }
 
       void set_in_mem (bool b) { _in_mem = b;}
       bool in_mem () const { return _in_mem; }
 
-      void releaselock ()
+      bool is_pinned () const { return _refs > 0; }
+      bool is_valid () const { return _valid; }
+
+      void set_value (ptr<V> v) 
       {
-	vec<cbv> *tmp = _waiters;
-	_waiters = NULL;
-	for (size_t i = 0; i < tmp->size (); i++) {
-	  (*tmp)[i]();
-	}
-	delete tmp;
+	_value = v;
+	_valid = true;
       }
 
-      ptr<V> data () const { return _data; }
-      void set_data (ptr<V> v) { _data = v; }
+      void invalidate ()
+      {
+	_valid = false;
+	_value = NULL;
+      }
+
+      void acquire_lock (cbv cb) { _lock.acquire (lock_t::EXCLUSIVE, cb); }
+      void release_lock () { _lock.release (); }
+
+      ptr<V> value () const { return _valid ? _value : NULL; }
     };
     
   public:
@@ -117,13 +151,15 @@ namespace fscache {
     void remove_from_mem (entry *e)
     {
       assert (e->in_mem ());
-      e->set_in_mem (false);
-      _q.remove (e);
-      _tab.remove (e);
-      e->release ();
+      if (!e->is_pinned ()) {
+	e->set_in_mem (false);
+	_q.remove (e);
+	_tab.remove (e);
+	e->release ();
+      }
     }
     
-    void touch_in_memory (entry *e)
+    void touch_in_mem (entry *e)
     {
       assert (e->in_mem ());
       _q.remove (e);
@@ -133,13 +169,14 @@ namespace fscache {
     void clean ()
     {
       if (_max_size > 0) {
-	while (_tab.size () > _max_size) {
+	entry *p, *n;
+	for (p = _q.first; p && _tab.size () > _max_size; p = n) {
+	  n = _q.next (p);
 	  warn << "Clean " << _tab.size () << "\n";
-	  remove_from_mem (_q.first);
+	  remove_from_mem (p);
 	}
       }
     }
-
 
   protected:
     const str _name;
@@ -171,24 +208,38 @@ namespace fscache {
   lru_t<K,V,F>::insert (const K &key, ptr<V> value, cbi::ptr cb)
   {
     VARS {
-      typename lru_t<K,V,F>::entry *e;
-      ptr<typename lru_t<K,V,F>::entry > rce;
+      ptr<typename lru_t<K,V,F>::entry > e;
+      ptr<entry_pin> pin;
       int rc;
     }
-    e = _tab[key];
-    if (e) {
-      rce = mkref (e);
-      touch_in_memory (rce);
+
+    if ((e = safe_mkref (_tab[key]))) {
+
+      pin = e->getpin ();
+      touch_in_mem (e);
+      e->set_value (value);
+
+      BLOCK { e->acquire_lock (@()); }
+
     } else {
-      rce = New refcounted<entry> (key, value);
-      insert_into_mem (rce);
+      e = New refcounted<entry> (key, value);
+      insert_into_mem (e);
+      pin = e->getpin ();
     }
-    rce->makelock ();
-    BLOCK { this->write_out (key, *value, @(rc), NULL); }
+
+    // Only write data out if a remover hasn't removed this object
+    // while we were waiting for the lock! If we just created this
+    // entry, it will always be valid.
+    if (e->is_valid ()) {
+      BLOCK { this->write_out (key, *value, @(rc), NULL); }
+    }
+
     if (cb)
       (*cb) (rc);
-    rce->releaselock ();
+
+    e->release_lock ();
   }
+
 
   TAMED template<class K, class V, class F> void 
   lru_t<K,V,F>::write_out (const K &key, const V &val, cbi::ptr cb)
@@ -212,37 +263,52 @@ namespace fscache {
   {
     VARS {
       ptr<V> v;
-      typename lru_t<K,V,F>::entry *e;
-      ptr<typename lru_t<K,V,F>::entry> rce;
+      ptr<typename lru_t<K,V,F>::entry> e;
+      ptr<fscache::entry_pin> pin;
       int rc;
       time_t tm;
-      bool dorelease (false);
+      bool dorelease (true);
       int rrc;
       ptr<file_id_t> id;
+      bool doremove (false);
     }
-    e = _tab[key];
-    if (e) {
-      rce = mkref (e);
-      if (rce->is_locked ()) {
-	BLOCK { rce->waitfor (@()); }
+    
+    if ((e = safe_mkref (_tab[key]))) {
+
+      if ((v = e->value ())) {
+
+	// Fast path!
+	// No need to wait for lock; as long as there is data in the 
+	// entry object, then it's the most up-to-date data (see
+	// ordering of calls in ::insert).
+	touch_in_mem (e);
+	dorelease = false;
+
       } else {
-	touch_in_memory (rce);
+	
+	pin = e->getpin ();
+	BLOCK { e->acquire_lock (@()); }
+	v = e->value ();
+	
+	warn << "get from mem...\n";
       }
-      warn << "get from mem...\n";
-      v = rce->data ();
+
     } else {
-      rce = New refcounted<entry> (key);
-      insert_into_mem (rce);
-      rce->makelock ();
-      dorelease = true;
+      
+      e = New refcounted<entry> (key);
+      pin = e->getpin ();
+
+      insert_into_mem (e);
+
       id = New refcounted<file_id_t> (_file_id_maker (key));
       BLOCK { _iface.load (*id, @(rc, tm, v)); }
 
       if (rc != 0) {
-	remove_from_mem (rce);
-      } else if (int (timenow - tm) > int (_timeout)) {
+	doremove = true;
 
-	remove_from_mem (rce);
+      } else if (int (timenow - tm) > int (_timeout)) {
+	doremove = true;
+
 	BLOCK { _iface.remove (*id, @(rrc)); }
 	if (rrc != 0) {
 	  str s = _iface.filename (*id);
@@ -256,12 +322,23 @@ namespace fscache {
 	
 	// Success case!
 	assert (v);
-	rce->set_data (v);
+	e->set_value (v);
       }
     }
+
+    // unpin as soon as possible
+    pin = NULL;
+
+    // Signal to caller before we release, since releasing will come
+    // off our CPU slice, and we're all set to get going here.
     SIGNAL (cb, v);
+
+    if (doremove) {
+      remove_from_mem (e);
+    }
+
     if (dorelease)
-      rce->releaselock ();
+      e->release_lock ();
   }
   
   
@@ -269,28 +346,32 @@ namespace fscache {
   lru_t<K,V,F>::remove (const K &key, cbi::ptr cb)
   {
     VARS {
-      typename lru_t<K,V,F>::entry *e;
-      ptr<typename lru_t<K,V,F>::entry> rce;
+      ptr<typename lru_t<K,V,F>::entry> e;
+      ptr<fscache::entry_pin> pin;
       int rc;
     }
-    e = _tab[key];
-    if (e) {
-      rce = mkref (e);
-      while (rce->is_locked ()) {
-	BLOCK { rce->waitfor (@()); }
-      }
-      rce->makelock ();
-      BLOCK { _iface.remove (_file_id_maker (key), @(rc)); }
-      if (rc != 0) {
-	str s = _iface.filename (_file_id_maker (key));
-	warn ("Cannot remove file '%s': %d\n", s.cstr (), rc);
-      }
-      rce->releaselock ();
-      remove_from_mem (rce);
-      rc = 0;
-    } else {
-      rc = -ENOENT;
+
+    if (!(e = safe_mkref (_tab[key]))) {
+      e = New refcounted<entry> (key);
+      insert_into_mem (e);
     }
+
+    e->invalidate ();
+    pin = e->getpin ();
+      
+    BLOCK { e->acquire_lock (@()); }
+
+    BLOCK { _iface.remove (_file_id_maker (key), @(rc)); }
+    if (rc == 0 && rc != -ENOENT) {
+      str s = _iface.filename (_file_id_maker (key));
+      warn ("Cannot remove file '%s': %d\n", s.cstr (), rc);
+    }
+
+    pin = NULL;
+    remove_from_mem (e);
+
+    e->release_lock ();
+
     if (cb)
       (*cb) (rc);
   }
