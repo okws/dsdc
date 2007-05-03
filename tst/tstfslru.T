@@ -73,7 +73,7 @@ main2 (fscache::cfg_t *cfg)
       l.insert (k, s2, @(rc2));
       l.get (k, @(sp2));
 
-      // do 2 get's to try to force the other guys out
+      // do 2 get's to try to force k's lru entry out
       l.get (k + 3, @(sp5));
       l.get (k + 6, @(sp6));
 
