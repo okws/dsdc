@@ -76,8 +76,13 @@ namespace fscache {
 	  _valid (true),
 	  _refs (0)
       {}
+      ~entry () {}
 
-      void release () { _hold = NULL; }
+      void release () 
+      { 
+	ptr<entry> tmp = _hold;
+	_hold = NULL;
+      }
 
       ptr<entry_pin> getpin ()
       {
@@ -209,7 +214,7 @@ namespace fscache {
     VARS {
       ptr<typename lru_t<K,V,F>::entry > e;
       ptr<entry_pin> pin;
-      int rc;
+      int rc (0);
       str id;
     }
 
