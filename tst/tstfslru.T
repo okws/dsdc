@@ -14,11 +14,12 @@ main2 (fscache::cfg_t *cfg)
     VARS {
         holdvar fscache::engine_t fsc (cfg);
 	fscache::lru_t<u_int64_t, my_str_t> l ("foos", &fsc, 60, 1);
-	my_str_t s;
+	my_str_t s, s2;
 	int rc;
 	u_int64_t k (0x100);
-	ptr<my_str_t> sp;
+	ptr<my_str_t> sp, sp2, sp3, sp5, sp6;
 	int i, j;
+	int rc2, rc3, rc4;
     }
     
     // make 1 trip through the select loop
@@ -46,6 +47,51 @@ main2 (fscache::cfg_t *cfg)
 	}
       }
     }
+
+    warn << "Phase 2...\n";
+
+    k = 0x103;
+    BLOCK {
+      s = "blah blah blah blah";
+      l.insert (k, s, @(rc));
+      l.get (k, @(sp));
+      l.remove (k, @(rc2));
+      l.get (k, @(sp2));
+    }
+
+    assert (rc == 0);
+    assert (sp && *sp == s);
+    assert (rc2 == 0);
+    assert (!sp2);
+
+    warn << "Phase 3...\n";
+
+    BLOCK {
+      l.get (k, @(sp));
+      l.insert (k, s, @(rc));
+      s2 = "foo foo foo foo";
+      l.insert (k, s2, @(rc2));
+      l.get (k, @(sp2));
+
+      // do 2 get's to try to force the other guys out
+      l.get (k + 3, @(sp5));
+      l.get (k + 6, @(sp6));
+
+      l.insert (k, s, @(rc3));
+      l.remove (k, @(rc4));
+      l.get (k, @(sp3));
+    }
+
+    assert (!sp);
+    assert (rc == 0);
+    assert (rc2 == 0);
+    assert (*sp2 == s2);
+    assert (rc3 == 0);
+    assert (rc4 == 0);
+    assert (!sp3);
+
+    assert (sp5);
+    assert (sp6);
 
     exit (0);
 }

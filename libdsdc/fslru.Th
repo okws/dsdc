@@ -211,6 +211,13 @@ namespace fscache {
       ptr<typename lru_t<K,V,F>::entry > e;
       ptr<entry_pin> pin;
       int rc;
+      str id;
+    }
+
+    { 
+      strbuf b;
+      b << key << " X " << *value;
+      id = b;
     }
 
     if ((e = safe_mkref (_tab[key]))) {
@@ -219,7 +226,9 @@ namespace fscache {
       touch_in_mem (e);
       e->set_value (value);
 
+      warn << "Insert A " << id << "\n";
       BLOCK { e->acquire_lock (@()); }
+      warn << "Insert B " << id << "\n";
 
     } else {
       e = New refcounted<entry> (key, value);
@@ -227,12 +236,16 @@ namespace fscache {
       pin = e->getpin ();
     }
 
+    warn << "Insert C " << id << "\n";
     // Only write data out if a remover hasn't removed this object
     // while we were waiting for the lock! If we just created this
     // entry, it will always be valid.
     if (e->is_valid ()) {
+      warn << "Insert D " << id << "\n";
       BLOCK { this->write_out (key, *value, @(rc), NULL); }
     }
+
+    warn << "Insert E " << id << "\n";
 
     if (cb)
       (*cb) (rc);
@@ -349,20 +362,30 @@ namespace fscache {
       ptr<typename lru_t<K,V,F>::entry> e;
       ptr<fscache::entry_pin> pin;
       int rc;
+      K id (key);
     }
+
+    warn << "Remove A " << id << "\n";
 
     if (!(e = safe_mkref (_tab[key]))) {
       e = New refcounted<entry> (key);
       insert_into_mem (e);
+      warn << "Remove B " << id << "\n";
     }
+    warn << "Remove C " << id << "\n";
 
     e->invalidate ();
     pin = e->getpin ();
       
     BLOCK { e->acquire_lock (@()); }
 
+    warn << "Remove E " << id << "\n";
+
     BLOCK { _iface.remove (_file_id_maker (key), @(rc)); }
-    if (rc == 0 && rc != -ENOENT) {
+
+    warn << "Remove F " << id << "\n";
+
+    if (rc != 0 && rc != -ENOENT) {
       str s = _iface.filename (_file_id_maker (key));
       warn ("Cannot remove file '%s': %d\n", s.cstr (), rc);
     }
