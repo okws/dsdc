@@ -2,15 +2,14 @@
 // -*-c++-*-
 /* $Id$ */
 
-#ifndef _DSDC_SMARTCLI_H
-#define _DSDC_SMARTCLI_H
+#ifndef _DSDC_SMARTCLI_H_
+#define _DSDC_SMARTCLI_H_
 
 // when we hit a major version it should go to 100000
 #define DSDC_VERSION_STR "0.3.1"
 #define DSDC_VERSION    3001
 
 #include "dsdc_prot.h"
-#include "dsdc.h"
 #include "dsdc_ring.h"
 #include "arpc.h"
 #include "dsdc_state.h"
@@ -18,12 +17,8 @@
 #include "dsdc_lock.h"
 #include "dsdc_const.h"
 #include "dsdc_stats.h"
+#include "dsdc_format.h"
 #include "tame.h"
-
-#ifndef __STDC_FORMAT_MACROS
-#define __STDC_FORMAT_MACROS
-#endif
-#include <inttypes.h>
 
 typedef dsdc::annotation::base_t annotation_t;
 
@@ -731,4 +726,4 @@ dsdc_iface_t<K,V>::lock_release (const K &k, dsdcl_id_t id,
 
 
 
-#endif /* _DSDC_SMARTCLI_H */
+#endif /* _DSDC_SMARTCLI_H_ */

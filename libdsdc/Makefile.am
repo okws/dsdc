@@ -9,7 +9,7 @@ libdsdc_la_SOURCES = dsdc_prot.C dsdc_util.C state.C const.C ring.C \
 dsdcinclude_HEADERS = dsdc_prot.h dsdc.h dsdc_ring.h dsdc_const.h \
 		     dsdc_util.h dsdc_slave.h dsdc_state.h \
                      dsdc_lock.h qanswer_aux.h  dsdc_stats.h dsdc_signal.h \
-			fscache.h fslru.h
+			fscache.h fslru.h dsdc_format.h
 else
 libdsdc_la_SOURCES = dsdc_prot.C dsdc_util.C state.C const.C ring.C \
 		     smartcli.C smartcli_mget.C match.C lock.C \
@@ -18,7 +18,8 @@ libdsdc_la_SOURCES = dsdc_prot.C dsdc_util.C state.C const.C ring.C \
 dsdcinclude_HEADERS = dsdc_prot.h dsdc.h dsdc_ring.h dsdc_const.h \
 		     dsdc_util.h dsdc_slave.h dsdc_state.h \
                      dsdc_lock.h qanswer_aux.h \
-		     dsdc_match.h dsdc_stats.h dsdc_signal.h fscache.h
+		     dsdc_match.h dsdc_stats.h dsdc_signal.h fscache.h \
+			dsdc_format.h
 endif
 
 SUFFIXES = .C .T .h

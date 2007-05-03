@@ -3,13 +3,11 @@
 
 #include "fscache.h"
 #include "dsdc_prot.h"
+#include "dsdc_format.h"
 #include "crypt.h"
 #include "arpc.h"
 #include "sha1.h"
 #include "lock.h"
-
-#define __STDC_FORMAT_MACROS
-#include <inttypes.h>
 
 //
 // For sfslite 1.x upgrade, need to move timenow -> sfs_get_timenow()

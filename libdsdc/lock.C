@@ -2,9 +2,7 @@
 #include "dsdc_lock.h"
 #include "dsdc_util.h"
 #include "dsdc_const.h"
-
-#define __STDC_FORMAT_MACROS
-#include <inttypes.h>
+#include "dsdc_format.h"
 
 dsdcl_id_t g_serial_no = 0;
 
