@@ -20,7 +20,9 @@
 #include "dsdc_stats.h"
 #include "tame.h"
 
+#ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
+#endif
 #include <inttypes.h>
 
 typedef dsdc::annotation::base_t annotation_t;
