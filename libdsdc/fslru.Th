@@ -213,13 +213,6 @@ namespace fscache {
       ptr<typename lru_t<K,V,F>::entry > e;
       ptr<entry_pin> pin;
       int rc (0);
-      str id;
-    }
-
-    { 
-      strbuf b;
-      b << key << " X " << *value;
-      id = b;
     }
 
     if ((e = safe_mkref (_tab[key]))) {
