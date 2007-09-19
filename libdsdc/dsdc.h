@@ -263,6 +263,15 @@ class dsdc_iface_t {
         void lock_release (const K &k, dsdcl_id_t id, cbi::ptr cb = NULL,
                            bool safe = false);
 
+  /*
+   * @brief figure out slave the key maps to
+   *
+   * Useful for debugging.
+   *
+   * @param key the key in question
+   */
+  str which_slave (const K &k);
+
     private:
         dsdc_smartcli_t *_cli;
         int time_to_expire;
@@ -349,6 +358,9 @@ class dsdc_smartcli_t : public dsdc_system_state_cache_t {
         remove3 (const K &k, cbi::ptr cb = NULL, bool safe = false,
                  const annotation_t *a = NULL);
 
+  template<class K> str
+  which_slave3 (const K &k);
+
         template<class K> void
         lock_acquire3 (const K &k, dsdc_lock_acquire_res_cb_t cb, u_int timeout,
                        bool writer = true, bool block = true, bool safe = false);
@@ -356,6 +368,8 @@ class dsdc_smartcli_t : public dsdc_system_state_cache_t {
         template<class K> void
         lock_release3 (const K &k, dsdcl_id_t id, cbi::ptr cb = NULL,
                        bool safe = false);
+
+  str which_slave (const dsdc_key_t &k);
 
 
         /**
@@ -645,6 +659,14 @@ dsdc_smartcli_t::get3 (const K &k,
     get2<V> (mkkey_ptr (k), cb, safe, time_to_expire, a);
 }
 
+template<class K> str
+dsdc_smartcli_t::which_slave3 (const K &k)
+{
+  dsdc_key_t dk;
+  mkkey (&dk, k);
+  return which_slave (dk);
+}
+
 template<class K, class V> void
 dsdc_smartcli_t::put3 (const K &k, const V &obj, cbi::ptr cb, bool safe,
                        const annotation_t *a)
@@ -688,6 +710,12 @@ dsdc_smartcli_t::lock_acquire3 (const K &k, dsdc_lock_acquire_res_cb_t cb,
     arg->block = block;
     arg->timeout = timeout;
     lock_acquire (arg, cb, safe);
+}
+
+template<class K, class V> str
+dsdc_iface_t<K,V>::which_slave (const K &k)
+{
+  return _cli->template which_slave3<K> (k);
 }
 
 template<class K, class V> void

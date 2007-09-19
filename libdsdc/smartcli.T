@@ -163,6 +163,18 @@ dsdc_smartcli_t::post_construct ()
   }
 }
 
+str
+dsdc_smartcli_t::which_slave (const dsdc_key_t &k)
+{
+  dsdc_ring_node_t *n;
+  str res;
+  aclnt_wrap_t *aw;
+  if ((n = _hash_ring.successor (k)) && (aw = n->get_aclnt_wrap ())) {
+    res = aw->remote_peer_id ();
+  }
+  return res;
+}
+
 TAMED void
 dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
                       bool safe, int time_to_expire,
