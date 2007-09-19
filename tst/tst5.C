@@ -134,7 +134,11 @@ get_cb (tst_key_t k, dsdc_res_t status, ptr<tst_obj_checked_t> obj)
     }
     break;
   case DSDC_RPC_ERROR:
-    warn << "** GET: RPC error\n";
+    { 
+       str s = cli->which_slave (k);
+       if (!s) s = "<none>";
+       warn << "** GET: RPC Error: " << s << "\n";
+    }
     break;
   default:
     warn << "** GET: DSDC error " << status << "\n";
