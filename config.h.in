@@ -12,6 +12,9 @@
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 
+/* Enable XML support with Expat library */
+#undef HAVE_EXPAT
+
 /* Define if gmp.h overloads C++ operators */
 #undef HAVE_GMP_CXX_OPS
 
@@ -57,6 +60,9 @@
 /* Define if system headers do not declare res_mkquery. */
 #undef NEED_RES_MKQUERY_DECL
 
+/* First in the search path for OKWS configuration */
+#undef OKWS_CONFIG_DIR
+
 /* Name of package */
 #undef PACKAGE
 
@@ -74,6 +80,9 @@
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
+
+/* Full path of arpcgen command */
+#undef PATH_ARPCGEN
 
 /* Path for the C preprocessor command */
 #undef PATH_CPP

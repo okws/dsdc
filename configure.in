@@ -14,6 +14,7 @@ AC_PROG_CC
 AC_PROG_CPP
 AC_PROG_CXX
 SFS_WFLAGS
+OKWS_EXPAT
 SFS_PATH_CPP
 AC_PROG_INSTALL_C
 AC_PROG_LN_S
@@ -79,23 +80,37 @@ else
    LDEPS='$(LIBDSDC) '"$LDEPS"
 fi
 
+#
+# MK Note:  It's idiotic to put cupid-specific protocols and code
+# in this directory, but the curse of Alfred lives on.
+#
+OKWS_TAG
+saved_LDADD="$LDADD"
+saved_LDEPS="$LDEPS"
+OKWS_OKWS
+
 OKWS_MODULE
 OKJAILDIR
 
+dsdcexecdir='${dsdctopdir}'
 dsdctopdir='${okm_prefix}/${okm_name}/${VERSION}/${sfstag}'
 dsdclibdir='${dsdctopdir}/lib'
 dsdcincludedir='${dsdctopdir}/include'
-dsdcexecdir='${dsdctopdir}'
 
 #
 # XXX: CUPID!!! If you turn this on, it should disable CUPID hooks.
 #
 DSDC_NO_CUPID=NO
 if test "$DSDC_NO_CUPID" = "YES"; then
+
     AM_CONDITIONAL(DSDC_NO_CUPID, true)
     CPPFLAGS="$CPPFLAGS -DDSDC_NO_CUPID"
     RPCC="$RPCC -DDSDC_NO_CUPID"
+    LDADD="$saved_LDADD"
+    LDEPS="$saved_LDEPS"
+
 else
+    RPCC="$XMLRPCC"
     AM_CONDITIONAL(DSDC_NO_CUPID, false)
 fi
 
