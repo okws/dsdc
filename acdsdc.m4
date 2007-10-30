@@ -26,10 +26,14 @@ dnl DSDC_MODULE
 dnl
 AC_DEFUN([DSDC_MODULE],
 [
-module_prefix=/usr/local
-module_name=dsdc
-AC_ARG_WITH(module-prefix,
+AC_ARG_WITH(module_prefix,
 --with-module-prefix=NAME    module install location ('/usr/local' by default))
+if test "${with_module_prefix+set}" = "set" ; then
+	module_prefix="$with_module_prefix"
+else
+	module_prefix=/usr/local
+fi
+module_name=dsdc
 AC_SUBST(module_prefix)
 AC_SUBST(module_name)
 ])
