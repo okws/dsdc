@@ -20,3 +20,16 @@ okjaildir="$with_jaildir"
 AC_SUBST(okjaildir)
 ])
 
+
+dnl
+dnl DSDC_MODULE
+dnl
+AC_DEFUN([DSDC_MODULE],
+[
+module_prefix=/usr/local
+module_name=dsdc
+AC_ARG_WITH(module-prefix,
+--with-module-prefix=NAME    module install location ('/usr/local' by default))
+AC_SUBST(module_prefix)
+AC_SUBST(module_name)
+])

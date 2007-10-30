@@ -92,8 +92,10 @@ OKWS_OKWS
 OKWS_MODULE
 OKJAILDIR
 
+DSDC_MODULE
+
 dsdcexecdir='${dsdctopdir}'
-dsdctopdir='${okm_prefix}/${okm_name}/${VERSION}/${sfstag}'
+dsdctopdir='${module_prefix}/${module_name}/${VERSION}/${sfstag}'
 dsdclibdir='${dsdctopdir}/lib'
 dsdcincludedir='${dsdctopdir}/include'
 
