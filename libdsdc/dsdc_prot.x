@@ -25,6 +25,8 @@ enum ok_frobber_t {
 	SETTINGS_FROBBER = 15,
 	PROFILE_FUZZY_MATCHES_FROBBER = 16,
 	AD_KEYWORD_FROBBER = 17
+    // ADD NO MORE FROBBERS!
+    // Instead, add an entry in the dsdc::frobber function in dsdc_util.C
 };
 
 
@@ -32,7 +34,7 @@ enum ok_frobber_t {
 
 /* 64 bit key */
 struct dsdc_key64_t {
-	ok_frobber_t frobber;
+	uint32_t frobber;
 	u_int64_t key64;	/**< user id */
 };
 

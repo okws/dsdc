@@ -4,6 +4,62 @@
 #include "rxx.h"
 #include "parseopt.h"
 
+namespace dsdc {
+
+uint32_t frobber(str s) {
+	if (s == "MATCHD_FRONTD_FROBBER") {
+        return MATCHD_FRONTD_FROBBER;
+    } else if (s == "MATCHD_FRONTD_USERCACHE_FROBBER") {
+        return MATCHD_FRONTD_USERCACHE_FROBBER;
+    } else if (s == "UBER_USER_FROBBER") {
+        return UBER_USER_FROBBER;
+    } else if (s == "PROFILE_STALKER_FROBBER") {
+        return PROFILE_STALKER_FROBBER;
+    } else if (s == "MATCHD_FRONTD_MATCHCACHE_FROBBER") {
+        return MATCHD_FRONTD_MATCHCACHE_FROBBER;
+    } else if (s == "GROUP_INFO_FROBBER") {
+        return GROUP_INFO_FROBBER;
+    } else if (s == "GTEST_SCORE_FROBBER") {
+        return GTEST_SCORE_FROBBER;
+    } else if (s == "PTEST_SCORE_FROBBER") {
+        return PTEST_SCORE_FROBBER;
+    } else if (s == "MTEST_SCORE_FROBBER") {
+        return MTEST_SCORE_FROBBER;
+    } else if (s == "CUPID_TEST_SCORE_FROBBER") {
+        return CUPID_TEST_SCORE_FROBBER;
+    } else if (s == "GTEST_SESSION_FROBBER") {
+        return GTEST_SESSION_FROBBER;
+    } else if (s == "PTEST_SESSION_FROBBER") {
+        return PTEST_SESSION_FROBBER;
+    } else if (s == "MTEST_SESSION_FROBBER") {
+        return MTEST_SESSION_FROBBER;
+    } else if (s == "MTEST_METADATA_FROBBER") {
+        return MTEST_METADATA_FROBBER;
+    } else if (s == "MTEST_STATS_FROBBER") {
+        return MTEST_STATS_FROBBER;
+    } else if (s == "SETTINGS_FROBBER") {
+        return SETTINGS_FROBBER;
+    } else if (s == "PROFILE_FUZZY_MATCHES_FROBBER") {
+        return PROFILE_FUZZY_MATCHES_FROBBER;
+    } else if (s == "AD_KEYWORD_FROBBER") {
+        return AD_KEYWORD_FROBBER;
+    }
+    // the next frobber is 18
+    else if (s == "USER_LANG_FROBBER") {
+        return 18;
+    } else if (s == "WIKI_LOCKED_ESSAYS_FROBBER") {
+        return 19;
+    } else if (s == "WIKI_LOG_FROBBER") {
+        return 20;
+    }
+
+    // add your frobber to the end of this list
+    warn << "dsdc: #### INVALID FROBBER #### : " << s << "\n";
+    return 666;
+}
+
+}
+
 str dsdc_hostname;
 static int dsdc_debug_level = 0;
 
