@@ -51,6 +51,8 @@ uint32_t frobber(str s) {
         return 19;
     } else if (s == "WIKI_LOG_FROBBER") {
         return 20;
+    } else if (s == "LOC_CACHE_FROBBER") {
+	return 21;
     }
 
     // add your frobber to the end of this list
