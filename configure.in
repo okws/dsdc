@@ -69,17 +69,6 @@ for lib in libdsdc; do
     CPPFLAGS="-I"'$(top_srcdir)'"/$lib $CPPFLAGS"
 done
 
-dnl
-dnl when compiling the PUB program, do not link againgst libahttp
-dnl
-LIBDSDC='$(top_builddir)/libdsdc/libdsdc.la'
-LDADD='$(LIBDSDC) '"$LDADD"
-if test "$enable_shared" = yes; then
-   LDEPS=
-else
-   LDEPS='$(LIBDSDC) '"$LDEPS"
-fi
-
 #
 # MK Note:  It's idiotic to put cupid-specific protocols and code
 # in this directory, but the curse of Alfred lives on.
@@ -89,8 +78,17 @@ saved_LDADD="$LDADD"
 saved_LDEPS="$LDEPS"
 OKWS_OKWS
 
-OKWS_MODULE
-OKJAILDIR
+dnl
+dnl Must make changes to LDADD after calling OKWS_OKWS, otherwise,
+dnl static builds will fail.
+dnl
+LIBDSDC='$(top_builddir)/libdsdc/libdsdc.la'
+LDADD='$(LIBDSDC) '"$LDADD"
+if test "$enable_shared" = yes; then
+   LDEPS=
+else
+   LDEPS='$(LIBDSDC) '"$LDEPS"
+fi
 
 DSDC_MODULE
 
@@ -98,6 +96,9 @@ dsdcexecdir='${dsdctopdir}'
 dsdctopdir='${module_prefix}/${module_name}/${VERSION}/${sfstag}'
 dsdclibdir='${dsdctopdir}/lib'
 dsdcincludedir='${dsdctopdir}/include'
+
+OKWS_MODULE
+OKJAILDIR
 
 #
 # XXX: CUPID!!! If you turn this on, it should disable CUPID hooks.
