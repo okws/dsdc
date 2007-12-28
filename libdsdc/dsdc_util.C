@@ -43,9 +43,7 @@ uint32_t frobber(str s) {
         return PROFILE_FUZZY_MATCHES_FROBBER;
     } else if (s == "AD_KEYWORD_FROBBER") {
         return AD_KEYWORD_FROBBER;
-    }
-    // the next frobber is 18
-    else if (s == "USER_LANG_FROBBER") {
+    } else if (s == "USER_LANG_FROBBER") {
         return 18;
     } else if (s == "WIKI_LOCKED_ESSAYS_FROBBER") {
         return 19;
@@ -55,9 +53,13 @@ uint32_t frobber(str s) {
         return 21;
     } else if (s == "STATS_LIST_FROBBER") {
         return 22;
+    } else if (s == "PROFILE_LANG_FROBBER") {
+        return 25;
     }
-
+    /////////////////////////////////////////////
     // add your frobber to the end of this list
+    /////////////////////////////////////////////
+
     warn << "dsdc: #### INVALID FROBBER #### : " << s << "\n";
     return 666;
 }
