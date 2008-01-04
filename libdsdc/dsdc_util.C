@@ -53,8 +53,10 @@ uint32_t frobber(str s) {
         return 21;
     } else if (s == "STATS_LIST_FROBBER") {
         return 22;
-    } else if (s == "PROFILE_LANG_FROBBER") {
-        return 25;
+    } else if (s == "VOTE_SCORE_FROBBER") {
+        return 23;
+    } else if (s == "VOTE_NOTE_FROBBER") {
+        return 24;
     }
     /////////////////////////////////////////////
     // add your frobber to the end of this list
