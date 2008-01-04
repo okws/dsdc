@@ -57,6 +57,8 @@ uint32_t frobber(str s) {
         return 23;
     } else if (s == "VOTE_NOTE_FROBBER") {
         return 24;
+    } else if (s == "PROFILE_LANG_FROBBER") {
+        return 25;
     }
     /////////////////////////////////////////////
     // add your frobber to the end of this list
