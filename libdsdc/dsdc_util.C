@@ -61,6 +61,8 @@ uint32_t frobber(str s) {
         return 25;
     } else if (s == "VOTE_MATCH_FROBBER") {
         return 26;
+    } else if (s == "QUESTION_FROBBER") {
+        return 27;
     }
     /////////////////////////////////////////////
     // add your frobber to the end of this list
