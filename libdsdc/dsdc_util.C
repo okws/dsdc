@@ -6,72 +6,87 @@
 
 namespace dsdc {
 
-uint32_t frobber(str s) {
-	if (s == "MATCHD_FRONTD_FROBBER") {
-        return MATCHD_FRONTD_FROBBER;
-    } else if (s == "MATCHD_FRONTD_USERCACHE_FROBBER") {
-        return MATCHD_FRONTD_USERCACHE_FROBBER;
-    } else if (s == "UBER_USER_FROBBER") {
-        return UBER_USER_FROBBER;
-    } else if (s == "PROFILE_STALKER_FROBBER") {
-        return PROFILE_STALKER_FROBBER;
-    } else if (s == "MATCHD_FRONTD_MATCHCACHE_FROBBER") {
-        return MATCHD_FRONTD_MATCHCACHE_FROBBER;
-    } else if (s == "GROUP_INFO_FROBBER") {
-        return GROUP_INFO_FROBBER;
-    } else if (s == "GTEST_SCORE_FROBBER") {
-        return GTEST_SCORE_FROBBER;
-    } else if (s == "PTEST_SCORE_FROBBER") {
-        return PTEST_SCORE_FROBBER;
-    } else if (s == "MTEST_SCORE_FROBBER") {
-        return MTEST_SCORE_FROBBER;
-    } else if (s == "CUPID_TEST_SCORE_FROBBER") {
-        return CUPID_TEST_SCORE_FROBBER;
-    } else if (s == "GTEST_SESSION_FROBBER") {
-        return GTEST_SESSION_FROBBER;
-    } else if (s == "PTEST_SESSION_FROBBER") {
-        return PTEST_SESSION_FROBBER;
-    } else if (s == "MTEST_SESSION_FROBBER") {
-        return MTEST_SESSION_FROBBER;
-    } else if (s == "MTEST_METADATA_FROBBER") {
-        return MTEST_METADATA_FROBBER;
-    } else if (s == "MTEST_STATS_FROBBER") {
-        return MTEST_STATS_FROBBER;
-    } else if (s == "SETTINGS_FROBBER") {
-        return SETTINGS_FROBBER;
-    } else if (s == "PROFILE_FUZZY_MATCHES_FROBBER") {
-        return PROFILE_FUZZY_MATCHES_FROBBER;
-    } else if (s == "AD_KEYWORD_FROBBER") {
-        return AD_KEYWORD_FROBBER;
-    } else if (s == "USER_LANG_FROBBER") {
-        return 18;
-    } else if (s == "WIKI_LOCKED_ESSAYS_FROBBER") {
-        return 19;
-    } else if (s == "WIKI_LOG_FROBBER") {
-        return 20;
-    } else if (s == "LOC_CACHE_FROBBER") {
-        return 21;
-    } else if (s == "STATS_LIST_FROBBER") {
-        return 22;
-    } else if (s == "VOTE_SCORE_FROBBER") {
-        return 23;
-    } else if (s == "VOTE_NOTE_FROBBER") {
-        return 24;
-    } else if (s == "PROFILE_LANG_FROBBER") {
-        return 25;
-    } else if (s == "VOTE_MATCH_FROBBER") {
-        return 26;
+  //-----------------------------------------------------------------------
+
+  struct pair_t {
+    const char *s;
+    int i;
+  };
+  
+  class tab_t {
+  public:
+    tab_t () {}
+    const int *operator[] (const str &s) const { return _tab[s]; }
+  protected:
+    void init (const pair_t pairs[])
+    {
+      for (const pair_t *p = pairs; p->s; p++) {
+	_tab.insert (p->s, p->i);
+      }
+      
+      // Do a spot check!
+      for (const pair_t *p = pairs; p->s; p++) {
+	assert (*(*this)[p->s] == p->i);
+      }
     } else if (s == "QUESTION_FROBBER") {
         return 27;
     }
-    /////////////////////////////////////////////
-    // add your frobber to the end of this list
-    /////////////////////////////////////////////
-
+  private:
+    qhash<str, int> _tab;
+  };
+  
+  class frobtab_t : public tab_t {
+  public:
+    frobtab_t () : tab_t () 
+    {
+      pair_t frobs[] = {
+	{ "MATCHD_FRONTD_FROBBER", MATCHD_FRONTD_FROBBER },
+	{ "MATCHD_FRONTD_USERCACHE_FROBBER", 
+	  MATCHD_FRONTD_USERCACHE_FROBBER },
+	{ "UBER_USER_FROBBER", UBER_USER_FROBBER },
+	{ "PROFILE_STALKER_FROBBER", PROFILE_STALKER_FROBBER },
+	{ "MATCHD_FRONTD_MATCHCACHE_FROBBER", 
+	  MATCHD_FRONTD_MATCHCACHE_FROBBER },
+	{ "GROUP_INFO_FROBBER", GROUP_INFO_FROBBER },
+	{ "GTEST_SCORE_FROBBER", GTEST_SCORE_FROBBER },
+	{ "PTEST_SCORE_FROBBER", PTEST_SCORE_FROBBER },
+	{ "MTEST_SCORE_FROBBER", MTEST_SCORE_FROBBER },
+	{ "CUPID_TEST_SCORE_FROBBER", CUPID_TEST_SCORE_FROBBER },
+	{ "GTEST_SESSION_FROBBER", GTEST_SESSION_FROBBER },
+	{ "PTEST_SESSION_FROBBER", PTEST_SESSION_FROBBER },
+	{ "MTEST_SESSION_FROBBER", MTEST_SESSION_FROBBER },
+	{ "MTEST_METADATA_FROBBER", MTEST_METADATA_FROBBER },
+	{ "MTEST_STATS_FROBBER", MTEST_STATS_FROBBER },
+	{ "SETTINGS_FROBBER", SETTINGS_FROBBER },
+	{ "PROFILE_FUZZY_MATCHES_FROBBER", 
+	  PROFILE_FUZZY_MATCHES_FROBBER },
+	{ "AD_KEYWORD_FROBBER", AD_KEYWORD_FROBBER },
+	{ "USER_LANG_FROBBER", 18 },
+	{ "WIKI_LOCKED_ESSAYS_FROBBER", 19 },
+	{ "WIKI_LOG_FROBBER", 20 },
+	{ "LOC_CACHE_FROBBER", 21 },
+	{ "STATS_LIST_FROBBER", 22 },
+	{ "VOTE_SCORE_FROBBER", 23 } ,
+	{ "VOTE_NOTE_FROBBER", 24 },
+	{ "PROFILE_LANG_FROBBER", 25 },
+	{ "VOTE_MATCH_FROBBER", 26 },
+        { "QUESTION_FROBBER", 27 },
+	{ NULL, 0 }
+      };
+      init (frobs);
+    }
+  };
+  //-----------------------------------------------------------------------
+  
+  static frobtab_t g_frobtab;
+  
+  uint32_t frobber(str s) {
+    const int *i = g_frobtab[s];
+    if (i) { return *i; }
     warn << "dsdc: #### INVALID FROBBER #### : " << s << "\n";
     return 666;
-}
-
+  }
+  //-----------------------------------------------------------------------
 }
 
 str dsdc_hostname;
