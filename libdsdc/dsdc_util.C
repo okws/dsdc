@@ -28,8 +28,6 @@ namespace dsdc {
       for (const pair_t *p = pairs; p->s; p++) {
 	assert (*(*this)[p->s] == p->i);
       }
-    } else if (s == "QUESTION_FROBBER") {
-        return 27;
     }
   private:
     qhash<str, int> _tab;
