@@ -16,10 +16,6 @@
 //   dsdcn - A node in the global consistent hash ring.
 //
 
-namespace dsdc {
-    uint32_t frobber(str s);
-}
-
 hash_t hash_hash (const dsdc_key_t &k);
 
 inline int dsdck_cmp (const dsdc_key_t &a, const dsdc_key_t &b)

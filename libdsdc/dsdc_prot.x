@@ -26,7 +26,7 @@ enum ok_frobber_t {
 	PROFILE_FUZZY_MATCHES_FROBBER = 16,
 	AD_KEYWORD_FROBBER = 17
     // ADD NO MORE FROBBERS!
-    // Instead, add an entry in the dsdc::frobber function in dsdc_util.C
+    // Instead, add an entry in the dsdc::frobber function in dsdcMgr.C
 };
 
 
