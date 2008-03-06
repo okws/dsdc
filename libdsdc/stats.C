@@ -187,10 +187,11 @@ namespace dsdc {
 	assert (d >= _min && d <= _max);
 	
 	// If d == _max, then it's technically one bucket over, but 
-	// push d in the last bucket so that we don't trigger an assertion
-	// failure below.
+	// push d in the last bucket.
 	size_t i = (d < _max) ? ((d - _min) / bsz) : (nbuck - 1);
-	
+
+    // there seem to be other rounding problems that i can't figure
+	// out exactly, but just play it safe....
 	if (i >= nbuck) { i = nbuck - 1; }
 
 	h->buckets[i] ++;
