@@ -191,7 +191,8 @@ namespace dsdc {
 	// failure below.
 	size_t i = (d < _max) ? ((d - _min) / bsz) : (nbuck - 1);
 	
-	assert (i < nbuck);
+	if (i >= nbuck) { i = nbuck - 1; }
+
 	h->buckets[i] ++;
 	tot += d;
       }
