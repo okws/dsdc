@@ -222,6 +222,18 @@ dsdc_slave_t::handle_get_stats (svccb *sbp)
 }
 
 void
+dsdc_slave_t::handle_set_stats_mode (svccb *sbp)
+{
+  bool *b = sbp->Xtmpl getarg<bool> ();
+  bool prev = _stats_mode;
+  _stats_mode = *b;
+
+  warn << "Stats mode update: " << prev << " -> " << _stats_mode << "\n";
+
+  sbp->replyref (NULL);
+}
+
+void
 dsdc_slave_t::dispatch (svccb *sbp)
 {
     switch (sbp->proc ()) {
@@ -246,6 +258,9 @@ dsdc_slave_t::dispatch (svccb *sbp)
         case DSDC_MGET2:
             handle_mget (sbp);
             break;
+       case DSDC_SET_STATS_MODE:
+	    handle_set_stats_mode (sbp);
+	    break;
 #ifndef DSDC_NO_CUPID
         case DSDC_COMPUTE_MATCHES:
             handle_compute_matches(sbp);
@@ -438,8 +453,10 @@ void
 dsdc_slave_t::handle_put3 (svccb *sbp)
 {
     dsdc_put3_arg_t *a = sbp->Xtmpl getarg<dsdc_put3_arg_t> ();
-    dsdc::annotation::base_t *n =
-        dsdc::annotation::collector.alloc (a->annotation);
+    dsdc::annotation::base_t *n = NULL;
+    if (_stats_mode) {
+      n = dsdc::annotation::collector.alloc (a->annotation);
+    }
     dsdc_res_t res = handle_put (a->key, a->obj, n);
     sbp->replyref (res);
 }

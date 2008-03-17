@@ -28,7 +28,7 @@ usage (bool err = true)
 
     warnx << "usage: " << progname << " -M [-d<debug-level>] "
           << "[-P <packetsz>] [-p <port>]\n"
-          << "       " << progname << " -S [-d<debug-level>] [-RD] "
+          << "       " << progname << " -S [-d<debug-level>] [-aRD] "
           << "[-P <packetsz>] [-n <n nodes>]\n"
           << "                 [-s <maxsize> (M|G|k|b)]  [-p<port>] "
           << "m1:p1 m2:p2 ...\n"
@@ -69,6 +69,7 @@ usage (bool err = true)
           << "     -D  Don't delete data after a ring chagne.  Keep old,\n"
           << "         potentially stale data around.  Maximizes hit ratios\n"
           << "         while minimizing consistency.\n"
+	  << "     -a  Enable stats collection an reporting.\n"
           << "\n"
           << " Global Options:\n"
           << "\n"
@@ -154,9 +155,13 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
     int dbg_opt;
     bool daemon_mode = false;
     int opts = 0;
+    bool stats_mode = false;
 
-    while ((ch = getopt (argc, argv, "vd:h:LMn:p:P:qRSs:Z:D")) != -1) {
+    while ((ch = getopt (argc, argv, "avd:h:LMn:p:P:qRSs:Z:D")) != -1) {
         switch (ch) {
+            case 'a':
+	      stats_mode = true;
+	      break;
             case 'd':
                 if (!convertint (optarg, &dbg_opt)) {
                     warn << "optarg to -d must be an int\n";
@@ -320,8 +325,10 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
     if (!dsdc_hostname)
         ret = false;
 
-    if (*app)
+    if (*app) {
         (*app)->set_daemon_mode (daemon_mode);
+	(*app)->set_stats_mode (stats_mode);
+    }
 
     return ret;
 }

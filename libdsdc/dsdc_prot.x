@@ -459,6 +459,9 @@ program DSDC_PROG
 	  
 	 dsdc_res_t
 	 DSDC_REMOVE3 (dsdc_remove3_arg_t) = 19;
+
+	 void
+	 DSDC_SET_STATS_MODE(bool) = 20;
 	  
 
 #ifndef DSDC_NO_CUPID

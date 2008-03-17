@@ -21,7 +21,7 @@ usage ()
 {
   warnx << "usage: " << progname << " -S [-c<n-columns>] "
 	<< "[-l<nbuck>] [-g<nbuck>] [-s<nbuck>] [-f<fmt>|-a] "
-	<< "[-m <master>] slave1 slave2 ...\n";
+	<< "[-m<master>] [-b<stats-mode>] slave1 slave2 ...\n";
   exit (2);
 }
 
@@ -104,6 +104,49 @@ get_stat_direct (str h, const dsdc_get_stats_single_arg_t *a, int *rc, cbv cb)
 
 }
 
+//
+// XXX try to fold this in with previous function, so only have to do it
+// once.
+//
+TAMED static void
+set_stats_mode_single (str h, bool mode, int *rc, cbv cb)
+{
+  VARS {
+    ptr<aclnt> c;
+    clnt_stat err;
+  }
+  BLOCK { connect (h, @(c)); }
+  if (!c) { 
+    *rc = -1;
+  } else {
+    BLOCK { c->call (DSDC_SET_STATS_MODE, &mode, NULL, @(err)); }
+    if (err) {
+      warn << "RPC failure for host " << h << ": " << err << "\n";
+      *rc = -1;
+    }
+  }
+  DSDC_SIGNAL (cb);
+}
+
+//
+// XXX try to fold this in with get_stats_direct, so only have to do it
+// once.
+//
+TAMED static void
+set_stats_mode (const vec<str> *s, int mode, cbi cb)
+{
+  VARS {
+    size_t i;
+    int rc (0);
+  }
+  BLOCK {
+    for (i = 0; i < s->size (); i++) {
+      set_stats_mode_single ((*s)[i], mode, &rc, @());
+    }
+  }
+  DSDC_SIGNAL (cb, rc);
+}
+
 TAMED static void
 get_stats_direct (const vec<str> *s, const dsdc_get_stats_single_arg_t *a, 
 		  cbi cb)
@@ -132,6 +175,7 @@ main2 (int argc, char **argv)
     int i;
     dsdc_get_stats_arg_t arg;
     dsdc_get_stats_single_arg_t sarg;
+    int stats_mode (-1);
   }
 
   columns = 78;
@@ -143,10 +187,14 @@ main2 (int argc, char **argv)
     sarg.params.objsz_n_buckets = 5;
 
   setprogname (argv[0]);
-  while ((ch = getopt (argc, argv, "af:c:l:g:s:ASRm:")) != -1) {
+  while ((ch = getopt (argc, argv, "ab:f:c:l:g:s:ASRm:")) != -1) {
     switch (ch) {
     case 'a':
       output_opts.set_all_flags ();
+      break;
+    case 'b':
+      if (!convertint (optarg, &stats_mode) || stats_mode < 0)
+	usage ();
       break;
     case 'f':
       output_opts.parse_flags (optarg);
@@ -199,7 +247,16 @@ main2 (int argc, char **argv)
     }
   }
 
-  if (mode == STATS) {
+  if (stats_mode >= 0) {
+
+    // In this case, just set the stats flag on the remote slaves.
+    if (slaves.size () == 0) {
+      usage ();
+    } else {
+      BLOCK { set_stats_mode (&slaves, stats_mode, @(rc)); }
+    }
+
+  } else if (mode == STATS) {
     if (master) {
       arg.getparams = sarg;
       BLOCK { get_stats (master, &arg, @(rc)); }

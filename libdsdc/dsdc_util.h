@@ -51,6 +51,7 @@ class dsdc_app_t {
         virtual str startup_msg () const { return NULL; }
         virtual str progname (const str &in, bool usepid = true) const ;
         virtual str progname_xtra () const { return NULL; }
+        virtual void set_stats_mode (bool b) {}
     private:
         bool _daemonize;
 

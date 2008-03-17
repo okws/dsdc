@@ -130,6 +130,7 @@ class dsdc_slave_app_t : public dsdc_app_t {
 
         str startup_msg () const ;
         virtual void startup_msg_v (strbuf *b) const {}
+        void set_stats_mode (bool b) { _stats_mode = b; }
     protected:
         bool get_port ();
         void new_connection ();
@@ -146,6 +147,7 @@ class dsdc_slave_app_t : public dsdc_app_t {
         int _lfd;
 
         int _opts;     // options for configuring this slave
+        bool _stats_mode; // on if we should be collecting stats
 };
 
 class dsdcs_lockserver_t : public dsdc_slave_app_t,
@@ -180,6 +182,7 @@ class dsdc_slave_t : public dsdc_slave_app_t ,
         void handle_put3 (svccb *sbp);
         void handle_remove (svccb *sbp);
         void handle_get_stats (svccb *sbp);
+        void handle_set_stats_mode (svccb *sbp);
 
         // Match function addition.
         void handle_compute_matches (svccb *sbp);
