@@ -338,6 +338,7 @@ struct dsdc_lock_release_arg_t {
 	unsigned hyper lockid;    // provide the lock-ID to catch bugs
 };
 
+namespace RPC {
 
 program DSDC_PROG
 {
@@ -477,6 +478,8 @@ program DSDC_PROG
 
 	} = 1;
 } = 30002;
+
+};
 
 /*
  * Some XDR sturctures for writing/reading files in FS cache.

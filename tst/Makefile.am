@@ -6,6 +6,12 @@ tst_SOURCES = tst_prot.C tst.C
 
 tst.o: tst_prot.h
 tst.lo: tst_prot.h
+tst2.o: tst_prot.h
+tst2.lo: tst_prot.h
+tst3.o: tst_prot.h
+tst3.lo: tst_prot.h
+tst4.o: tst_prot.h
+tst4.lo: tst_prot.h
 
 tst2_SOURCES = tst2.C tst_prot.C
 tst3_SOURCES = tst3.C tst_prot.C

@@ -8,10 +8,10 @@
 
 typedef rpc_str<0x10000> my_str_t;
 
-TAMED static void
+tamed static void
 main2 (fscache::cfg_t *cfg)
 {
-    VARS {
+    tvars {
         holdvar fscache::engine_t fsc (cfg);
 	fscache::lru_t<u_int64_t, my_str_t> l ("foos", &fsc, 60, 1);
 	my_str_t s, s2;
@@ -23,7 +23,7 @@ main2 (fscache::cfg_t *cfg)
     }
     
     // make 1 trip through the select loop
-    BLOCK { delaycb (0, 0, @()); }
+    twait { delaycb (0, 0, mkevent ()); }
 
     for (i = 0 ; i < 10; i++, k+= 3) {
       {
@@ -31,7 +31,7 @@ main2 (fscache::cfg_t *cfg)
 	b << "hello-world--" << k << "." << i << "." << k;
 	s = b;
       }
-      BLOCK { l.insert (k, s, @(rc)); }
+      twait { l.insert (k, s, mkevent (rc)); }
       warn ("insert: %" PRIx64 " -> %s : rc=%d\n", k, s.cstr (), rc);
     }
 
@@ -39,7 +39,7 @@ main2 (fscache::cfg_t *cfg)
     for (i = 0; i < 10; i++, k+= 3) {
       
       for (j = 0; j < 2; j++) {
-	BLOCK { l.get (k, @(sp)); }
+	twait { l.get (k, mkevent (sp)); }
 	if (!sp) {
 	  warn ("get failed (key=%" PRIx64 ")\n", k);
 	} else {
@@ -51,12 +51,12 @@ main2 (fscache::cfg_t *cfg)
     warn << "Phase 2...\n";
 
     k = 0x103;
-    BLOCK {
+    twait {
       s = "blah blah blah blah";
-      l.insert (k, s, @(rc));
-      l.get (k, @(sp));
-      l.remove (k, @(rc2));
-      l.get (k, @(sp2));
+      l.insert (k, s, mkevent (rc));
+      l.get (k, mkevent (sp));
+      l.remove (k, mkevent (rc2));
+      l.get (k, mkevent (sp2));
     }
 
     assert (rc == 0);
@@ -66,20 +66,20 @@ main2 (fscache::cfg_t *cfg)
 
     warn << "Phase 3...\n";
 
-    BLOCK {
-      l.get (k, @(sp));
-      l.insert (k, s, @(rc));
+    twait {
+      l.get (k, mkevent (sp));
+      l.insert (k, s, mkevent (rc));
       s2 = "foo foo foo foo";
-      l.insert (k, s2, @(rc2));
-      l.get (k, @(sp2));
+      l.insert (k, s2, mkevent (rc2));
+      l.get (k, mkevent (sp2));
 
       // do 2 get's to try to force k's lru entry out
-      l.get (k + 3, @(sp5));
-      l.get (k + 6, @(sp6));
+      l.get (k + 3, mkevent (sp5));
+      l.get (k + 6, mkevent (sp6));
 
-      l.insert (k, s, @(rc3));
-      l.remove (k, @(rc4));
-      l.get (k, @(sp3));
+      l.insert (k, s, mkevent (rc3));
+      l.remove (k, mkevent (rc4));
+      l.get (k, mkevent (sp3));
     }
 
     assert (!sp);

@@ -219,7 +219,7 @@ namespace dsdc {
       
       _rm_explicit = _rm_make_room = _rm_clean = _rm_replace = 0;
       
-      _start_time = timenow;
+      _start_time = sfs_get_timenow ();
     }
 
     bool 
@@ -233,7 +233,7 @@ namespace dsdc {
       out->rm_make_room  = _rm_make_room;
       out->rm_clean = _rm_clean;
       out->rm_replace = _rm_replace;
-      out->duration = timenow - _start_time;
+      out->duration = sfs_get_timenow () - _start_time;
 
       _gets.to_xdr (&out->gets, p.gets_n_buckets);
       _do_gets.to_xdr (&out->do_gets, p.gets_n_buckets);

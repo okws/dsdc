@@ -75,7 +75,7 @@ public:
   void get_xdr_repr (dsdcx_slave_t *o) { *o = _xdr_repr; }
   const str &remote_peer_id () const { return _client->remote_peer_id (); }
   ptr<aclnt> get_aclnt () { return _clnt_to_slave; }
-  void handle_heartbeat () { _last_heartbeat = timenow; }
+  void handle_heartbeat () { _last_heartbeat = sfs_get_timenow (); }
 
   bool is_dead ();                    // if no heartbeat, assume dead
 
@@ -181,14 +181,15 @@ public:
   dsdc_res_t get_aclnt (const dsdc_key_t &k, ptr<aclnt> *cli);
 
   void handle_get (svccb *b, CLOSURE);
-  void handle_remove (svccb *b);
-  void handle_put (svccb *b);
+  void handle_remove (svccb *b, CLOSURE);
+  void handle_put (svccb *b, CLOSURE);
   void handle_getstate (svccb *b);
   void handle_lock_release (svccb *b);
   void handle_lock_acquire (svccb *b);
   void handle_get_stats (svccb *b, CLOSURE);
 
-  void broadcast_newnode (const dsdcx_slave_t &x, dsdcm_slave_t *skip);
+  void broadcast_newnode (const dsdcx_slave_t &x, dsdcm_slave_t *skip,
+			  CLOSURE);
 
   // manage the system state
   void reset_system_state ();

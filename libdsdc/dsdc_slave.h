@@ -16,17 +16,18 @@
 #include "arpc.h"
 #include "qhash.h"
 #include "dsdc_stats.h"
+#include "litetime.h"
 
 struct dsdc_cache_obj_t {
-        dsdc_cache_obj_t () : _timein (timenow), _annotation (NULL),
+        dsdc_cache_obj_t () : _timein (sfs_get_timenow ()), _annotation (NULL),
                               _n_gets (0), _n_gets_in_epoch (0) {}
-        void reset () { _timein = timenow; }
+        void reset () { _timein = sfs_get_timenow (); }
         void set (const dsdc_key_t &k, const dsdc_obj_t &o,
                   dsdc::annotation::base_t *a = NULL);
         dsdc_cache_obj_t (const dsdc_key_t &k, const dsdc_obj_t &o);
         dsdc_key_t _key;
         dsdc_obj_t _obj;
-        time_t lifetime () const { return timenow - _timein; }
+        time_t lifetime () const { return sfs_get_timenow ()- _timein; }
         void inc_gets () { _n_gets ++; _n_gets_in_epoch ++; }
         const dsdc::annotation::base_t *annotation () const { return _annotation; }
         time_t _timein;
@@ -66,10 +67,10 @@ class dsdcs_master_t {
         void master_warn (const str &m);
         void went_down (const str &w, u_int lev = 0);
         void schedule_retry ();
-        void heartbeat ();
-        void heartbeat_cb (ptr<int> i, clnt_stat err);
+        void heartbeat_T (CLOSURE);
+        void heartbeat () { heartbeat_T (); }
         void schedule_heartbeat ();
-        void do_register ();
+        void do_register (CLOSURE);
         void do_register_cb (ptr<int> res, clnt_stat err);
         void retry ();
         void ready_to_serve ();

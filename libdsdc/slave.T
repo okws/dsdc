@@ -1,3 +1,6 @@
+
+
+// -*-c++-*-
 /*
  * $Id$
  */
@@ -44,51 +47,35 @@ dsdcs_master_t::connect_cb (int f)
 }
 
 void
-dsdcs_master_t::do_register_cb (ptr<int> res, clnt_stat err)
-{
-    if (err) {
-        strbuf b;
-        b << "Register failed: " << err ;
-        went_down (b);
-    } else if (*res != DSDC_OK) {
-        went_down (strbuf ("register returned error message %d", *res));
-    } else {
-        ready_to_serve ();
-    }
-}
-
-void
 dsdcs_master_t::ready_to_serve ()
 {
     _status = MASTER_STATUS_OK;
     schedule_heartbeat ();
 }
 
-void
-dsdcs_master_t::heartbeat_cb (ptr<int> i, clnt_stat e)
+tamed void
+dsdcs_master_t::heartbeat_T ()
 {
-    bool succ = false;
-    if (e) {
-        warn << "RPC error in DSDC_HEARTBEAT: " << e << "\n";
-    } else if (*i != DSDC_OK) {
-        warn << "DSDC error in DSDC_HEARTBEAT: " << *i << "\n";
+  tvars {
+    dsdc_res_t res;
+    bool succ (false);
+    clnt_stat err;
+  }
+  if (_status == MASTER_STATUS_OK && _cli) {
+    twait {
+      RPC::dsdc_prog_1::dsdc_heartbeat (_cli, &res, mkevent (err)); 
+      schedule_heartbeat ();
+    }
+    if (err) {
+      warn << "RPC error in DSDC_HEARTBEAT: " << err << "\n";
+    } else if (res != DSDC_OK) {
+      warn << "DSDC error in DSDC_HEARTBEAT: " << int (res) << "\n";
     } else {
-        succ = true;
+      succ = true;
     }
     if (!succ)
-        went_down ("Heartbeat ACK failed");
-}
-
-
-void
-dsdcs_master_t::heartbeat ()
-{
-    if (_status == MASTER_STATUS_OK && _cli) {
-        ptr<int> i = New refcounted<int> ();
-        _cli->call (DSDC_HEARTBEAT, NULL, i,
-                    wrap (this, &dsdcs_master_t::heartbeat_cb, i));
-        schedule_heartbeat ();
-    }
+      went_down ("Heartbeat ACK failed");
+  }
 }
 
 void
@@ -139,16 +126,31 @@ dsdc_slave_t::clean_cache ()
         warn ("CLEAN: cleaned %d objects (%zu bytes in total)\n", nobj, tot);
 }
 
-void
+tamed void
 dsdcs_master_t::do_register ()
 {
-    ptr<int> res = New refcounted<int> ();
+  tvars {
+    dsdc_res_t res;
     dsdc_register_arg_t arg;
-    _slave->get_xdr_repr (&arg.slave);
-    arg.primary = _primary;
-    arg.lock_server = _slave->is_lock_server ();
-    _cli->call (DSDC_REGISTER, &arg, res,
-                wrap (this, &dsdcs_master_t::do_register_cb, res));
+    clnt_stat err;
+
+  }
+  _slave->get_xdr_repr (&arg.slave);
+  arg.primary = _primary;
+  arg.lock_server = _slave->is_lock_server ();
+  
+  twait { 
+    RPC::dsdc_prog_1::dsdc_register (_cli, arg, &res, mkevent (err));
+  }
+  if (err) {
+    strbuf b;
+    b << "Register failed: " << err ;
+    went_down (b);
+  } else if (res != DSDC_OK) {
+    went_down (strbuf ("register returned error message %d", int(res)));
+  } else {
+    ready_to_serve ();
+  }
 }
 
 
@@ -477,7 +479,7 @@ dsdc_obj_t *
 dsdc_slave_t::lru_lookup (const dsdc_key_t &k, const int expire)
 {
     dsdc_cache_obj_t *o = _objs[k];
-    if (o && (expire <= 0 || timenow - expire < o->_timein)) {
+    if (o && (expire <= 0 || sfs_get_timenow () - expire < o->_timein)) {
         _lru.remove (o);
         _lru.insert_tail (o);
         o->inc_gets ();

@@ -25,10 +25,10 @@ usage ()
   exit (2);
 }
 
-TAMED static void
+tamed static void
 connect (str s, callback<void, ptr<aclnt> >::ref cb)
 {
-  VARS {
+  tvars {
     int fd (-1);
     str hn ("127.0.0.1");
     int port (dsdc_port);
@@ -37,7 +37,7 @@ connect (str s, callback<void, ptr<aclnt> >::ref cb)
   if (!parse_hn (s, &hn, &port)) {
     warn << "Cannot parse hostname/port: " << s << "\n";
   } else {
-    BLOCK { tcpconnect (hn, port, @(fd)); }
+    twait { tcpconnect (hn, port, mkevent (fd)); }
     if (fd < 0) {
       warn << "Cannot connect to host: " << s << "\n";
     } else {
@@ -48,20 +48,20 @@ connect (str s, callback<void, ptr<aclnt> >::ref cb)
   DSDC_SIGNAL (cb, ret);
 }
 
-TAMED static void
+tamed static void
 get_stats (str m, const dsdc_get_stats_arg_t *arg, cbi cb)
 {
-  VARS {
+  tvars {
     ptr<aclnt> c;
     int rc (0);
     dsdc_slave_statistics_t res;
     clnt_stat err;
   }
-  BLOCK { connect (m, @(c)); }
+  twait { connect (m, mkevent (c)); }
   if (!c) {
     rc = -1;
   } else {
-    BLOCK { c->call (DSDC_GET_STATS, arg, &res, @(err)); }
+    twait { RPC::dsdc_prog_1::dsdc_get_stats (c, arg, &res, mkevent (err)); }
     if (err) {
       warn << "RPC failure for host " << m << ": " << err <<"\n";
       rc = -1;
@@ -77,19 +77,21 @@ get_stats (str m, const dsdc_get_stats_arg_t *arg, cbi cb)
   DSDC_SIGNAL (cb, rc);
 }
 
-TAMED static void
+tamed static void
 get_stat_direct (str h, const dsdc_get_stats_single_arg_t *a, int *rc, cbv cb)
 {
-  VARS {
+  tvars {
     ptr<aclnt> c;
     dsdc_get_stats_single_res_t res;
     clnt_stat err;
   }
-  BLOCK { connect (h, @(c)); }
+  twait { connect (h, mkevent (c)); }
   if (!c) {
     *rc = -1;
   } else {
-    BLOCK { c->call (DSDC_GET_STATS_SINGLE, a, &res, @(err)); }
+    twait { 
+      RPC::dsdc_prog_1::dsdc_get_stats_single (c, a, &res, mkevent (err)); 
+    }
     if (err) {
       warn << "RPC failure for host " << h << ": " << err << "\n";
       *rc = -1;
@@ -108,18 +110,20 @@ get_stat_direct (str h, const dsdc_get_stats_single_arg_t *a, int *rc, cbv cb)
 // XXX try to fold this in with previous function, so only have to do it
 // once.
 //
-TAMED static void
+tamed static void
 set_stats_mode_single (str h, bool mode, int *rc, cbv cb)
 {
-  VARS {
+  tvars {
     ptr<aclnt> c;
     clnt_stat err;
   }
-  BLOCK { connect (h, @(c)); }
+  twait { connect (h, mkevent (c)); }
   if (!c) { 
     *rc = -1;
   } else {
-    BLOCK { c->call (DSDC_SET_STATS_MODE, &mode, NULL, @(err)); }
+    twait { 
+      RPC::dsdc_prog_1::dsdc_set_stats_mode (c, mode, mkevent (err)); 
+    }
     if (err) {
       warn << "RPC failure for host " << h << ": " << err << "\n";
       *rc = -1;
@@ -132,42 +136,42 @@ set_stats_mode_single (str h, bool mode, int *rc, cbv cb)
 // XXX try to fold this in with get_stats_direct, so only have to do it
 // once.
 //
-TAMED static void
+tamed static void
 set_stats_mode (const vec<str> *s, int mode, cbi cb)
 {
-  VARS {
+  tvars {
     size_t i;
     int rc (0);
   }
-  BLOCK {
+  twait {
     for (i = 0; i < s->size (); i++) {
-      set_stats_mode_single ((*s)[i], mode, &rc, @());
+      set_stats_mode_single ((*s)[i], mode, &rc, mkevent ());
     }
   }
   DSDC_SIGNAL (cb, rc);
 }
 
-TAMED static void
+tamed static void
 get_stats_direct (const vec<str> *s, const dsdc_get_stats_single_arg_t *a, 
 		  cbi cb)
 {
-  VARS {
+  tvars {
     size_t i;
     int rc (0);
   }
-  BLOCK { 
+  twait { 
     for (i = 0; i < s->size (); i++) {
-      get_stat_direct ((*s)[i], a, &rc, @());
+      get_stat_direct ((*s)[i], a, &rc, mkevent ());
     }
   }
   DSDC_SIGNAL (cb, rc);
 }
 
 
-TAMED static void
+tamed static void
 main2 (int argc, char **argv)
 {
-  VARS {
+  tvars {
     int ch, rc (0);
     str master;
     dsdc_adminmode_t mode (NONE);
@@ -253,15 +257,15 @@ main2 (int argc, char **argv)
     if (slaves.size () == 0) {
       usage ();
     } else {
-      BLOCK { set_stats_mode (&slaves, stats_mode, @(rc)); }
+      twait { set_stats_mode (&slaves, stats_mode, mkevent (rc)); }
     }
 
   } else if (mode == STATS) {
     if (master) {
       arg.getparams = sarg;
-      BLOCK { get_stats (master, &arg, @(rc)); }
+      twait { get_stats (master, &arg, mkevent (rc)); }
     } else if (slaves.size () > 0) {
-      BLOCK { get_stats_direct (&slaves, &sarg, @(rc)); }
+      twait { get_stats_direct (&slaves, &sarg, mkevent (rc)); }
     } else {
       usage ();
     }

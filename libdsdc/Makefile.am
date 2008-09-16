@@ -30,6 +30,8 @@ SUFFIXES = .C .T .h
 fslru.h: $(srcdir)/fslru.Th
 	$(TAME) -o $@ $< || (rm -f $@ && false)
 
+slave.o:	slave.C
+slave.lo:	slave.C
 smartcli.o:	smartcli.C
 smartcli.lo:	smartcli.C
 fscache.o:	fscache.C 

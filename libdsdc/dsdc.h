@@ -6,8 +6,8 @@
 #define _DSDC_SMARTCLI_H_
 
 // when we hit a major version it should go to 100000
-#define DSDC_VERSION_STR "0.3.1"
-#define DSDC_VERSION    3001
+#define DSDC_VERSION_STR "0.4.0"
+#define DSDC_VERSION    4000
 
 #include "dsdc_prot.h"
 #include "dsdc_ring.h"
@@ -332,7 +332,7 @@ class dsdc_smartcli_t : public dsdc_system_state_cache_t {
         void lock_acquire (ptr<dsdc_lock_acquire_arg_t> arg,
                            dsdc_lock_acquire_res_cb_t cb, bool safe = false);
         void lock_release (ptr<dsdc_lock_release_arg_t> arg,
-                           cbi::ptr cb = NULL, bool safe = false);
+                           cbi::ptr cb = NULL, bool safe = false, CLOSURE);
 
         // slightly more automated versions of the above; call xdr2str/str2xdr
         // automatically, and therefore less code for the app designer

@@ -230,7 +230,7 @@ dsdcl_holder_t::set_timeout (cbv::ptr cb)
 }
 
 dsdcl_holder_t::dsdcl_holder_t (dsdcl_id_t i, bool w, u_int to)
-  : _id (i), _timer (NULL), _writer (w), _timein (timenow), 
+  : _id (i), _timer (NULL), _writer (w), _timein (sfs_get_timenow ()), 
     _timeout (to ? to : dsdcl_default_timeout),
     _destroyed (New refcounted<bool> (false))
 {}

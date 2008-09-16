@@ -7,8 +7,8 @@
 #include "arpc.h"
 #include "sha1.h"
 
-#ifndef SIGNAL
-#define SIGNAL(x,...) (*cb)(__VA_ARGS__)
+#ifndef TRIGGER
+#define TRIGGER(x,...) (*cb)(__VA_ARGS__)
 #endif
 
 namespace fscache {
@@ -79,10 +79,10 @@ engine_t::~engine_t ()
 
 //-----------------------------------------------------------------------
 
-TAMED void
+tamed void
 engine_t::load (file_id_t id, cbits_t cb)
 {
-    VARS {
+    tvars {
         str fn;
         str out;
         time_t tm (0);
@@ -90,7 +90,7 @@ engine_t::load (file_id_t id, cbits_t cb)
         int rc;
     }
     fn = filename (id);
-    BLOCK { _backend->file2str (fn, @(rc, out)); }
+    twait { _backend->file2str (fn, mkevent (rc, out)); }
     if (rc == 0) {
         fscache_file_t file;
         char digest[SHA1SZ];
@@ -110,15 +110,15 @@ engine_t::load (file_id_t id, cbits_t cb)
             ret_str = m;
         }
     }
-    SIGNAL (cb, rc, tm, ret_str);
+    TRIGGER (cb, rc, tm, ret_str);
 }
 
 //-----------------------------------------------------------------------
 
-TAMED void
+tamed void
 engine_t::store (file_id_t id, time_t tm, str data, cbi cb)
 {
-    VARS {
+    tvars {
         str fn;
         int rc;
         fscache_file_t file;
@@ -134,23 +134,23 @@ engine_t::store (file_id_t id, time_t tm, str data, cbi cb)
         warn ("Cannot convert file to XDR form: %s\n", fn.cstr ());
         rc = -EINVAL;
     } else {
-        BLOCK { _backend->str2file (fn, out, _cfg->file_mode (), @(rc));}
+        twait { _backend->str2file (fn, out, _cfg->file_mode (), mkevent (rc));}
     }
-    SIGNAL (cb, rc);
+    TRIGGER (cb, rc);
 }
 
 //-----------------------------------------------------------------------
 
-TAMED void
+tamed void
 engine_t::remove (file_id_t id, cbi cb)
 {
-    VARS {
+    tvars {
         str fn;
         int rc;
     }
     fn = filename (id);
-    BLOCK { _backend->remove (fn, @(rc)); }
-    SIGNAL (cb, rc);
+    twait { _backend->remove (fn, mkevent (rc)); }
+    TRIGGER (cb, rc);
 }
 
 //-----------------------------------------------------------------------
@@ -174,9 +174,9 @@ simple_backend_t::file2str (str fn, cbis_t cb)
 {
     str s = ::file2str (fn);
     if (s) {
-        SIGNAL (cb, 0, s);
+        TRIGGER (cb, 0, s);
     } else {
-        SIGNAL (cb, 0-errno, NULL);
+        TRIGGER (cb, 0-errno, NULL);
     }
 }
 
@@ -191,7 +191,7 @@ simple_backend_t::str2file (str fn, str s, int mode, cbi cb)
       rc = (errno > 0) ? -errno : -EIO;
     }
     
-    SIGNAL (cb, rc);
+    TRIGGER (cb, rc);
 }
 
 //-----------------------------------------------------------------------
@@ -200,15 +200,15 @@ void
 simple_backend_t::remove (str f, cbi cb)
 {
     int rc = unlink (f.cstr ());
-    SIGNAL (cb, rc == 0 ? 0 : 0 - errno);
+    TRIGGER (cb, rc == 0 ? 0 : 0 - errno);
 }
 
 //-----------------------------------------------------------------------
 
-TAMED void
+tamed void
 aiod_backend_t::file2str_T (str fn, cbis_t cb)
 {
-    VARS {
+    tvars {
         int rc, crc;
         ptr<aiofh> fh;
         ptr<aiobuf> buf, b2;
@@ -221,9 +221,9 @@ aiod_backend_t::file2str_T (str fn, cbis_t cb)
         ssize_t blocksz;
     }
     blocksz = _cfg->blocksz ();
-    BLOCK { _aiod->open (fn, O_RDONLY, 0, @(fh, rc)); }
+    twait { _aiod->open (fn, O_RDONLY, 0, mkevent (fh, rc)); }
     if (rc == 0) {
-        BLOCK { fh->fstat (@(sb, rc)); }
+        twait { fh->fstat (mkevent (sb, rc)); }
         if (rc != 0) {
             warn << "fstat failed on file: " << fn << "\n";
         } else {
@@ -233,7 +233,7 @@ aiod_backend_t::file2str_T (str fn, cbis_t cb)
             } else {
                 eof = false;
                 for (pos = 0; pos < sz && rc == 0 && !eof; pos += rsz) {
-                    BLOCK { fh->read (pos, buf, @(b2, rsz, rc)); }
+                    twait { fh->read (pos, buf, mkevent (b2, rsz, rc)); }
                     if (rc != 0) {
                         warn ("Read error on file (%s): %m\n", fn.cstr ());
                     } else if (rsz < 0) {
@@ -256,20 +256,20 @@ aiod_backend_t::file2str_T (str fn, cbis_t cb)
                 }
             }
         }
-	BLOCK { fh->close (@(crc)); }
+	twait { fh->close (mkevent (crc)); }
 	fh = NULL;
     } else {
         rc = 0 - rc;
     }
-    SIGNAL (cb, rc, ret);
+    TRIGGER (cb, rc, ret);
 }
 
 //-----------------------------------------------------------------------
 
-TAMED void
+tamed void
 aiod_backend_t::str2file_T (str fn, str s, int mode, cbi cb)
 {
-    VARS {
+    tvars {
         ptr<aiofh> fh;
         ptr<aiobuf> buf,b2;
         int rc;
@@ -281,7 +281,7 @@ aiod_backend_t::str2file_T (str fn, str s, int mode, cbi cb)
     }
     blocksz = _cfg->blocksz ();
 
-    BLOCK { _aiod->open (fn, O_WRONLY|O_CREAT, mode, @(fh, rc)); }
+    twait { _aiod->open (fn, O_WRONLY|O_CREAT, mode, mkevent (fh, rc)); }
     if (rc == 0) {
         if (!(buf = _aiod->bufalloc (blocksz))) {
             rc = -ENOMEM;
@@ -290,7 +290,7 @@ aiod_backend_t::str2file_T (str fn, str s, int mode, cbi cb)
                  pos += blocksz, cp += blocksz) {
                 bsz = min<ssize_t> (blocksz, ep - cp);
                 memcpy (buf->base (), cp, bsz);
-                BLOCK { fh->swrite (pos, buf, 0, bsz, @(b2, wsz, rc)); }
+                twait { fh->swrite (pos, buf, 0, bsz, mkevent (b2, wsz, rc)); }
                 if (rc != 0) {
                     warn ("Bad write to file (%s): %d\n", fn.cstr (), rc);
                 } else if (wsz != bsz) {
@@ -301,24 +301,24 @@ aiod_backend_t::str2file_T (str fn, str s, int mode, cbi cb)
                 }
             }
         }
-        BLOCK { fh->close (@(rc)); }
+        twait { fh->close (mkevent (rc)); }
         if (rc != 0) {
             warn ("Close failed on file (%s): %d\n", fn.cstr (), rc);
         }
     }
-    SIGNAL (cb, rc);
+    TRIGGER (cb, rc);
 }
 
 //-----------------------------------------------------------------------
 
-TAMED void
+tamed void
 aiod_backend_t::remove_T (str f, cbi cb)
 {
-    VARS {
+    tvars {
         int rc;
     }
-    BLOCK { _aiod->unlink (f, @(rc)); }
-    SIGNAL (cb, rc);
+    twait { _aiod->unlink (f, mkevent (rc)); }
+    TRIGGER (cb, rc);
 }
 
 //-----------------------------------------------------------------------

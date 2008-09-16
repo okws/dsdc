@@ -9,6 +9,7 @@ do
   if test ! -f $f; then
     for d in /usr/local/okws/buildtools \
 	     /usr/local/lib/sfslite \
+	     /usr/local/lib/sfslite-1.2 \
 	     /usr/local/share/aclocal \
 	     /usr/local/gnu-autotools/shared/aclocal-1.9 
     do

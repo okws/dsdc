@@ -175,12 +175,12 @@ dsdc_smartcli_t::which_slave (const dsdc_key_t &k)
     return res;
 }
 
-TAMED void
+tamed void
 dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
                       bool safe, int time_to_expire,
                       const annotation_t *a)
 {
-    VARS {
+    tvars {
         ptr<aclnt> cli;
         dsdc_ring_node_t *n;
         ptr<dsdc_get_res_t> res (New refcounted<dsdc_get_res_t> (DSDC_OK));
@@ -195,7 +195,7 @@ dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
     } else {
         if ((n = _hash_ring.successor (*k))) {
             tried = true;
-            BLOCK { n->get_aclnt_wrap ()->get_aclnt (@(cli)); }
+            twait { n->get_aclnt_wrap ()->get_aclnt (mkevent (cli)); }
         }
     }
 
@@ -205,7 +205,7 @@ dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
             arg3.key = *k;
             arg3.time_to_expire = time_to_expire;
             annotation_t::to_xdr (a, &arg3.annotation);
-            BLOCK { rpc_call (cli, DSDC_GET3, &arg3, res, @(err)); }
+            twait { rpc_call (cli, DSDC_GET3, &arg3, res, mkevent (err)); }
 
         } else {
             // Use compatibility RPC if not using annotation
@@ -214,7 +214,7 @@ dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
             if (time_to_expire < 0)
                 time_to_expire = INT_MAX;
             arg2.time_to_expire = time_to_expire;
-            BLOCK { rpc_call (cli, DSDC_GET2, &arg2, res, @(err)); }
+            twait { rpc_call (cli, DSDC_GET2, &arg2, res, mkevent (err)); }
         }
 
         if (err) {
@@ -374,18 +374,6 @@ acquire_cb_2 (dsdc_lock_acquire_res_cb_t cb,
     (*cb) (res);
 }
 
-static void
-release_cb_2 (cbi::ptr cb, ptr<int> res, clnt_stat err)
-{
-    if (err) {
-        if (show_debug (DSDC_DBG_LOW)) {
-            warn << "Acquire failed with RPC error: " << err << "\n";
-        }
-        *res = DSDC_RPC_ERROR;
-    }
-    (*cb) (*res);
-}
-
 void
 dsdc_smartcli_t::acquire_cb_1 (ptr<dsdc_lock_acquire_arg_t> arg,
                                dsdc_lock_acquire_res_cb_t cb,
@@ -400,31 +388,44 @@ dsdc_smartcli_t::acquire_cb_1 (ptr<dsdc_lock_acquire_arg_t> arg,
     }
 }
 
-static void
-release_cb_1 (ptr<dsdc_lock_release_arg_t> arg, cbi::ptr cb, ptr<aclnt> cli)
-{
-    if (!cli) {
-        (*cb) (DSDC_DEAD);
-    } else {
-        ptr<int> res = New refcounted<int> ();
-
-        // don't allow timouts on DSDC_LOCK_RELEASE, for now....
-        cli->call (DSDC_LOCK_RELEASE, arg, res, wrap (release_cb_2, cb, res));
-    }
-}
-
-void
+tamed void
 dsdc_smartcli_t::lock_release (ptr<dsdc_lock_release_arg_t> arg,
                                cbi::ptr cb, bool safe)
 {
-    if (safe) {
-        release_cb_1 (arg, cb, get_primary ());
-    } else if (!_lock_server) {
-        (*cb) (DSDC_NONODE);
+  tvars {
+    dsdc_res_t res (DSDC_OK);
+    ptr<aclnt> cli;
+    clnt_stat err;
+  }
+
+  if (!safe) {
+    if (!_lock_server) {
+      res = DSDC_NONODE;
     } else {
-        _lock_server->get_aclnt (wrap (release_cb_1, arg, cb));
+      twait { _lock_server->get_aclnt (mkevent (cli)); }
     }
+  } else {
+    cli = get_primary ();
+  }
+
+  if (!cli) {
+    if (res == DSDC_OK)
+      res = DSDC_DEAD;
+  } else {
+    // No timeouts for now.
+    twait {
+      RPC::dsdc_prog_1::dsdc_lock_release (cli, arg, &res, mkevent (err));
+    }
+    if (err) {
+      if (show_debug (DSDC_DBG_LOW)) {
+	warn << "Acquire failed with RPC error: " << err << "\n";
+      }
+      res = DSDC_RPC_ERROR;
+    }
+  }
+  TRIGGER (cb, int (res));
 }
+	
 
 void
 dsdc_smartcli_t::lock_acquire (ptr<dsdc_lock_acquire_arg_t> arg,

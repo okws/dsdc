@@ -120,9 +120,11 @@ dsdc_system_state_cache_t::refresh (ptr<bool> df)
     warn << "Cannot find any masters that are alive!\n";
   } else {
     ptr<dsdc_getstate_res_t> res = New refcounted<dsdc_getstate_res_t> ();
-    c->call (DSDC_GETSTATE, &_system_state_hash, res,
-	     wrap (this, &dsdc_system_state_cache_t::refresh_cb, 
-		   _destroyed, res));
+   
+    RPC::dsdc_prog_1::dsdc_getstate
+      (c, &_system_state_hash, res,
+       wrap (this, &dsdc_system_state_cache_t::refresh_cb, 
+	     _destroyed, res));
   }
 }
 

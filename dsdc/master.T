@@ -338,7 +338,7 @@ dsdc_master_t::get_aclnt (const dsdc_key_t &k, ptr<aclnt> *cli)
 bool
 dsdcm_slave_base_t::is_dead ()
 {
-  if (timenow - _last_heartbeat > 
+  if (sfs_get_timenow () - _last_heartbeat > 
       dsdc_heartbeat_interval * dsdc_missed_beats_to_death) {
     if (show_debug (DSDC_DBG_LOW)) {
       warn ("detected dead slave: %s\n", remote_peer_id ().cstr ());
@@ -359,10 +359,10 @@ handle_vanilla_cb (ptr<int> res, svccb *sbp, clnt_stat err)
   sbp->reply (res);
 }
 
-TAMED void
+tamed void
 dsdc_master_t::handle_get (svccb *sbp)
 {
-  VARS {
+  tvars {
     const dsdc_get_arg_t *a1;
     const dsdc_req_t *a2;
     const dsdc_get3_arg_t *a3;
@@ -398,7 +398,7 @@ dsdc_master_t::handle_get (svccb *sbp)
   if ((r = get_aclnt (key, &cli)) != DSDC_OK) {
     res.set_status (r);
   } else {
-    BLOCK { cli->call (sbp->proc (), av, &res, @(err)); }
+    twait { cli->call (sbp->proc (), av, &res, mkevent (err)); }
     if (err) 
       res.set_status (DSDC_RPC_ERROR);
   }
@@ -449,53 +449,71 @@ dsdc_master_t::handle_lock_acquire (svccb *sbp)
   }
 }
 
-void
+tamed void
 dsdc_master_t::handle_remove (svccb *sbp)
 {
-  dsdc_key_t *k = sbp->Xtmpl getarg<dsdc_key_t> ();
-  ptr<aclnt> cli;
-  dsdc_res_t r = get_aclnt (*k, &cli);
-  if (r != DSDC_OK) {
-    sbp->replyref (r);
-  } else {
-    ptr<int> res = New refcounted<int> ();
-    cli->call (DSDC_REMOVE, k, res, wrap (handle_vanilla_cb, res, sbp));
+  tvars {
+    dsdc_key_t *k (sbp->Xtmpl getarg<dsdc_key_t> ());
+    ptr<aclnt> cli;
+    dsdc_res_t res;
+    clnt_stat err;
   }
+
+  res = get_aclnt (*k, &cli);
+  if (res == DSDC_OK) {
+    twait { 
+      RPC::dsdc_prog_1::dsdc_remove (cli, k, &res, mkevent(err)); 
+    }
+    if (err) 
+      res = DSDC_RPC_ERROR;
+  }
+
+  if (!sbp->getsrv ()->xprt ()->ateof ()) 
+    sbp->replyref (res);
 }
 
-void
+tamed void
 dsdc_master_t::handle_put (svccb *sbp)
 {
-  dsdc_put_arg_t *arg = sbp->Xtmpl getarg<dsdc_put_arg_t> ();
-  ptr<aclnt> cli;
-  dsdc_res_t r = get_aclnt (arg->key, &cli);
-  if (r != DSDC_OK) {
-    sbp->replyref (r);
-  } else {
-    ptr<int> res = New refcounted<int> ();
-    cli->call (DSDC_PUT, arg, res, wrap (handle_vanilla_cb, res, sbp));
+  tvars {
+    dsdc_put_arg_t *arg (sbp->Xtmpl getarg<dsdc_put_arg_t> ());
+    ptr<aclnt> cli;
+    dsdc_res_t res;
+    clnt_stat err;
   }
+  res = get_aclnt (arg->key, &cli);
+  if (res == DSDC_OK) {
+    twait { 
+      RPC::dsdc_prog_1::dsdc_put (cli, arg, &res, mkevent (err));
+    }
+    if (err)
+      res = DSDC_RPC_ERROR;
+  }
+  if (!sbp->getsrv ()->xprt ()->ateof ()) 
+    sbp->replyref (res);
 }
 
-static void
-ignore_cb (ptr<int> res, clnt_stat err)
-{
-  /* no op for now */
-}
 
 //
 // broadcast_newnode; not in use currently.  we're going to 
 // use this to kick off the data movement protocol if we decide
 // this is the right thing to do.
 //
-void
+tamed void
 dsdc_master_t::broadcast_newnode (const dsdcx_slave_t &x, dsdcm_slave_t *skip)
 {
-  for (dsdcm_slave_t *p = _slaves.first; p; p = _slaves.next (p)) {
-    if (p != skip && !p->is_dead ()) {
-      ptr<int> res = New refcounted<int> ();
-      p->get_aclnt ()->call (DSDC_NEWNODE, &x, res, 
-			     wrap (ignore_cb, res));
+  tvars {
+    dsdcm_slave_t *p;
+    dsdc_res_t dummy;
+    clnt_stat err;
+  }
+
+  twait { 
+    for (p = _slaves.first; p; p = _slaves.next (p)) {
+      if (p != skip && !p->is_dead ()) {
+	RPC::dsdc_prog_1::dsdc_newnode (p->get_aclnt(), x, &dummy, 
+					mkevent (err));
+      }
     }
   }
 }
@@ -544,12 +562,12 @@ dsdc_master_t::watchdog_timer ()
   _tmr = delaycb (5, 0, wrap (this, &dsdc_master_t::watchdog_timer));
 }
 
-TAMED void
+tamed void
 dsdc_master_t::get_stats (dsdc_slave_statistic_t *out,
 			  const dsdc_get_stats_single_arg_t *arg,
 			  dsdcm_slave_t *sl, cbv cb)
 {
-  VARS {
+  tvars {
     clnt_stat err;
     ptr<aclnt> c;
   }
@@ -558,7 +576,7 @@ dsdc_master_t::get_stats (dsdc_slave_statistic_t *out,
   if (!c) {
     out->stats.set_status (DSDC_DEAD);
   } else {
-    BLOCK { c->call (DSDC_GET_STATS_SINGLE, arg, &out->stats, @(err)); }
+    twait { c->call (DSDC_GET_STATS_SINGLE, arg, &out->stats, mkevent (err)); }
     if (err) {
       out->stats.set_status (DSDC_RPC_ERROR);
       warn << __func__ << ": DSDC RPC ERROR [" << out->host 
@@ -568,10 +586,10 @@ dsdc_master_t::get_stats (dsdc_slave_statistic_t *out,
   DSDC_SIGNAL (cb);
 }
 
-TAMED void
+tamed void
 dsdc_master_t::handle_get_stats (svccb *sbp)
 {
-  VARS {
+  tvars {
     dsdc_get_stats_arg_t *a;
     dsdc_slave_statistics_t res;
     dsdcm_slave_t *sl, *p;
@@ -594,7 +612,7 @@ dsdc_master_t::handle_get_stats (svccb *sbp)
       }
       if (sl) {
 	res.setsize (1);
-	BLOCK { get_stats (&res[0], &a->getparams, sl, @()); }
+	twait { get_stats (&res[0], &a->getparams, sl, mkevent ()); }
       } else {
 	res.setsize (0);
       }
@@ -604,11 +622,11 @@ dsdc_master_t::handle_get_stats (svccb *sbp)
     {
       s = a->hosts.some->size ();
       res.setsize (s);
-      BLOCK {
+      twait {
 	for (i = 0; i < s; i++) {
 	  nm = (*a->hosts.some)[i];
 	  if ((p = _slave_hash[nm])) {
-	    get_stats (&res[i], &a->getparams, p, @()); 
+	    get_stats (&res[i], &a->getparams, p, mkevent ()); 
 	  } else {
 	    res[i].host = nm;
 	    res[i].stats.set_status (DSDC_NOTFOUND);
@@ -620,9 +638,9 @@ dsdc_master_t::handle_get_stats (svccb *sbp)
   case DSDC_SET_ALL:
     {
       res.setsize (_n_slaves);
-      BLOCK {
+      twait {
 	for (p = _slaves.first; p; p = _slaves.next (p)) {
-	  get_stats (&res[0], &a->getparams, p, @());
+	  get_stats (&res[0], &a->getparams, p, mkevent ());
 	}
       }
       break;

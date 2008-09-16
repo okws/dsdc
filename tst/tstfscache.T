@@ -8,10 +8,10 @@
 enum { OPT_CORRUPT = 0x1,
        OPT_NO_DELETE = 0x2 };
 
-TAMED static void
+tamed static void
 main2 (fscache::cfg_t *cfg, str name, u_int32_t key, str fn, int opts)
 {
-    VARS {
+    tvars {
         fscache::engine_t fsc (cfg);
         str fdat, fdat2;
         fscache::file_id_t id (name, key);
@@ -26,7 +26,7 @@ main2 (fscache::cfg_t *cfg, str name, u_int32_t key, str fn, int opts)
     ffn = fsc.filename (id);
     warn << "File name is: '" << ffn << "'\n";
     t = time (NULL);
-    BLOCK { fsc.store (id, t, fdat, @(rc)); }
+    twait { fsc.store (id, t, fdat, mkevent (rc)); }
     if (rc != 0) {
         warn << "Failed store command, error code: "  << rc << "\n";
         exit (1);
@@ -46,7 +46,7 @@ main2 (fscache::cfg_t *cfg, str name, u_int32_t key, str fn, int opts)
     }
 
 
-    BLOCK { fsc.load (id, @(rc, t2, fdat2)); }
+    twait { fsc.load (id, mkevent (rc, t2, fdat2)); }
     if (rc != 0) {
         warn << "Failed load command, error code: " << rc << "\n";
         exit (1);
@@ -58,13 +58,13 @@ main2 (fscache::cfg_t *cfg, str name, u_int32_t key, str fn, int opts)
         warn << "data mismatch; files differ.\n";
     }
 
-    BLOCK { fsc.remove (id, @(rc)); }
+    twait { fsc.remove (id, mkevent (rc)); }
     if (rc != 0) {
         warn <<  "Failed removed command, error code: " << rc << "\n";
         exit (1);
     }
 
-    BLOCK { fsc.load (id, @(rc, t2, fdat2)); }
+    twait { fsc.load (id, mkevent (rc, t2, fdat2)); }
     if (rc != -ENOENT) {
         warn << "Load after remove didn't fail as expected; rc=" << rc << "\n";
         exit (1);
