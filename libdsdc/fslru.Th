@@ -15,366 +15,366 @@
 
 namespace fscache {
 
-  enum { DAY = 24 * 60 * 60 } ;
+    enum { DAY = 24 * 60 * 60 } ;
 
-  template<class C> class file_id_maker_t;
-  
-  //
-  // Hold onto this to 'pin' an entry in memory.
-  //
-  class entry_pin : public virtual refcount {
-  public:
-    entry_pin (int *r) : _count (r) {}
-    ~entry_pin () { (*_count) -- ; assert (*_count >= 0); }
-  private:
-    int *_count;
-  };
+    template<class C> class file_id_maker_t;
 
-  template<class C> ptr<C> 
-  safe_mkref (C *in)
-  {
-    if (!in) return NULL;
-    else return mkref (in);
-  }
-  
-  template<class K, class V, class F = file_id_maker_t<K> >
-  class lru_t {
-
-  public:
-    
-    class my_lock_t : public tame::lock_t {
+    //
+    // Hold onto this to 'pin' an entry in memory.
+    //
+    class entry_pin : public virtual refcount {
     public:
-      my_lock_t (mode_t m = OPEN) : tame::lock_t (m) {}
-      ~my_lock_t () { assert (_mode == OPEN); }
-    }; 
-    
-    class entry : public virtual refcount {
-    public:
-      K _key;
-      ihash_entry<entry> _hlnk;
-      tailq_entry<entry> _qlnk;
+        entry_pin (int *r) : _count (r) {}
+        ~entry_pin () { (*_count) -- ; assert (*_count >= 0); }
     private:
-      ptr<V> _value;
-      ptr<entry> _hold;
-      time_t _timein;
-      bool _in_mem;
-      my_lock_t  _lock;
-      bool _valid;
-      int _refs;
+        int *_count;
+    };
+
+    template<class C> ptr<C>
+    safe_mkref (C *in)
+    {
+        if (!in) return NULL;
+        else return mkref (in);
+    }
+
+    template<class K, class V, class F = file_id_maker_t<K> >
+    class lru_t {
 
     public:
 
-      entry (const K &key, ptr<V> d = NULL) 
-	: _key (key),
-	  _value (d),
-	  _hold (mkref (this)),
-	  _timein (sfs_get_timenow ()),
-	  _in_mem (false),
-	  _lock (tame::lock_t::EXCLUSIVE),
-	  _valid (true),
-	  _refs (0)
-      {}
-      ~entry () {}
+    class my_lock_t : public tame::lock_t {
+        public:
+            my_lock_t (mode_t m = OPEN) : tame::lock_t (m) {}
+            ~my_lock_t () { assert (_mode == OPEN); }
+        };
 
-      void release () 
-      { 
-	ptr<entry> tmp = _hold;
-	_hold = NULL;
-      }
+    class entry : public virtual refcount {
+        public:
+            K _key;
+            ihash_entry<entry> _hlnk;
+            tailq_entry<entry> _qlnk;
+        private:
+            ptr<V> _value;
+            ptr<entry> _hold;
+            time_t _timein;
+            bool _in_mem;
+            my_lock_t  _lock;
+            bool _valid;
+            int _refs;
 
-      ptr<entry_pin> getpin ()
-      {
-	_refs ++;
-	return New refcounted<entry_pin> (&_refs);
-      }
+        public:
 
-      void set_in_mem (bool b) { _in_mem = b;}
-      bool in_mem () const { return _in_mem; }
+            entry (const K &key, ptr<V> d = NULL)
+                    : _key (key),
+                    _value (d),
+                    _hold (mkref (this)),
+                    _timein (sfs_get_timenow ()),
+                    _in_mem (false),
+                    _lock (tame::lock_t::EXCLUSIVE),
+                    _valid (true),
+                    _refs (0)
+            {}
+            ~entry () {}
 
-      bool is_pinned () const { return _refs > 0; }
-      bool is_valid () const { return _valid; }
+            void release ()
+            {
+                ptr<entry> tmp = _hold;
+                _hold = NULL;
+            }
 
-      void set_value (ptr<V> v) 
-      {
-	_value = v;
-	_valid = true;
-      }
+            ptr<entry_pin> getpin ()
+            {
+                _refs ++;
+                return New refcounted<entry_pin> (&_refs);
+            }
 
-      void invalidate ()
-      {
-	_valid = false;
-	_value = NULL;
-      }
+            void set_in_mem (bool b) { _in_mem = b;}
+            bool in_mem () const { return _in_mem; }
 
-      void acquire_lock (evv_t ev) { _lock.acquire (tame::lock_t::EXCLUSIVE, ev); }
-      void release_lock () { _lock.release (); }
+            bool is_pinned () const { return _refs > 0; }
+            bool is_valid () const { return _valid; }
 
-      ptr<V> value () const { return _valid ? _value : NULL; }
+            void set_value (ptr<V> v)
+            {
+                _value = v;
+                _valid = true;
+            }
+
+            void invalidate ()
+            {
+                _valid = false;
+                _value = NULL;
+            }
+
+            void acquire_lock (evv_t ev) { _lock.acquire (tame::lock_t::EXCLUSIVE, ev); }
+            void release_lock () { _lock.release (); }
+
+            ptr<V> value () const { return _valid ? _value : NULL; }
+        };
+
+    public:
+
+        lru_t (const str &n, engine_t *e,
+               u_int timeout = DAY, size_t sz = 0x1000)
+                : _name (n),
+                _iface (e),
+                _timeout (timeout),
+                _max_size (sz),
+                _file_id_maker (n) {}
+
+        void insert (const K &key, ptr<V> value, cbi::ptr cb = NULL, CLOSURE);
+        void get (K key, typename callback<void, ptr<V> >::ref cb, CLOSURE);
+        void write_out (const K &key, const V &val, cbi::ptr cb, CLOSURE);
+        void remove (const K &key, cbi::ptr cb = NULL, CLOSURE);
+
+        void insert (const K &key, const V &value, cbi::ptr cb = NULL)
+        {
+            ptr<V> v = New refcounted<V> (value);
+            insert (key, v, cb, NULL);
+        }
+
+    protected:
+
+        void remove_from_mem (const K &key)
+        {
+            entry *e = _tab[key];
+            if (e)
+                remove_from_mem (e);
+        }
+
+        void insert_into_mem (entry *e)
+        {
+            assert (!e->in_mem());
+            e->set_in_mem (true);
+            _q.insert_tail (e);
+            _tab.insert (e);
+            clean ();
+        }
+
+        void remove_from_mem (entry *e)
+        {
+            assert (e->in_mem ());
+            if (!e->is_pinned ()) {
+                e->set_in_mem (false);
+                _q.remove (e);
+                _tab.remove (e);
+                e->release ();
+            }
+        }
+
+        void touch_in_mem (entry *e)
+        {
+            assert (e->in_mem ());
+            _q.remove (e);
+            _q.insert_tail (e);
+        }
+
+        void clean ()
+        {
+            if (_max_size > 0) {
+                entry *p, *n;
+                for (p = _q.first; p && _tab.size () > _max_size; p = n) {
+                    n = _q.next (p);
+                    remove_from_mem (p);
+                }
+            }
+        }
+
+    protected:
+        const str _name;
+        iface_t<V> _iface;
+        u_int _timeout;
+        size_t _max_size;
+        const F _file_id_maker;
+
+        tailq<entry, &entry::_qlnk> _q;
+        ihash<K, entry, &entry::_key, &entry::_hlnk> _tab;
+
     };
-    
-  public:
-    
-    lru_t (const str &n, engine_t *e,
-	   u_int timeout = DAY, size_t sz = 0x1000) 
-      : _name (n),
-	_iface (e),
-	_timeout (timeout),
-	_max_size (sz),
-	_file_id_maker (n) {}
 
-    void insert (const K &key, ptr<V> value, cbi::ptr cb = NULL, CLOSURE);
-    void get (K key, typename callback<void, ptr<V> >::ref cb, CLOSURE);
-    void write_out (const K &key, const V &val, cbi::ptr cb, CLOSURE);
-    void remove (const K &key, cbi::ptr cb = NULL, CLOSURE);
-
-    void insert (const K &key, const V &value, cbi::ptr cb = NULL) 
+    template<>
+    class file_id_maker_t<u_int64_t>
     {
-      ptr<V> v = New refcounted<V> (value);
-      insert (key, v, cb, NULL);
-    }
-    
-  protected:
-    
-    void remove_from_mem (const K &key)
+    public:
+        file_id_maker_t (const str &n) : _name (n) {}
+        file_id_t operator () (const u_int64_t &u) const
+        {
+            strbuf b ("%s-%" PRIx64 , _name.cstr (), u);
+            return file_id_t (b, u_int32_t (u));
+        }
+    private:
+        const str _name;
+    };
+
+    tamed template<class K, class V, class F> void
+    lru_t<K,V,F>::insert (const K &key, ptr<V> value, cbi::ptr cb)
     {
-      entry *e = _tab[key];
-      if (e)
-	remove_from_mem (e);
+        tvars {
+            ptr<typename lru_t<K,V,F>::entry > e;
+            ptr<entry_pin> pin;
+            int rc (0);
+        }
+
+        if ((e = safe_mkref (_tab[key]))) {
+
+            pin = e->getpin ();
+            touch_in_mem (e);
+            e->set_value (value);
+
+            twait { e->acquire_lock (mkevent ()); }
+
+        } else {
+            e = New refcounted<entry> (key, value);
+            insert_into_mem (e);
+            pin = e->getpin ();
+        }
+
+        // Only write data out if a remover hasn't removed this object
+        // while we were waiting for the lock! If we just created this
+        // entry, it will always be valid.
+        if (e->is_valid ()) {
+            twait { this->write_out (key, *value, mkevent (rc), NULL); }
+        }
+
+        if (cb)
+            (*cb) (rc);
+
+        e->release_lock ();
     }
-    
-    void insert_into_mem (entry *e)
+
+
+    tamed template<class K, class V, class F> void
+    lru_t<K,V,F>::write_out (const K &key, const V &val, cbi::ptr cb)
     {
-      assert (!e->in_mem());
-      e->set_in_mem (true);
-      _q.insert_tail (e);
-      _tab.insert (e);
-      clean ();
+        tvars {
+            ptr<file_id_t> id;
+            int rc;
+        }
+        id = New refcounted<file_id_t> (_file_id_maker (key));
+        twait { _iface.store (*id, sfs_get_timenow (), val, mkevent (rc)); }
+        if (rc != 0) {
+            str s = _iface.filename (*id);
+            warn ("write_out('%s') returned error %d\n", s.cstr (), rc);
+        }
+        if (cb)
+            (*cb) (rc);
     }
-    
-    void remove_from_mem (entry *e)
+
+    tamed template<class K, class V, class F> void
+    lru_t<K,V,F>::get (K key, typename callback<void, ptr<V> >::ref cb)
     {
-      assert (e->in_mem ());
-      if (!e->is_pinned ()) {
-	e->set_in_mem (false);
-	_q.remove (e);
-	_tab.remove (e);
-	e->release ();
-      }
+        tvars {
+            ptr<V> v;
+            ptr<typename lru_t<K,V,F>::entry> e;
+            ptr<fscache::entry_pin> pin;
+            int rc;
+            time_t tm;
+            bool dorelease (true);
+            int rrc;
+            ptr<file_id_t> id;
+            bool doremove (false);
+        }
+
+        if ((e = safe_mkref (_tab[key]))) {
+
+            if ((v = e->value ())) {
+
+                // Fast path!
+                // No need to wait for lock; as long as there is data in the
+                // entry object, then it's the most up-to-date data (see
+                // ordering of calls in ::insert).
+                touch_in_mem (e);
+                dorelease = false;
+
+            } else {
+
+                pin = e->getpin ();
+                twait { e->acquire_lock (mkevent ()); }
+                v = e->value ();
+
+            }
+
+        } else {
+
+            e = New refcounted<entry> (key);
+            pin = e->getpin ();
+
+            insert_into_mem (e);
+
+            id = New refcounted<file_id_t> (_file_id_maker (key));
+            twait { _iface.load (*id, mkevent (rc, tm, v)); }
+
+            if (rc != 0) {
+                doremove = true;
+
+            } else if (int (sfs_get_timenow ()- tm) > int (_timeout)) {
+                doremove = true;
+
+                twait { _iface.remove (*id, mkevent (rrc)); }
+                if (rrc != 0) {
+                    str s = _iface.filename (*id);
+                    warn ("Failed to remove stale file '%s': %d\n", s.cstr (), rrc);
+                }
+
+                // Discard 'v' since it's expired....
+                v = NULL;
+
+            } else {
+
+                // Success case!
+                assert (v);
+                e->set_value (v);
+            }
+        }
+
+        // unpin as soon as possible
+        pin = NULL;
+
+        // Signal to caller before we release, since releasing will come
+        // off our CPU slice, and we're all set to get going here.
+        TRIGGER (cb, v);
+
+        if (doremove) {
+            remove_from_mem (e);
+        }
+
+        if (dorelease)
+            e->release_lock ();
     }
-    
-    void touch_in_mem (entry *e)
+
+
+    tamed template<class K, class V, class F> void
+    lru_t<K,V,F>::remove (const K &key, cbi::ptr cb)
     {
-      assert (e->in_mem ());
-      _q.remove (e);
-      _q.insert_tail (e);
+        tvars {
+            ptr<typename lru_t<K,V,F>::entry> e;
+            ptr<fscache::entry_pin> pin;
+            int rc;
+        }
+
+        if (!(e = safe_mkref (_tab[key]))) {
+            e = New refcounted<entry> (key);
+            insert_into_mem (e);
+        }
+
+        e->invalidate ();
+        pin = e->getpin ();
+
+        twait { e->acquire_lock (mkevent ()); }
+
+        twait { _iface.remove (_file_id_maker (key), mkevent (rc)); }
+
+        if (rc != 0 && rc != -ENOENT) {
+            str s = _iface.filename (_file_id_maker (key));
+            warn ("Cannot remove file '%s': %d\n", s.cstr (), rc);
+        }
+
+        pin = NULL;
+        remove_from_mem (e);
+
+        e->release_lock ();
+
+        if (cb)
+            (*cb) (rc);
     }
-
-    void clean ()
-    {
-      if (_max_size > 0) {
-	entry *p, *n;
-	for (p = _q.first; p && _tab.size () > _max_size; p = n) {
-	  n = _q.next (p);
-	  remove_from_mem (p);
-	}
-      }
-    }
-
-  protected:
-    const str _name;
-    iface_t<V> _iface;
-    u_int _timeout;
-    size_t _max_size;
-    const F _file_id_maker;
-
-    tailq<entry, &entry::_qlnk> _q;
-    ihash<K, entry, &entry::_key, &entry::_hlnk> _tab;
-    
-  };
-  
-  template<>
-  class file_id_maker_t<u_int64_t> 
-  {
-  public:
-    file_id_maker_t (const str &n) : _name (n) {}
-    file_id_t operator () (const u_int64_t &u) const
-    {
-      strbuf b ("%s-%" PRIx64 , _name.cstr (), u);
-      return file_id_t (b, u_int32_t (u));
-    }
-  private:
-    const str _name;
-  };
-  
-  tamed template<class K, class V, class F> void 
-  lru_t<K,V,F>::insert (const K &key, ptr<V> value, cbi::ptr cb)
-  {
-    tvars {
-      ptr<typename lru_t<K,V,F>::entry > e;
-      ptr<entry_pin> pin;
-      int rc (0);
-    }
-
-    if ((e = safe_mkref (_tab[key]))) {
-
-      pin = e->getpin ();
-      touch_in_mem (e);
-      e->set_value (value);
-
-      twait { e->acquire_lock (mkevent ()); }
-
-    } else {
-      e = New refcounted<entry> (key, value);
-      insert_into_mem (e);
-      pin = e->getpin ();
-    }
-
-    // Only write data out if a remover hasn't removed this object
-    // while we were waiting for the lock! If we just created this
-    // entry, it will always be valid.
-    if (e->is_valid ()) {
-      twait { this->write_out (key, *value, mkevent (rc), NULL); }
-    }
-
-    if (cb)
-      (*cb) (rc);
-
-    e->release_lock ();
-  }
-
-
-  tamed template<class K, class V, class F> void 
-  lru_t<K,V,F>::write_out (const K &key, const V &val, cbi::ptr cb)
-  {
-    tvars {
-      ptr<file_id_t> id;
-      int rc;
-    }
-    id = New refcounted<file_id_t> (_file_id_maker (key));
-    twait { _iface.store (*id, sfs_get_timenow (), val, mkevent (rc)); }
-    if (rc != 0) {
-      str s = _iface.filename (*id);
-      warn ("write_out('%s') returned error %d\n", s.cstr (), rc);
-    }
-    if (cb)
-      (*cb) (rc);
-  }
-  
-  tamed template<class K, class V, class F> void 
-  lru_t<K,V,F>::get (K key, typename callback<void, ptr<V> >::ref cb)
-  {
-    tvars {
-      ptr<V> v;
-      ptr<typename lru_t<K,V,F>::entry> e;
-      ptr<fscache::entry_pin> pin;
-      int rc;
-      time_t tm;
-      bool dorelease (true);
-      int rrc;
-      ptr<file_id_t> id;
-      bool doremove (false);
-    }
-    
-    if ((e = safe_mkref (_tab[key]))) {
-
-      if ((v = e->value ())) {
-
-	// Fast path!
-	// No need to wait for lock; as long as there is data in the 
-	// entry object, then it's the most up-to-date data (see
-	// ordering of calls in ::insert).
-	touch_in_mem (e);
-	dorelease = false;
-
-      } else {
-	
-	pin = e->getpin ();
-	twait { e->acquire_lock (mkevent ()); }
-	v = e->value ();
-	
-      }
-
-    } else {
-      
-      e = New refcounted<entry> (key);
-      pin = e->getpin ();
-
-      insert_into_mem (e);
-
-      id = New refcounted<file_id_t> (_file_id_maker (key));
-      twait { _iface.load (*id, mkevent (rc, tm, v)); }
-
-      if (rc != 0) {
-	doremove = true;
-
-      } else if (int (sfs_get_timenow ()- tm) > int (_timeout)) {
-	doremove = true;
-
-	twait { _iface.remove (*id, mkevent (rrc)); }
-	if (rrc != 0) {
-	  str s = _iface.filename (*id);
-	  warn ("Failed to remove stale file '%s': %d\n", s.cstr (), rrc);
-	}
-
-	// Discard 'v' since it's expired....
-	v = NULL;
-
-      } else {
-	
-	// Success case!
-	assert (v);
-	e->set_value (v);
-      }
-    }
-
-    // unpin as soon as possible
-    pin = NULL;
-
-    // Signal to caller before we release, since releasing will come
-    // off our CPU slice, and we're all set to get going here.
-    TRIGGER (cb, v);
-
-    if (doremove) {
-      remove_from_mem (e);
-    }
-
-    if (dorelease)
-      e->release_lock ();
-  }
-  
-  
-  tamed template<class K, class V, class F> void 
-  lru_t<K,V,F>::remove (const K &key, cbi::ptr cb)
-  {
-    tvars {
-      ptr<typename lru_t<K,V,F>::entry> e;
-      ptr<fscache::entry_pin> pin;
-      int rc;
-    }
-
-    if (!(e = safe_mkref (_tab[key]))) {
-      e = New refcounted<entry> (key);
-      insert_into_mem (e);
-    }
-
-    e->invalidate ();
-    pin = e->getpin ();
-      
-    twait { e->acquire_lock (mkevent ()); }
-
-    twait { _iface.remove (_file_id_maker (key), mkevent (rc)); }
-
-    if (rc != 0 && rc != -ENOENT) {
-      str s = _iface.filename (_file_id_maker (key));
-      warn ("Cannot remove file '%s': %d\n", s.cstr (), rc);
-    }
-
-    pin = NULL;
-    remove_from_mem (e);
-
-    e->release_lock ();
-
-    if (cb)
-      (*cb) (rc);
-  }
 };

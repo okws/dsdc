@@ -51,8 +51,8 @@
 static inline void
 qa_init(struct matchd_qanswer_row_t &row)
 {
-	row.questionid = 0;
-	row.data = 0;
+    row.questionid = 0;
+    row.data = 0;
 }
 
 /*
@@ -62,7 +62,7 @@ static inline void
 qa_questionid_set(struct matchd_qanswer_row_t &row, int id)
 {
 
-	row.questionid = id;
+    row.questionid = id;
 }
 
 /*
@@ -72,7 +72,7 @@ static inline int
 qa_questionid_get(const struct matchd_qanswer_row_t &row)
 {
 
-	return (row.questionid);
+    return (row.questionid);
 }
 
 /*
@@ -82,7 +82,7 @@ static inline void
 qa_answer_set(struct matchd_qanswer_row_t &row, int ans)
 {
 
-	row.data |= (((ans - 1) & QA_ANSWER_MASK) << QA_ANSWER_SHIFT);
+    row.data |= (((ans - 1) & QA_ANSWER_MASK) << QA_ANSWER_SHIFT);
 }
 
 /*
@@ -92,45 +92,45 @@ static inline int
 qa_answer_get(const struct matchd_qanswer_row_t &row)
 {
 
-	return (((row.data >> QA_ANSWER_SHIFT) & QA_ANSWER_MASK) + 1);
+    return (((row.data >> QA_ANSWER_SHIFT) & QA_ANSWER_MASK) + 1);
 }
 
 static inline void
 qa_matchanswer_set(struct matchd_qanswer_row_t &row, int matchans)
 {
 
-	/*
-	 * match answers in the database are shifted one bit too far left.
-	 * so compensate by shifting it one bit over first.
-	 */
-	row.data |= (((matchans >> 1) & QA_MATCHANSWER_MASK)
-	    << QA_MATCHANSWER_SHIFT);
+    /*
+     * match answers in the database are shifted one bit too far left.
+     * so compensate by shifting it one bit over first.
+     */
+    row.data |= (((matchans >> 1) & QA_MATCHANSWER_MASK)
+                 << QA_MATCHANSWER_SHIFT);
 }
 
 static inline int
 qa_matchanswer_get(const struct matchd_qanswer_row_t &row)
 {
 
-	/*
-	 * match answers in the database are shifted one bit too far left.
-	 * so compensate by shifting one more time after extraction.
-	 */
-	return (((row.data >> QA_MATCHANSWER_SHIFT)
-		& QA_MATCHANSWER_MASK) << 1);
+    /*
+     * match answers in the database are shifted one bit too far left.
+     * so compensate by shifting one more time after extraction.
+     */
+    return (((row.data >> QA_MATCHANSWER_SHIFT)
+             & QA_MATCHANSWER_MASK) << 1);
 }
 
 static inline void
 qa_importance_set(struct matchd_qanswer_row_t &row, int importance)
 {
 
-	row.data |= ((importance & QA_IMPORTANCE_MASK) << QA_IMPORTANCE_SHIFT);
+    row.data |= ((importance & QA_IMPORTANCE_MASK) << QA_IMPORTANCE_SHIFT);
 }
 
 static inline int
 qa_importance_get(const struct matchd_qanswer_row_t &row)
 {
 
-	return ((row.data >> QA_IMPORTANCE_SHIFT) & QA_IMPORTANCE_MASK);
+    return ((row.data >> QA_IMPORTANCE_SHIFT) & QA_IMPORTANCE_MASK);
 }
 
 #endif /* !QANSWER_AUX_H */

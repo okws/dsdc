@@ -22,45 +22,46 @@ inline int dsdck_cmp (const dsdc_key_t &a, const dsdc_key_t &b)
 { return memcmp (a.base (), b.base (), a.size ()); }
 
 class dsdck_compare_t {
-    public:
-        dsdck_compare_t () {}
-        int operator() (const dsdc_key_t &a, const dsdc_key_t &b) const
-        { return dsdck_cmp (a, b); }
+public:
+    dsdck_compare_t () {}
+    int operator() (const dsdc_key_t &a, const dsdc_key_t &b) const
+    { return dsdck_cmp (a, b); }
 };
 
 class dsdck_hashfn_t {
-    public:
-        dsdck_hashfn_t () {}
-        hash_t operator () (const dsdc_key_t &k) const { return hash_hash (k); }
+public:
+    dsdck_hashfn_t () {}
+    hash_t operator () (const dsdc_key_t &k) const { return hash_hash (k); }
 };
 
 class dsdck_equals_t {
-    public:
-        dsdck_equals_t () {}
-        bool operator() (const dsdc_key_t &a, const dsdc_key_t &b) const
-        { return dsdck_cmp (a,b) == 0; }
+public:
+    dsdck_equals_t () {}
+    bool operator() (const dsdc_key_t &a, const dsdc_key_t &b) const
+    { return dsdck_cmp (a,b) == 0; }
 };
 
 class dsdc_app_t {
-    public:
-        dsdc_app_t () : _daemonize (false) {}
-        virtual ~dsdc_app_t () {}
-        virtual bool init () = 0;
-        bool daemonize () const { return _daemonize; }
-        void set_daemon_mode (bool m) { _daemonize = m; }
-        virtual str startup_msg () const { return NULL; }
-        virtual str progname (const str &in, bool usepid = true) const ;
-        virtual str progname_xtra () const { return NULL; }
-        virtual void set_stats_mode (bool b) {}
-    private:
-        bool _daemonize;
+public:
+    dsdc_app_t () : _daemonize (false) {}
+    virtual ~dsdc_app_t () {}
+    virtual bool init () = 0;
+    bool daemonize () const { return _daemonize; }
+    void set_daemon_mode (bool m) { _daemonize = m; }
+    virtual str startup_msg () const { return NULL; }
+    virtual str progname (const str &in, bool usepid = true) const ;
+    virtual str progname_xtra () const { return NULL; }
+    virtual void set_stats_mode (bool b) {}
+private:
+    bool _daemonize;
 
 };
 
 typedef enum { DSDC_MODE_NONE = 0,
                DSDC_MODE_MASTER = 1,
                DSDC_MODE_SLAVE = 2,
-               DSDC_MODE_LOCKSERVER = 3 } dsdc_mode_t;
+               DSDC_MODE_LOCKSERVER = 3
+             } dsdc_mode_t;
 
 /*
  * Debug flags.

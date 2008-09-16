@@ -6,11 +6,11 @@
 #include "dsdc_const.h"
 
 dsdci_srv_t::dsdci_srv_t (const str &h, int p)
-    : _key (strbuf ("%s:%d", h.cstr (), p)),
-      _hostname (h),
-      _port (p),
-      _fd (-1),
-      _destroyed (New refcounted<bool> (false))
+        : _key (strbuf ("%s:%d", h.cstr (), p)),
+        _hostname (h),
+        _port (p),
+        _fd (-1),
+        _destroyed (New refcounted<bool> (false))
 { }
 
 void
@@ -392,40 +392,40 @@ tamed void
 dsdc_smartcli_t::lock_release (ptr<dsdc_lock_release_arg_t> arg,
                                cbi::ptr cb, bool safe)
 {
-  tvars {
-    dsdc_res_t res (DSDC_OK);
-    ptr<aclnt> cli;
-    clnt_stat err;
-  }
+    tvars {
+        dsdc_res_t res (DSDC_OK);
+        ptr<aclnt> cli;
+        clnt_stat err;
+    }
 
-  if (!safe) {
-    if (!_lock_server) {
-      res = DSDC_NONODE;
+    if (!safe) {
+        if (!_lock_server) {
+            res = DSDC_NONODE;
+        } else {
+            twait { _lock_server->get_aclnt (mkevent (cli)); }
+        }
     } else {
-      twait { _lock_server->get_aclnt (mkevent (cli)); }
+        cli = get_primary ();
     }
-  } else {
-    cli = get_primary ();
-  }
 
-  if (!cli) {
-    if (res == DSDC_OK)
-      res = DSDC_DEAD;
-  } else {
-    // No timeouts for now.
-    twait {
-      RPC::dsdc_prog_1::dsdc_lock_release (cli, arg, &res, mkevent (err));
+    if (!cli) {
+        if (res == DSDC_OK)
+            res = DSDC_DEAD;
+    } else {
+        // No timeouts for now.
+        twait {
+            RPC::dsdc_prog_1::dsdc_lock_release (cli, arg, &res, mkevent (err));
+        }
+        if (err) {
+            if (show_debug (DSDC_DBG_LOW)) {
+                warn << "Acquire failed with RPC error: " << err << "\n";
+            }
+            res = DSDC_RPC_ERROR;
+        }
     }
-    if (err) {
-      if (show_debug (DSDC_DBG_LOW)) {
-	warn << "Acquire failed with RPC error: " << err << "\n";
-      }
-      res = DSDC_RPC_ERROR;
-    }
-  }
-  TRIGGER (cb, int (res));
+    TRIGGER (cb, int (res));
 }
-	
+
 
 void
 dsdc_smartcli_t::lock_acquire (ptr<dsdc_lock_acquire_arg_t> arg,

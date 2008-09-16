@@ -56,26 +56,26 @@ dsdcs_master_t::ready_to_serve ()
 tamed void
 dsdcs_master_t::heartbeat_T ()
 {
-  tvars {
-    dsdc_res_t res;
-    bool succ (false);
-    clnt_stat err;
-  }
-  if (_status == MASTER_STATUS_OK && _cli) {
-    twait {
-      RPC::dsdc_prog_1::dsdc_heartbeat (_cli, &res, mkevent (err)); 
-      schedule_heartbeat ();
+    tvars {
+        dsdc_res_t res;
+        bool succ (false);
+        clnt_stat err;
     }
-    if (err) {
-      warn << "RPC error in DSDC_HEARTBEAT: " << err << "\n";
-    } else if (res != DSDC_OK) {
-      warn << "DSDC error in DSDC_HEARTBEAT: " << int (res) << "\n";
-    } else {
-      succ = true;
+    if (_status == MASTER_STATUS_OK && _cli) {
+        twait {
+            RPC::dsdc_prog_1::dsdc_heartbeat (_cli, &res, mkevent (err));
+            schedule_heartbeat ();
+        }
+        if (err) {
+            warn << "RPC error in DSDC_HEARTBEAT: " << err << "\n";
+        } else if (res != DSDC_OK) {
+            warn << "DSDC error in DSDC_HEARTBEAT: " << int (res) << "\n";
+        } else {
+            succ = true;
+        }
+        if (!succ)
+            went_down ("Heartbeat ACK failed");
     }
-    if (!succ)
-      went_down ("Heartbeat ACK failed");
-  }
 }
 
 void
@@ -129,28 +129,28 @@ dsdc_slave_t::clean_cache ()
 tamed void
 dsdcs_master_t::do_register ()
 {
-  tvars {
-    dsdc_res_t res;
-    dsdc_register_arg_t arg;
-    clnt_stat err;
+    tvars {
+        dsdc_res_t res;
+        dsdc_register_arg_t arg;
+        clnt_stat err;
 
-  }
-  _slave->get_xdr_repr (&arg.slave);
-  arg.primary = _primary;
-  arg.lock_server = _slave->is_lock_server ();
-  
-  twait { 
-    RPC::dsdc_prog_1::dsdc_register (_cli, arg, &res, mkevent (err));
-  }
-  if (err) {
-    strbuf b;
-    b << "Register failed: " << err ;
-    went_down (b);
-  } else if (res != DSDC_OK) {
-    went_down (strbuf ("register returned error message %d", int(res)));
-  } else {
-    ready_to_serve ();
-  }
+    }
+    _slave->get_xdr_repr (&arg.slave);
+    arg.primary = _primary;
+    arg.lock_server = _slave->is_lock_server ();
+
+    twait {
+        RPC::dsdc_prog_1::dsdc_register (_cli, arg, &res, mkevent (err));
+    }
+    if (err) {
+        strbuf b;
+        b << "Register failed: " << err ;
+        went_down (b);
+    } else if (res != DSDC_OK) {
+        went_down (strbuf ("register returned error message %d", int(res)));
+    } else {
+        ready_to_serve ();
+    }
 }
 
 
@@ -189,15 +189,15 @@ void
 dsdcs_lockserver_t::dispatch (svccb *sbp)
 {
     switch (sbp->proc ()) {
-        case DSDC_LOCK_ACQUIRE:
-            acquire (sbp);
-            break;
-        case DSDC_LOCK_RELEASE:
-            release (sbp);
-            break;
-        default:
-            sbp->reject (PROC_UNAVAIL);
-            break;
+    case DSDC_LOCK_ACQUIRE:
+        acquire (sbp);
+        break;
+    case DSDC_LOCK_RELEASE:
+        release (sbp);
+        break;
+    default:
+        sbp->reject (PROC_UNAVAIL);
+        break;
     }
 }
 
@@ -226,55 +226,55 @@ dsdc_slave_t::handle_get_stats (svccb *sbp)
 void
 dsdc_slave_t::handle_set_stats_mode (svccb *sbp)
 {
-  bool *b = sbp->Xtmpl getarg<bool> ();
-  bool prev = _stats_mode;
-  _stats_mode = *b;
+    bool *b = sbp->Xtmpl getarg<bool> ();
+    bool prev = _stats_mode;
+    _stats_mode = *b;
 
-  warn << "Stats mode update: " << prev << " -> " << _stats_mode << "\n";
+    warn << "Stats mode update: " << prev << " -> " << _stats_mode << "\n";
 
-  sbp->replyref (NULL);
+    sbp->replyref (NULL);
 }
 
 void
 dsdc_slave_t::dispatch (svccb *sbp)
 {
     switch (sbp->proc ()) {
-        case DSDC_GET:
-        case DSDC_GET2:
-        case DSDC_GET3:
-            handle_get (sbp);
-            break;
-        case DSDC_MGET:
-            handle_mget (sbp);
-            break;
-        case DSDC_PUT:
-            handle_put (sbp);
-            break;
-        case DSDC_PUT3:
-            handle_put3 (sbp);
-            break;
-        case DSDC_REMOVE:
-        case DSDC_REMOVE3:
-            handle_remove (sbp);
-            break;
-        case DSDC_MGET2:
-            handle_mget (sbp);
-            break;
-       case DSDC_SET_STATS_MODE:
-	    handle_set_stats_mode (sbp);
-	    break;
+    case DSDC_GET:
+    case DSDC_GET2:
+    case DSDC_GET3:
+        handle_get (sbp);
+        break;
+    case DSDC_MGET:
+        handle_mget (sbp);
+        break;
+    case DSDC_PUT:
+        handle_put (sbp);
+        break;
+    case DSDC_PUT3:
+        handle_put3 (sbp);
+        break;
+    case DSDC_REMOVE:
+    case DSDC_REMOVE3:
+        handle_remove (sbp);
+        break;
+    case DSDC_MGET2:
+        handle_mget (sbp);
+        break;
+    case DSDC_SET_STATS_MODE:
+        handle_set_stats_mode (sbp);
+        break;
 #ifndef DSDC_NO_CUPID
-        case DSDC_COMPUTE_MATCHES:
-            handle_compute_matches(sbp);
-            break;
+    case DSDC_COMPUTE_MATCHES:
+        handle_compute_matches(sbp);
+        break;
 #endif
-        case DSDC_GET_STATS_SINGLE:
-            handle_get_stats (sbp);
-            break;
+    case DSDC_GET_STATS_SINGLE:
+        handle_get_stats (sbp);
+        break;
 
-        default:
-            sbp->reject (PROC_UNAVAIL);
-            break;
+    default:
+        sbp->reject (PROC_UNAVAIL);
+        break;
     }
 }
 
@@ -375,28 +375,28 @@ dsdc_slave_t::handle_get (svccb *sbp)
     dsdc_obj_t *o;
 
     switch (sbp->proc ()) {
-        case DSDC_GET2:
-        {
-            dsdc_req_t *k = sbp->Xtmpl getarg<dsdc_req_t> ();
-            o = lru_lookup (k->key, k->time_to_expire);
-            break;
+    case DSDC_GET2:
+    {
+        dsdc_req_t *k = sbp->Xtmpl getarg<dsdc_req_t> ();
+        o = lru_lookup (k->key, k->time_to_expire);
+        break;
+    }
+    case DSDC_GET3:
+    {
+        dsdc_get3_arg_t *a = sbp->Xtmpl getarg<dsdc_get3_arg_t> ();
+        if (!(o = lru_lookup (a->key, a->time_to_expire))) {
+            dsdc::annotation::collector.missed_get (a->annotation);
         }
-        case DSDC_GET3:
-        {
-            dsdc_get3_arg_t *a = sbp->Xtmpl getarg<dsdc_get3_arg_t> ();
-            if (!(o = lru_lookup (a->key, a->time_to_expire))) {
-                dsdc::annotation::collector.missed_get (a->annotation);
-            }
-            break;
-        }
-        case DSDC_GET:
-        {
-            dsdc_key_t *k = sbp->Xtmpl getarg<dsdc_key_t> ();
-            o = lru_lookup (*k);
-            break;
-        }
-        default:
-            panic ("Unexpected DSDC_GET type.\n");
+        break;
+    }
+    case DSDC_GET:
+    {
+        dsdc_key_t *k = sbp->Xtmpl getarg<dsdc_key_t> ();
+        o = lru_lookup (*k);
+        break;
+    }
+    default:
+        panic ("Unexpected DSDC_GET type.\n");
     }
 
     dsdc_get_res_t res;
@@ -418,15 +418,15 @@ dsdc_slave_t::handle_remove (svccb *sbp)
     dsdc_res_t res;
 
     switch (sbp->proc ()) {
-        case DSDC_REMOVE:
-            k = sbp->Xtmpl getarg<dsdc_key_t> ();
-            break;
-        case DSDC_REMOVE3:
-            a3 = sbp->Xtmpl getarg<dsdc_remove3_arg_t> ();
-            k = &a3->key;
-            break;
-        default:
-            panic ("Unexpected case in REMOVE handling.\n");
+    case DSDC_REMOVE:
+        k = sbp->Xtmpl getarg<dsdc_key_t> ();
+        break;
+    case DSDC_REMOVE3:
+        a3 = sbp->Xtmpl getarg<dsdc_remove3_arg_t> ();
+        k = &a3->key;
+        break;
+    default:
+        panic ("Unexpected case in REMOVE handling.\n");
     }
 
     if (lru_remove (*k)) {
@@ -457,7 +457,7 @@ dsdc_slave_t::handle_put3 (svccb *sbp)
     dsdc_put3_arg_t *a = sbp->Xtmpl getarg<dsdc_put3_arg_t> ();
     dsdc::annotation::base_t *n = NULL;
     if (_stats_mode) {
-      n = dsdc::annotation::collector.alloc (a->annotation);
+        n = dsdc::annotation::collector.alloc (a->annotation);
     }
     dsdc_res_t res = handle_put (a->key, a->obj, n);
     sbp->replyref (res);
@@ -657,7 +657,7 @@ dsdc_slave_app_t::get_port ()
         return true;
     } else {
         warn << "tried ports from " << p_begin << " to " << p_begin + i
-             << "; all failed\n";
+        << "; all failed\n";
         return false;
     }
 }
@@ -679,16 +679,16 @@ dsdc_slave_t::startup_msg_v (strbuf *b) const
 
 
 dsdc_slave_t::dsdc_slave_t (u_int n, u_int s, int p, int o)
-    : dsdc_slave_app_t (p, o),
-      dsdc_system_state_cache_t (),
-      _lrusz (0),
-      _n_nodes (n ? n : dsdc_slave_nnodes),
-      _maxsz (s ? s : dsdc_slave_maxsz) {}
+        : dsdc_slave_app_t (p, o),
+        dsdc_system_state_cache_t (),
+        _lrusz (0),
+        _n_nodes (n ? n : dsdc_slave_nnodes),
+        _maxsz (s ? s : dsdc_slave_maxsz) {}
 
 dsdc_slave_app_t::dsdc_slave_app_t (int p, int o)
-    : dsdc_app_t (),
-      _primary (false), _port (p < 0 ? dsdc_slave_port : p), _lfd (-1),
-      _opts (o) {}
+        : dsdc_app_t (),
+        _primary (false), _port (p < 0 ? dsdc_slave_port : p), _lfd (-1),
+        _opts (o) {}
 
 void
 dsdc_slave_app_t::get_xdr_repr (dsdcx_slave_t *x)

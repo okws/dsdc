@@ -2,9 +2,9 @@
 #include "dsdc_ring.h"
 
 dsdc_ring_node_t::dsdc_ring_node_t (aclnt_wrap_t *w, const dsdc_key_t &k)
-  :  _aclnt_wrap (w)
+        :  _aclnt_wrap (w)
 {
-  memcpy (_key.base (),  k.base (), k.size ());
+    memcpy (_key.base (),  k.base (), k.size ());
 }
 
 //-----------------------------------------------------------------------
@@ -14,46 +14,46 @@ dsdc_ring_node_t::dsdc_ring_node_t (aclnt_wrap_t *w, const dsdc_key_t &k)
 dsdc_ring_node_t *
 dsdc_hash_ring_t::successor (const dsdc_key_t &k) const
 {
-  dsdc_ring_node_t *ret = NULL;
-  dsdc_ring_node_t *n = root ();
+    dsdc_ring_node_t *ret = NULL;
+    dsdc_ring_node_t *n = root ();
 
-  if (!n && show_debug (DSDC_DBG_MED)) {
-    warn ("DSDC ring is empty; successor lookup will fail for key: %s\n",
-	  key_to_str (k).cstr ());
-  }
-
-  while (n) {
-    // i'm pretty sure that res > 0 implies that
-    // n->get_key () < k, but let's check on that...
-    int res = dsdck_cmp (n->_key, k);
-    if (res > 0) {
-      n = left (n);
-    } else if (res < 0) {
-      ret = n;
-      n = right (n);
-    } else {
-      // res == 0; not very likely
-      return n;
+    if (!n && show_debug (DSDC_DBG_MED)) {
+        warn ("DSDC ring is empty; successor lookup will fail for key: %s\n",
+              key_to_str (k).cstr ());
     }
-  }
 
-  // compute wraparound; extra tree traverse, but not bad if 
-  // ammortized
-  if (!ret) {
-    n = root ();
     while (n) {
-      ret = n;
-      n = right (n);
+        // i'm pretty sure that res > 0 implies that
+        // n->get_key () < k, but let's check on that...
+        int res = dsdck_cmp (n->_key, k);
+        if (res > 0) {
+            n = left (n);
+        } else if (res < 0) {
+            ret = n;
+            n = right (n);
+        } else {
+            // res == 0; not very likely
+            return n;
+        }
     }
-  }
 
-  if (show_debug (DSDC_DBG_HI)) {
-    warn ("successor lookup: %s -> %s\n", 
-	  key_to_str (k).cstr (), 
-	  ret ? key_to_str (ret->_key).cstr () : "<null>");
-  }
+    // compute wraparound; extra tree traverse, but not bad if
+    // ammortized
+    if (!ret) {
+        n = root ();
+        while (n) {
+            ret = n;
+            n = right (n);
+        }
+    }
 
-  return ret;
+    if (show_debug (DSDC_DBG_HI)) {
+        warn ("successor lookup: %s -> %s\n",
+              key_to_str (k).cstr (),
+              ret ? key_to_str (ret->_key).cstr () : "<null>");
+    }
+
+    return ret;
 }
 
 //

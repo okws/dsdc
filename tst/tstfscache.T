@@ -6,7 +6,8 @@
 #include "parseopt.h"
 
 enum { OPT_CORRUPT = 0x1,
-       OPT_NO_DELETE = 0x2 };
+       OPT_NO_DELETE = 0x2
+     };
 
 tamed static void
 main2 (fscache::cfg_t *cfg, str name, u_int32_t key, str fn, int opts)
@@ -76,7 +77,7 @@ static void
 usage ()
 {
     warn << "usage: " << progname << " [-r<root>] [-n<levels>] "
-         << " <name> <key> <file>\n";
+    << " <name> <key> <file>\n";
     exit (1);
 }
 
@@ -98,22 +99,22 @@ main (int argc, char *argv[])
 
     while ((ch = getopt (argc, argv, "r:n:cD")) != -1) {
         switch (ch) {
-            case 'c':
-                opts |= OPT_CORRUPT;
-                break;
-            case 'D':
-                opts |= OPT_NO_DELETE;
-                break;
-            case 'r':
-                cfg._root = optarg;
-                break;
-            case 'n':
-                if (!convertint (optarg, &cfg._n_levels))
-                    usage ();
-                break;
-            default:
+        case 'c':
+            opts |= OPT_CORRUPT;
+            break;
+        case 'D':
+            opts |= OPT_NO_DELETE;
+            break;
+        case 'r':
+            cfg._root = optarg;
+            break;
+        case 'n':
+            if (!convertint (optarg, &cfg._n_levels))
                 usage ();
-                break;
+            break;
+        default:
+            usage ();
+            break;
         }
     }
 
