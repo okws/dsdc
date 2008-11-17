@@ -27,6 +27,9 @@
 /* Define if you have mpz_xor in your GMP library. */
 #undef HAVE_MPZ_XOR
 
+/* Enable OpenSSL support */
+#undef HAVE_SSL
+
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
 
