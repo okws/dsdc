@@ -9,8 +9,8 @@ namespace dsdc {
 
         //--------------------------------------------------------
 
-        annotation::int_t *
-        collector1_t::int_alloc (int i)
+        annotation::base_t *
+        collector1_t::int_alloc (dsdc_id_t i)
         {
             return _int_factory.alloc (i, this, true);
         }
@@ -41,7 +41,7 @@ namespace dsdc {
         //--------------------------------------------------------
 
         annotation::int_t *
-        int_factory_t::alloc (int i, collector_base_t *c, bool newobj)
+        int_factory_t::alloc (dsdc_id_t i, collector_base_t *c, bool newobj)
         {
             annotation::int_t *ret;
             if (!(ret = _tab[i]) && newobj) {

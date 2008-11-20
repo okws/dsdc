@@ -131,7 +131,7 @@ namespace dsdc {
 
         class int_t : public base1_t {
         public:
-            int_t (int i) : base1_t (), _val (i) {}
+            int_t (dsdc_id_t i) : base1_t (), _val (i) {}
 
             bool to_xdr (dsdc_annotation_t *a) const
             {
@@ -143,7 +143,7 @@ namespace dsdc {
             dsdc_annotation_type_t get_type () const
             { return DSDC_INT_ANNOTATION; }
 
-            int _val;
+            dsdc_id_t _val;
             ihash_entry<int_t> _hlnk;
         };
 
@@ -179,8 +179,8 @@ namespace dsdc {
         public:
             typedef annotation::int_t typ;
 
-            typ *alloc (int i, collector_base_t *c, bool newobj = true);
-            ihash<int, typ, &typ::_val, &typ::_hlnk> _tab;
+            typ *alloc (dsdc_id_t i, collector_base_t *c, bool newobj = true);
+            ihash<dsdc_id_t, typ, &typ::_val, &typ::_hlnk> _tab;
         };
 
 #ifndef DSDC_NO_CUPID
@@ -197,7 +197,10 @@ namespace dsdc {
         class collector1_t : public collector_base_t {
         public:
             collector1_t () : collector_base_t (), _n_stats (0) {}
-            annotation::int_t *int_alloc (int i);
+
+            obj_t *int_alloc (dsdc_id_t i);
+
+            obj_t *str_alloc (const str &s) { return NULL; }
 
 
             annotation::base_t *
@@ -215,7 +218,6 @@ namespace dsdc {
         };
 
         //-----------------------------------------------------------------------
-
     };
 };
 

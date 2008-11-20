@@ -89,6 +89,9 @@ namespace dsdc {
             virtual bool is_collector2 () const { return false; }
             virtual void start_interval (void) {}
 
+            virtual obj_t * str_alloc (const str &s) = 0;
+            virtual obj_t * int_alloc (dsdc_id_t a) = 0;
+
             void new_annotation (obj_t *b);
         protected:
             list<obj_t, &obj_t::_llnk> _lst;
@@ -102,6 +105,9 @@ namespace dsdc {
             dsdc::annotation::base_t *
             alloc (const dsdc_annotation_t &a, bool newobj = true)
             { return NULL; }
+
+            obj_t * int_alloc (dsdc_id_t a) { return NULL; }
+            obj_t * str_alloc (const str &s) { return NULL; }
 
             virtual dsdc_res_t
             output (dsdc_statistics_t *sz,

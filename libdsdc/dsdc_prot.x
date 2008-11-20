@@ -29,6 +29,10 @@ enum ok_frobber_t {
     // Instead, add an entry in the dsdc::frobber function in dsdcMgr.C
 };
 
+typedef int dsdc_id_t;
+typedef unsigned dsdc_statval_t; 
+typedef unsigned hyper dsdc_big_statval_t;
+
 
 /* %#include "userid_prot.h" */
 

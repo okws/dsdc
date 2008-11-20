@@ -15,14 +15,14 @@ namespace dsdc {
         struct dist_v2_t {
             dist_v2_t ();
             void clear ();
-            void insert (u_int32_t v);
+            void insert (dsdc_statval_t v);
             void output_to_log (strbuf &b);
 
-            u_int32_t _min;
-            u_int32_t _max;
-            u_int64_t _sum;
-            u_int64_t _sum2;
-            u_int32_t _n;
+            dsdc_statval_t _min;
+            dsdc_statval_t _max;
+            dsdc_big_statval_t _sum;
+            dsdc_big_statval_t _sum2;
+            dsdc_statval_t _n;
 
             bool _hit;
         };
@@ -37,16 +37,16 @@ namespace dsdc {
             dist_v2_t  _dist_insert_sz;    // distribution of objs inserted
             dist_v2_t  _dist_obj_sz;       // distribution of live objs
 
-            u_int32_t  _n_get_hit;
-            u_int32_t  _n_get_notfound;
-            u_int32_t  _n_get_timeout;
+            dsdc_statval_t  _n_get_hit;
+            dsdc_statval_t  _n_get_notfound;
+            dsdc_statval_t  _n_get_timeout;
 
-            u_int32_t  _n_rm_explicit;
-            u_int32_t  _n_rm_replace;
-            u_int32_t  _n_rm_pushout;
-            u_int32_t  _n_rm_timeout;
-            u_int32_t  _n_rm_clean;
-            u_int32_t  _n_rm_miss;
+            dsdc_statval_t  _n_rm_explicit;
+            dsdc_statval_t  _n_rm_replace;
+            dsdc_statval_t  _n_rm_pushout;
+            dsdc_statval_t  _n_rm_timeout;
+            dsdc_statval_t  _n_rm_clean;
+            dsdc_statval_t  _n_rm_miss;
         };
 
         //------------------------------------------------------------
@@ -96,11 +96,11 @@ namespace dsdc {
 
         class int2_t : public v2_t {
         public:
-            int2_t (u_int32_t &i) : v2_t (), _val (i) {}
+            int2_t (dsdc_id_t &i) : v2_t (), _val (i) {}
             void output_type_to_log (strbuf &b);
             bool to_xdr (dsdc_annotation_t *out) const;
             dsdc_annotation_type_t get_type () const;
-            u_int32_t _val;
+            dsdc_id_t _val;
             ihash_entry<int2_t> _hlnk;
         };
 
@@ -129,9 +129,9 @@ namespace dsdc {
         class int2_factory_t {
         public:
             typedef annotation::int2_t typ;
-            typ *alloc (u_int32_t i, collector_base_t *c, bool newobj = true);
+            typ *alloc (dsdc_id_t i, collector_base_t *c, bool newobj = true);
         private:
-            ihash<u_int32_t, typ, &typ::_val, &typ::_hlnk> _tab;
+            ihash<dsdc_id_t, typ, &typ::_val, &typ::_hlnk> _tab;
         };
 
 
@@ -153,8 +153,8 @@ namespace dsdc {
             void output_to_log (strbuf &b);
             void start_interval () { _start = sfs_get_tsnow (); }
 
-            annotation::int2_t *int_alloc (u_int32_t i);
-            annotation::str2_t *str_alloc (const str &s);
+            obj_t *int_alloc (dsdc_id_t i);
+            obj_t *str_alloc (const str &s);
         private:
             int2_factory_t _int_factory;
             str2_factory_t _str_factory;
@@ -162,6 +162,8 @@ namespace dsdc {
         };
 
         //------------------------------------------------------------
+
+        extern collector2_t allocator;
 
     };
 

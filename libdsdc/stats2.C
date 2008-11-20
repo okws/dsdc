@@ -20,7 +20,7 @@ namespace dsdc {
         //--------------------------------------------------
 
         void
-        dist_v2_t::insert (u_int32_t v)
+        dist_v2_t::insert (dsdc_statval_t v)
         {
             if (v < _min)  _min = v;
             if (v > _max)  _max = v;
@@ -268,7 +268,7 @@ namespace dsdc {
 
         //--------------------------------------------------
 
-        annotation::str2_t *
+        annotation::base_t *
         collector2_t::str_alloc (const str &s)
         {
             return _str_factory.alloc (s, this, true);
@@ -276,8 +276,8 @@ namespace dsdc {
 
         //--------------------------------------------------
 
-        annotation::int2_t *
-        collector2_t::int_alloc (u_int32_t i)
+        annotation::base_t *
+        collector2_t::int_alloc (dsdc_id_t i)
         {
             return _int_factory.alloc (i, this, true);
         }
@@ -299,7 +299,7 @@ namespace dsdc {
         //--------------------------------------------------
 
         annotation::int2_t *
-        int2_factory_t::alloc (u_int32_t i, collector_base_t *c, bool newobj)
+        int2_factory_t::alloc (dsdc_id_t i, collector_base_t *c, bool newobj)
         {
             annotation::int2_t *ret;
             if (!(ret = _tab[i]) && newobj) {
@@ -324,7 +324,7 @@ namespace dsdc {
                 ret = _int_factory.alloc (*a.i, this, newobj);
                 break;
             case DSDC_CUPID_ANNOTATION:
-                ret = _int_factory.alloc (u_int32_t (*a.frobber),
+                ret = _int_factory.alloc (dsdc_id_t (*a.frobber),
                                           this, newobj);
                 break;
             default:
@@ -352,6 +352,9 @@ namespace dsdc {
         }
 
         //--------------------------------------------------
+
+        // global variable
+        collector2_t allocator;
 
     };
 
