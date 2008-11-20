@@ -13,6 +13,8 @@
 #include "dsdc_util.h"
 #include "dsdc_match.h"
 #include "dsdc_stats.h"
+#include "dsdc_stats1.h"
+#include "dsdc_stats2.h"
 #include "crypt.h"
 
 void
@@ -40,7 +42,8 @@ dsdcs_master_t::connect_cb (int f)
     _fd = f;
     assert ((_x = axprt_stream::alloc (_fd, dsdc_packet_sz)));
     _cli = aclnt::alloc (_x, dsdc_prog_1);
-    _srv = asrv::alloc (_x, dsdc_prog_1, wrap (this, &dsdcs_master_t::dispatch));
+    _srv = asrv::alloc (_x, dsdc_prog_1,
+                        wrap (this, &dsdcs_master_t::dispatch));
     _status = MASTER_STATUS_UP;
 
     do_register ();
@@ -117,7 +120,7 @@ dsdc_slave_t::clean_cache ()
                       key_to_str (p->_key).cstr () );
             }
 
-            tot += lru_remove_obj (p, true, REMOVE_CLEAN);
+            tot += lru_remove_obj (p, true, dsdc::AC_CLEAN);
             nobj ++;
         }
     }
@@ -206,17 +209,17 @@ dsdc_slave_t::handle_get_stats (svccb *sbp)
 {
     dsdc_get_stats_single_arg_t *a =
         sbp->Xtmpl getarg<dsdc_get_stats_single_arg_t> ();
-
     dsdc_get_stats_single_res_t res;
+    dsdc::stats::collector_base_t *cl = dsdc::stats::collector ();
 
-    dsdc::annotation::collector.prepare_sweep ();
+    cl->prepare_sweep ();
 
     for (dsdc_cache_obj_t *o = _lru.first; o; o = _lru.next (o)) {
         o->collect_statistics (false);
     }
     res.set_status (DSDC_OK);
-    dsdc_res_t rc =
-        dsdc::annotation::collector.output (res.stats, a->params);
+    dsdc_res_t rc = cl->output (res.stats, a->params);
+
     if (rc != DSDC_OK)
         res.set_status (rc);
 
@@ -228,9 +231,9 @@ dsdc_slave_t::handle_set_stats_mode (svccb *sbp)
 {
     bool *b = sbp->Xtmpl getarg<bool> ();
     bool prev = _stats_mode;
-    _stats_mode = *b;
 
     warn << "Stats mode update: " << prev << " -> " << _stats_mode << "\n";
+    set_stats_mode (*b);
 
     sbp->replyref (NULL);
 }
@@ -384,9 +387,9 @@ dsdc_slave_t::handle_get (svccb *sbp)
     case DSDC_GET3:
     {
         dsdc_get3_arg_t *a = sbp->Xtmpl getarg<dsdc_get3_arg_t> ();
-        if (!(o = lru_lookup (a->key, a->time_to_expire))) {
-            dsdc::annotation::collector.missed_get (a->annotation);
-        }
+        dsdc::annotation::base_t *an;
+        an = dsdc::stats::collector ()->alloc (a->annotation);
+        o = lru_lookup (a->key, a->time_to_expire, an);
         break;
     }
     case DSDC_GET:
@@ -427,6 +430,7 @@ dsdc_slave_t::handle_remove (svccb *sbp)
         break;
     default:
         panic ("Unexpected case in REMOVE handling.\n");
+        break;
     }
 
     if (lru_remove (*k)) {
@@ -434,9 +438,10 @@ dsdc_slave_t::handle_remove (svccb *sbp)
     } else {
         res = DSDC_NOTFOUND;
         if (a3) {
-            dsdc::annotation::collector.missed_remove (a3->annotation);
+            dsdc::stats::collector ()->missed_remove (a3->annotation);
         }
     }
+
     if (show_debug (DSDC_DBG_MED)) {
         warn ("remove issued (rc=%d): %s\n", res, key_to_str (*k).cstr ());
     }
@@ -456,9 +461,7 @@ dsdc_slave_t::handle_put3 (svccb *sbp)
 {
     dsdc_put3_arg_t *a = sbp->Xtmpl getarg<dsdc_put3_arg_t> ();
     dsdc::annotation::base_t *n = NULL;
-    if (_stats_mode) {
-        n = dsdc::annotation::collector.alloc (a->annotation);
-    }
+    n = dsdc::stats::collector ()->alloc (a->annotation);
     dsdc_res_t res = handle_put (a->key, a->obj, n);
     sbp->replyref (res);
 }
@@ -476,20 +479,36 @@ dsdc_slave_t::handle_put (const dsdc_key_t &k, const dsdc_obj_t &o,
 }
 
 dsdc_obj_t *
-dsdc_slave_t::lru_lookup (const dsdc_key_t &k, const int expire)
+dsdc_slave_t::lru_lookup (const dsdc_key_t &k, const int expire,
+                          dsdc::annotation::base_t *a)
 {
     dsdc_cache_obj_t *o = _objs[k];
-    if (o && (expire <= 0 || sfs_get_timenow () - expire < o->_timein)) {
-        _lru.remove (o);
-        _lru.insert_tail (o);
-        o->inc_gets ();
-        return &o->_obj;
+    dsdc_obj_t *ret = NULL;
+
+    dsdc::action_code_t code = dsdc::AC_NONE;
+
+    if (o) {
+        if  (expire > 0 && (sfs_get_timenow () - expire >= o->_timein)) {
+            code = dsdc::AC_EXPIRED;
+        } else {
+            code = dsdc::AC_HIT;
+            o->inc_gets ();
+            _lru.remove (o);
+            _lru.insert_tail (o);
+            ret = &o->_obj;
+        }
+    } else {
+        code = dsdc::AC_NOT_FOUND;
     }
-    return NULL;
+
+    if (a || ((a = o->annotation ()) && code == dsdc::AC_HIT)) {
+        a->mark_get_attempt (code);
+    }
+    return ret;
 }
 
 void
-dsdc_cache_obj_t::collect_statistics (bool del, remove_type_t t)
+dsdc_cache_obj_t::collect_statistics (bool del, dsdc::action_code_t t)
 {
     if (_annotation) {
         _annotation->collect (_n_gets, _n_gets_in_epoch, lifetime (),
@@ -499,7 +518,8 @@ dsdc_cache_obj_t::collect_statistics (bool del, remove_type_t t)
 }
 
 size_t
-dsdc_slave_t::lru_remove_obj (dsdc_cache_obj_t *o, bool del, remove_type_t t)
+dsdc_slave_t::lru_remove_obj (dsdc_cache_obj_t *o, bool del,
+                              dsdc::action_code_t t)
 {
     if (!o) {
         o = _lru.first;
@@ -536,7 +556,7 @@ dsdc_slave_t::lru_remove (const dsdc_key_t &k)
     dsdc_cache_obj_t *o = _objs[k];
     bool ret = false;
     if (o) {
-        lru_remove_obj (o, true, REMOVE_EXPLICIT);
+        lru_remove_obj (o, true, dsdc::AC_EXPLICIT);
         ret = true;
     }
     return ret;
@@ -551,7 +571,7 @@ dsdc_slave_t::lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o,
 
     if ((co = _objs[k])) {
 
-        lru_remove_obj (co, false, REMOVE_REPLACE);
+        lru_remove_obj (co, false, dsdc::AC_REPLACE);
 
         // this reset needs to come after the above lru_remove_obj
         // to preserve statistics.
@@ -569,7 +589,7 @@ dsdc_slave_t::lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o,
     // stop looping when either (1) we've made enough room or
     // (2) there is nothing more to delete!
     while (_lrusz && sz + _lrusz > _maxsz) {
-        lru_remove_obj (NULL, true, REMOVE_MAKE_ROOM);
+        lru_remove_obj (NULL, true, dsdc::AC_MAKE_ROOM);
     }
 
     _lru.insert_tail (co);
@@ -687,8 +707,12 @@ dsdc_slave_t::dsdc_slave_t (u_int n, u_int s, int p, int o)
 
 dsdc_slave_app_t::dsdc_slave_app_t (int p, int o)
         : dsdc_app_t (),
-        _primary (false), _port (p < 0 ? dsdc_slave_port : p), _lfd (-1),
-        _opts (o) {}
+        _primary (false),
+        _port (p < 0 ? dsdc_slave_port : p),
+        _lfd (-1),
+        _opts (o),
+        _stats_mode (false),
+        _stats_mode2 (-1) {}
 
 void
 dsdc_slave_app_t::get_xdr_repr (dsdcx_slave_t *x)
@@ -710,3 +734,65 @@ dsdcs_lockserver_t::get_xdr_repr (dsdcx_slave_t *x)
     dsdc_slave_app_t::get_xdr_repr (x);
     x->keys.setsize (0);
 }
+
+void
+dsdc_slave_app_t::set_stats_mode (bool b)
+{
+    if (b && !_stats_mode) {
+        dsdc::stats::set_collector (New dsdc::stats::collector1_t ());
+    }
+    _stats_mode = b;
+}
+
+//-----------------------------------------------------------------------
+
+void
+dsdc_slave_t::set_stats_mode2 (int i)
+{
+    if (i >= 0 && _stats_mode2 < 0) {
+        dsdc::stats::set_collector (New dsdc::stats::collector2_t ());
+        _stats_mode2 = i;
+        run_stats2_loop ();
+    } else if (i <= 0 && _stats_mode2 > 0) {
+        dsdc::stats::set_collector (New dsdc::stats::collector_null_t ());
+    }
+}
+
+//-----------------------------------------------------------------------
+
+tamed void
+dsdc_slave_t::run_stats2_loop ()
+{
+    tvars {
+        bool go (true);
+        dsdc::stats::collector_base_t *c;
+    }
+
+    while (go) {
+
+        c = dsdc::stats::collector ();
+        if (c->is_collector2 () && _stats_mode2 > 0) {
+
+            c->start_interval ();
+
+            twait { delaycb (_stats_mode2, 0, mkevent ()); }
+
+            {
+                for (dsdc_cache_obj_t *o = _lru.first;
+                     o;
+                     o = _lru.next (o)) {
+                    o->collect_statistics (false);
+                }
+
+                warnobj wo (int (::warnobj::xflag));
+                c->output_to_log (wo);
+            }
+
+
+        } else {
+            go  = false;
+        }
+    }
+}
+
+//-----------------------------------------------------------------------

@@ -683,6 +683,7 @@ dsdc_smartcli_t::remove3 (const K &k, cbi::ptr cb, bool safe,
     } else {
         ptr<dsdc_remove3_arg_t> arg = New refcounted<dsdc_remove3_arg_t> ();
         mkkey (&arg->key, k);
+        a->to_xdr (&arg->annotation);
         remove (arg, cb, safe);
     }
 }

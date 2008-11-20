@@ -4,22 +4,25 @@ dsdclib_LTLIBRARIES = libdsdc.la
 if DSDC_NO_CUPID
 libdsdc_la_SOURCES = dsdc_prot.C dsdc_util.C state.C const.C ring.C \
 		     smartcli.C smartcli_mget.C lock.C slave.C \
-			stats.C fscache.C fslru.C
+			stats.C fscache.C fslru.C stats1.C \
+			stats2.C
 
 dsdcinclude_HEADERS = dsdc_prot.h dsdc.h dsdc_ring.h dsdc_const.h \
 		     dsdc_util.h dsdc_slave.h dsdc_state.h \
                      dsdc_lock.h qanswer_aux.h  dsdc_stats.h dsdc_signal.h \
-			fscache.h fslru.h dsdc_format.h
+			fscache.h fslru.h dsdc_format.h \
+			dsdc_stats1.h
 else
 libdsdc_la_SOURCES = dsdc_prot.C dsdc_util.C state.C const.C ring.C \
 		     smartcli.C smartcli_mget.C match.C lock.C \
-		     slave.C stats.C fscache.C fslru.C
+		     slave.C stats.C fscache.C fslru.C stats1.C \
+			stats2.C
 
 dsdcinclude_HEADERS = dsdc_prot.h dsdc.h dsdc_ring.h dsdc_const.h \
 		     dsdc_util.h dsdc_slave.h dsdc_state.h \
                      dsdc_lock.h qanswer_aux.h \
 		     dsdc_match.h dsdc_stats.h dsdc_signal.h fscache.h \
-			dsdc_format.h
+			dsdc_format.h dsdc_stats2.h
 endif
 
 SUFFIXES = .C .T .h

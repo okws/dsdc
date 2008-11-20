@@ -28,8 +28,8 @@ usage (bool err = true)
 
     warnx << "usage: " << progname << " -M [-d<debug-level>] "
     << "[-P <packetsz>] [-p <port>]\n"
-    << "       " << progname << " -S [-d<debug-level>] [-aRD] "
-    << "[-P <packetsz>] [-n <n nodes>]\n"
+    << "       " << progname << " -S [-d<debug-level>] [-RD] "
+    << "[-a <intrvl>] [-P <packetsz>] [-n <n nodes>]\n"
     << "                 [-s <maxsize> (M|G|k|b)]  [-p<port>] "
     << "m1:p1 m2:p2 ...\n"
     << "       " << progname << " -L [-d<debug-level>] [-p<port>] "
@@ -69,7 +69,9 @@ usage (bool err = true)
     << "     -D  Don't delete data after a ring chagne.  Keep old,\n"
     << "         potentially stale data around.  Maximizes hit ratios\n"
     << "         while minimizing consistency.\n"
-    << "     -a  Enable stats collection an reporting.\n"
+    << "     -a <interval>\n"
+    << "         Collect statistics (v2), and dump output to log every\n"
+    << "         <interval> seconds.\n"
     << "\n"
     << " Global Options:\n"
     << "\n"
@@ -91,8 +93,8 @@ usage (bool err = true)
     << "respectively.\n"
     << "\n"
     << "dsdc version " << VERSION << "; built "
-    << __DATE__ << " " << __TIME__ << "\n";
-    warnx << "\n";
+    << __DATE__ << " " << __TIME__ << "\n"
+    << "\n";
 
     exit (1);
 }
@@ -155,12 +157,15 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
     int dbg_opt;
     bool daemon_mode = false;
     int opts = 0;
-    bool stats_mode = false;
+    int stats_interval = -1;
 
-    while ((ch = getopt (argc, argv, "avd:h:LMn:p:P:qRSs:Z:D")) != -1) {
+    while ((ch = getopt (argc, argv, "a:vd:h:LMn:p:P:qRSs:Z:D")) != -1) {
         switch (ch) {
         case 'a':
-            stats_mode = true;
+            if (!convertint (optarg, &stats_interval)) {
+                warn << "optarg to -a must be an int\n";
+                usage ();
+            }
             break;
         case 'd':
             if (!convertint (optarg, &dbg_opt)) {
@@ -327,7 +332,7 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
 
     if (*app) {
         (*app)->set_daemon_mode (daemon_mode);
-        (*app)->set_stats_mode (stats_mode);
+        (*app)->set_stats_mode2 (stats_interval);
     }
 
     return ret;

@@ -11,6 +11,8 @@
 #include "aios.h"
 #include "dsdc_lock.h"
 #include "dsdc_stats.h"
+#include "dsdc_stats1.h"
+#include "dsdc_stats2.h"
 
 #include <inttypes.h>
 
@@ -27,6 +29,22 @@ int tst2_cbct = 0; // callback count
 
 ptr<dsdc_iface_t<tst_key_t, tst_obj_checked_t> > cli;
 dsdc_smartcli_t *sc;
+
+dsdc::stats::collector1_t collector1;
+dsdc::stats::collector2_t collector2;
+
+annotation_t *
+alloc_annotation (const str &s)
+{
+    annotation_t *a;
+    int i;
+    if (convertint (s, &i)) {
+        a = collector1.int_alloc (i);
+    } else {
+        a = collector2.v2_alloc (s);
+    }
+    return a;
+}
 
 
 static void
@@ -99,7 +117,7 @@ put_cb (str mapping, int res)
 }
 
 static void
-put (tst_key_t k, str v, bool safe, int annt = -1)
+put (tst_key_t k, str v, bool safe, annotation_t *a = NULL)
 {
     tst_obj_checked_t obj;
     obj.obj.key = k;
@@ -110,10 +128,6 @@ put (tst_key_t k, str v, bool safe, int annt = -1)
     // for debug purposes
     str tmp = key_to_str (obj.checksum);
     strbuf mapping ("%d -> %s", k, tmp.cstr ());
-
-    annotation_t *a = NULL;
-    if (annt >= 0)
-        a = dsdc::annotation::collector.int_alloc (annt);
 
     tst2_cbct++;
     cli->put (k, obj, wrap (put_cb, str (mapping)), safe, a);
@@ -183,22 +197,17 @@ acquire_cb (tst_key_t k, ptr<dsdc_lock_acquire_res_t> res)
 }
 
 static void
-get (tst_key_t k, bool safe, int annt = -1)
+get (tst_key_t k, bool safe, annotation_t *a = NULL)
 {
     tst2_cbct++;
-
-    annotation_t *a = NULL;
-    if (annt >= 0)
-        a = dsdc::annotation::collector.int_alloc (annt);
-
     cli->get (k, wrap (get_cb, k), safe, a);
 }
 
 static void
-remove (tst_key_t k, bool safe)
+remove (tst_key_t k, bool safe, annotation_t *a = NULL)
 {
     tst2_cbct++;
-    cli->remove (k, wrap (remove_cb, k), safe);
+    cli->remove (k, wrap (remove_cb, k), safe, a);
 }
 
 static void
@@ -346,32 +355,39 @@ rdline (str ln, int err)
         break;
     case 'r':
     {
-        bool ok = true;
-        int annt = -1;
-        if (args.size () == 2)
-            ok = convertint (args.pop_back (), &annt);
+        annotation_t *a = NULL;
+        if (args.size () == 2) {
+            a = alloc_annotation (args.pop_back ());
+        }
 
-        if (ok && args.size () == 1) {
+        if (args.size () == 1) {
             generate_kv (&key, &val);
-            put (key, val, safe, annt);
+            put (key, val, safe, a);
         }
     }
     break;
     case 'g':
     {
-        bool ok = true;
-        int annt = -1;
-        if (args.size () == 3)
-            ok = convertint (args.pop_back (), &annt);
+        annotation_t *a = NULL;
+        if (args.size () == 3) {
+            a = alloc_annotation (args.pop_back ());
+        }
 
-        if (ok && args.size () == 2 && convertint (args[1], &key))
-            get (key, safe, annt);
+        if (args.size () == 2 && convertint (args[1], &key))
+            get (key, safe, a);
     }
     break;
     case 'd':
+    {
+        annotation_t *a = NULL;
+        if (args.size () == 3) {
+            a = alloc_annotation (args.pop_back ());
+        }
+
         if (args.size () == 2 && convertint (args[1], &key))
-            remove (key, safe);
-        break;
+            remove (key, safe, a);
+    }
+    break;
     case 'a':
         do_acquire (args, safe);
         break;

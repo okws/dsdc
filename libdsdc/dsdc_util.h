@@ -52,6 +52,7 @@ public:
     virtual str progname (const str &in, bool usepid = true) const ;
     virtual str progname_xtra () const { return NULL; }
     virtual void set_stats_mode (bool b) {}
+    virtual void set_stats_mode2 (int i) {}
 private:
     bool _daemonize;
 

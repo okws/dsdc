@@ -25,16 +25,21 @@ struct dsdc_cache_obj_t {
     void set (const dsdc_key_t &k, const dsdc_obj_t &o,
               dsdc::annotation::base_t *a = NULL);
     dsdc_cache_obj_t (const dsdc_key_t &k, const dsdc_obj_t &o);
-    dsdc_key_t _key;
-    dsdc_obj_t _obj;
     time_t lifetime () const { return sfs_get_timenow ()- _timein; }
     void inc_gets () { _n_gets ++; _n_gets_in_epoch ++; }
     const dsdc::annotation::base_t *annotation () const { return _annotation; }
+    dsdc::annotation::base_t *annotation () { return _annotation; }
+    size_t size () const
+    { return _key.size () + _obj.size () + sizeof (*this); }
+    void collect_statistics (bool del = true,
+                             dsdc::action_code_t t = dsdc::AC_NONE);
+
+    dsdc_key_t _key;
+    dsdc_obj_t _obj;
     time_t _timein;
     dsdc::annotation::base_t *_annotation;
     u_int _n_gets, _n_gets_in_epoch;
-    size_t size () const { return _key.size () + _obj.size () + sizeof (*this); }
-    void collect_statistics (bool del = true, remove_type_t t = REMOVE_NONE);
+
     ihash_entry<dsdc_cache_obj_t> _hlnk;
     tailq_entry<dsdc_cache_obj_t> _qlnk;
 };
@@ -132,8 +137,10 @@ public:
 
     str startup_msg () const ;
     virtual void startup_msg_v (strbuf *b) const {}
-    void set_stats_mode (bool b) { _stats_mode = b; }
+    void set_stats_mode (bool b);
+
 protected:
+
     bool get_port ();
     void new_connection ();
     /**
@@ -150,6 +157,7 @@ protected:
 
     int _opts;     // options for configuring this slave
     bool _stats_mode; // on if we should be collecting stats
+    int  _stats_mode2;  // > 0 if stats2 is running currently
 };
 
 class dsdcs_lockserver_t : public dsdc_slave_app_t,
@@ -196,14 +204,19 @@ public:
     aclnt_wrap_t *new_wrap (const str &h, int p) { return NULL; }
     aclnt_wrap_t *new_lockserver_wrap (const str &h, int p) { return NULL; }
     ptr<aclnt> get_primary () { return dsdc_slave_app_t::get_primary (); }
+    void set_stats_mode2 (int i);
 protected:
+    void run_stats2_loop (CLOSURE);
 
     dsdc_res_t handle_put (const dsdc_key_t &k, const dsdc_obj_t &o,
                            dsdc::annotation::base_t *a = NULL);
     void genkeys ();
-    dsdc_obj_t * lru_lookup (const dsdc_key_t &k, const int expire=-1);
+
+    dsdc_obj_t * lru_lookup (const dsdc_key_t &k, const int expire=-1,
+                             dsdc::annotation::base_t *a  = NULL);
+
     size_t lru_remove_obj (dsdc_cache_obj_t *o, bool del,
-                           remove_type_t t);
+                           dsdc::action_code_t t);
     bool lru_remove (const dsdc_key_t &k);
     bool lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o,
                      dsdc::annotation::base_t *a = NULL);
