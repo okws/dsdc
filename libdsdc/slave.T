@@ -501,7 +501,7 @@ dsdc_slave_t::lru_lookup (const dsdc_key_t &k, const int expire,
         code = dsdc::AC_NOT_FOUND;
     }
 
-    if (a || ((a = o->annotation ()) && code == dsdc::AC_HIT)) {
+    if (a || (o && (a = o->annotation ()) && code == dsdc::AC_HIT)) {
         a->mark_get_attempt (code);
     }
     return ret;
