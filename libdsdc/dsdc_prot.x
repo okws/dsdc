@@ -126,7 +126,7 @@ enum dsdc_annotation_type_t {
 	DSDC_CUPID_ANNOTATION = 1,
 #endif /* DSDC_NO_CUPID */
 	DSDC_INT_ANNOTATION = 2,
-	DSDC_V2_ANNOTATION = 3
+	DSDC_STR_ANNOTATION = 3
 };
 
 union dsdc_annotation_t switch (dsdc_annotation_type_t typ) {
@@ -136,8 +136,8 @@ case DSDC_INT_ANNOTATION:
 case DSDC_CUPID_ANNOTATION:
 	ok_frobber_t frobber;
 #endif /* DSDC_NO_CUPID */
-case DSDC_V2_ANNOTATION:
-     string v2<>;
+case DSDC_STR_ANNOTATION:
+     string s<>;
 default:
 	void;
 };

@@ -177,18 +177,36 @@ namespace dsdc {
         //--------------------------------------------------
 
         dsdc_annotation_type_t
-        v2_t::get_type () const
+        int2_t::get_type () const
         {
-            return DSDC_V2_ANNOTATION;
+            return DSDC_INT_ANNOTATION;
+        }
+
+        //--------------------------------------------------
+
+        dsdc_annotation_type_t
+        str2_t::get_type () const
+        {
+            return DSDC_STR_ANNOTATION;
         }
 
         //--------------------------------------------------
 
         bool
-        v2_t::to_xdr (dsdc_annotation_t *out) const
+        int2_t::to_xdr (dsdc_annotation_t *out) const
         {
-            out->set_typ (DSDC_V2_ANNOTATION);
-            *out->v2 = _val;
+            out->set_typ (DSDC_INT_ANNOTATION);
+            *out->i = _val;
+            return true;
+        }
+
+        //--------------------------------------------------
+
+        bool
+        str2_t::to_xdr (dsdc_annotation_t *out) const
+        {
+            out->set_typ (DSDC_STR_ANNOTATION);
+            *out->s = _val;
             return true;
         }
 
@@ -209,10 +227,26 @@ namespace dsdc {
         //--------------------------------------------------
 
         void
+        int2_t::output_type_to_log (strbuf &b)
+        {
+            b << "ID" << _val;
+        }
+
+        //--------------------------------------------------
+
+        void
+        str2_t::output_type_to_log (strbuf &b)
+        {
+            b << _val;
+        }
+
+        //--------------------------------------------------
+
+        void
         v2_t::output_to_log (strbuf &b, time_t start, int len)
         {
-            b << DSDC_STAT_TOK << " " << start << " " << len << " | "
-            << _val;
+            b << DSDC_STAT_TOK << " " << start << " " << len << " | ";
+            output_type_to_log (b);
             _stats.output_to_log (b);
             b << "\n";
         }
@@ -234,20 +268,42 @@ namespace dsdc {
 
         //--------------------------------------------------
 
-        annotation::v2_t *
-        collector2_t::v2_alloc (const str &s)
+        annotation::str2_t *
+        collector2_t::str_alloc (const str &s)
         {
-            return _v2_factory.alloc (s, this, true);
+            return _str_factory.alloc (s, this, true);
         }
 
         //--------------------------------------------------
 
-        annotation::v2_t *
-        v2_factory_t::alloc (const str &s, collector_base_t *c, bool newobj)
+        annotation::int2_t *
+        collector2_t::int_alloc (u_int32_t i)
         {
-            annotation::v2_t *ret;
+            return _int_factory.alloc (i, this, true);
+        }
+
+        //--------------------------------------------------
+
+        annotation::str2_t *
+        str2_factory_t::alloc (const str &s, collector_base_t *c, bool newobj)
+        {
+            annotation::str2_t *ret;
             if (!(ret = _tab[s]) && newobj) {
-                ret = New annotation::v2_t (s);
+                ret = New annotation::str2_t (s);
+                _tab.insert (ret);
+                c->new_annotation (ret);
+            }
+            return ret;
+        }
+
+        //--------------------------------------------------
+
+        annotation::int2_t *
+        int2_factory_t::alloc (u_int32_t i, collector_base_t *c, bool newobj)
+        {
+            annotation::int2_t *ret;
+            if (!(ret = _tab[i]) && newobj) {
+                ret = New annotation::int2_t (i);
                 _tab.insert (ret);
                 c->new_annotation (ret);
             }
@@ -261,8 +317,15 @@ namespace dsdc {
         {
             annotation::base_t *ret = NULL;
             switch (a.typ) {
-            case DSDC_V2_ANNOTATION:
-                ret = _v2_factory.alloc (*a.v2, this, newobj);
+            case DSDC_STR_ANNOTATION:
+                ret = _str_factory.alloc (*a.s, this, newobj);
+                break;
+            case DSDC_INT_ANNOTATION:
+                ret = _int_factory.alloc (*a.i, this, newobj);
+                break;
+            case DSDC_CUPID_ANNOTATION:
+                ret = _int_factory.alloc (u_int32_t (*a.frobber),
+                                          this, newobj);
                 break;
             default:
                 break;

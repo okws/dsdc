@@ -30,7 +30,6 @@ int tst2_cbct = 0; // callback count
 ptr<dsdc_iface_t<tst_key_t, tst_obj_checked_t> > cli;
 dsdc_smartcli_t *sc;
 
-dsdc::stats::collector1_t collector1;
 dsdc::stats::collector2_t collector2;
 
 annotation_t *
@@ -39,9 +38,9 @@ alloc_annotation (const str &s)
     annotation_t *a;
     int i;
     if (convertint (s, &i)) {
-        a = collector1.int_alloc (i);
+        a = collector2.int_alloc (i);
     } else {
-        a = collector2.v2_alloc (s);
+        a = collector2.str_alloc (s);
     }
     return a;
 }
