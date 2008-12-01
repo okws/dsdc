@@ -9,7 +9,7 @@ enum ok_frobber_t {
 	MATCHD_FRONTD_FROBBER =	0,            
 	// For user information loaded into match  
 	MATCHD_FRONTD_USERCACHE_FROBBER = 1,
-	UBER_USER_FROBBER = 2,
+	UBER_USER_OLD_FROBBER = 2,
 	PROFILE_STALKER_FROBBER = 3,
 	MATCHD_FRONTD_MATCHCACHE_FROBBER = 4, // For cached match results.
 	GROUP_INFO_FROBBER = 5,
@@ -46,7 +46,7 @@ struct dsdc_key64_t {
  * Identifier for most uber user structs.
  */
 struct uber_key_t {
-    ok_frobber_t frobber;
+    u_int32_t frobber;
     u_int64_t userid;
     unsigned int load_type;
 };
