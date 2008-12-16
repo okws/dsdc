@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "tame.h"
 #include "parseopt.h"
 #include "dsdc_util.h"
 #include "dsdc_slave.h"
