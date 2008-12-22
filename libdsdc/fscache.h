@@ -56,8 +56,11 @@ namespace fscache {
         backend_t () {}
         virtual ~backend_t () {}
         virtual void file2str (str fn, cbis_t cb) = 0;
-        virtual void str2file (str f, str s, int mode, cbi cb) = 0;
+        virtual void str2file (str f, str s, int mode, evi_t cb) = 0;
         virtual void remove (str f, cbi cb) = 0;
+        virtual void mkdir (str s, int mode, evi_t cb) = 0;
+    protected:
+        void mk_parent_dirs (str s, int mode, evi_t ev, CLOSURE);
     };
 
     class engine_t {
@@ -80,8 +83,9 @@ namespace fscache {
     public:
         simple_backend_t () : backend_t () {}
         void file2str (str fn, cbis_t cb);
-        void str2file (str f, str s, int mode, cbi cb);
+        void str2file (str f, str s, int mode, evi_t cb);
         void remove (str f, cbi cb);
+        void mkdir (str s, int mode, evi_t ev);
     };
 
     class aiod_backend_t : public backend_t {
@@ -90,15 +94,17 @@ namespace fscache {
         ~aiod_backend_t ();
 
         void file2str (str fn, cbis_t cb) { file2str_T (fn, cb); }
-        void str2file (str f, str s, int m, cbi cb)
+        void str2file (str f, str s, int m, evi_t cb)
         { str2file_T (f, s, m, cb); }
 
         void remove (str f, cbi cb) { remove_T (f, cb); }
+        void mkdir (str f, int mode, evi_t ev) { mkdir_T (f, mode, ev); }
 
     private:
         void file2str_T (str fn, cbis_t cb, CLOSURE);
-        void str2file_T (str f, str s, int mode, cbi cb, CLOSURE);
+        void str2file_T (str f, str s, int mode, evi_t cb, CLOSURE);
         void remove_T (str f, cbi cb, CLOSURE);
+        void mkdir_T (str f, int mode, evi_t ev, CLOSURE);
 
         const cfg_t *_cfg;
         aiod *_aiod;

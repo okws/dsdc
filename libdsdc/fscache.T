@@ -183,15 +183,14 @@ namespace fscache {
 //-----------------------------------------------------------------------
 
     void
-    simple_backend_t::str2file (str fn, str s, int mode, cbi cb)
+    simple_backend_t::str2file (str fn, str s, int mode, evi_t ev)
     {
         bool b = ::str2file (fn, s, mode);
         int rc = 0;
         if (!b) {
             rc = (errno > 0) ? -errno : -EIO;
         }
-
-        TRIGGER (cb, rc);
+        ev->trigger (rc);
     }
 
 //-----------------------------------------------------------------------
@@ -221,7 +220,9 @@ namespace fscache {
             ssize_t blocksz;
         }
         blocksz = _cfg->blocksz ();
+
         twait { _aiod->open (fn, O_RDONLY, 0, mkevent (fh, rc)); }
+
         if (rc == 0) {
             twait { fh->fstat (mkevent (sb, rc)); }
             if (rc != 0) {
@@ -258,7 +259,12 @@ namespace fscache {
             }
             twait { fh->close (mkevent (crc)); }
             fh = NULL;
-        } else {
+        }
+
+        if (rc > 0)  {
+            // DM's aiod system will return rcs > 0 with the correct
+            // errno on the case of errors.  But for our purposes, we're
+            // reversing the polarity of errnos.
             rc = 0 - rc;
         }
         TRIGGER (cb, rc, ret);
@@ -267,7 +273,7 @@ namespace fscache {
 //-----------------------------------------------------------------------
 
     tamed void
-    aiod_backend_t::str2file_T (str fn, str s, int mode, cbi cb)
+    aiod_backend_t::str2file_T (str fn, str s, int mode, evi_t ev)
     {
         tvars {
             ptr<aiofh> fh;
@@ -281,7 +287,15 @@ namespace fscache {
         }
         blocksz = _cfg->blocksz ();
 
-        twait { _aiod->open (fn, O_WRONLY|O_CREAT, mode, mkevent (fh, rc)); }
+        twait {
+            _aiod->open (fn, O_WRONLY|O_CREAT, mode, mkevent (fh, rc));
+        }
+
+        // Eventually, when tested, call mk_parent_dirs
+        if (rc == -ENOENT && 0) {
+            twait { mk_parent_dirs (fn, 0777, mkevent (rc)); }
+        }
+
         if (rc == 0) {
             if (!(buf = _aiod->bufalloc (blocksz))) {
                 rc = -ENOMEM;
@@ -290,7 +304,9 @@ namespace fscache {
                      pos += blocksz, cp += blocksz) {
                     bsz = min<ssize_t> (blocksz, ep - cp);
                     memcpy (buf->base (), cp, bsz);
-                    twait { fh->swrite (pos, buf, 0, bsz, mkevent (b2, wsz, rc)); }
+                    twait {
+                        fh->swrite (pos, buf, 0, bsz, mkevent (b2, wsz, rc));
+                    }
                     if (rc != 0) {
                         warn ("Bad write to file (%s): %d\n", fn.cstr (), rc);
                     } else if (wsz != bsz) {
@@ -306,7 +322,12 @@ namespace fscache {
                 warn ("Close failed on file (%s): %d\n", fn.cstr (), rc);
             }
         }
-        TRIGGER (cb, rc);
+
+        if (rc > 0) {
+            // See comment above.
+            rc = 0 - rc;
+        }
+        ev->trigger (rc);
     }
 
 //-----------------------------------------------------------------------
@@ -334,5 +355,58 @@ namespace fscache {
     {
         if (_aiod) _aiod->finalize ();
     }
+
+//-----------------------------------------------------------------------
+
+    tamed void
+    backend_t::mk_parent_dirs (str s, int mode, evi_t ev)
+    {
+        tvars {
+            mstr dir (s.len () + 1);
+            char *ep;
+            const char *bp;
+            int rc (0);
+        }
+
+        memcpy (dir.cstr (), s.cstr (), s.len () + 1);
+        bp = ep = dir.cstr ();
+
+        for (  ; *ep && rc == 0; ep++) {
+            if (*ep == '/') {
+                *ep = 0;
+                twait { mkdir (bp, mode, mkevent (rc)); }
+                if (rc == -EEXIST) {
+                    rc = 0;
+                } else if (rc != 0) {
+                    errno = -rc;
+                    warn ("could not make directory %s: %m\n", bp);
+                }
+            }
+        }
+        ev->trigger (rc);
+    }
+//-----------------------------------------------------------------------
+
+    tamed void
+    aiod_backend_t::mkdir_T (str d, int mode, evi_t ev)
+    {
+        tvars {
+            int rc;
+        }
+        twait { _aiod->mkdir (d, mode, mkevent (rc)); }
+        ev->trigger (rc);
+    }
+
+//-----------------------------------------------------------------------
+
+    void
+    simple_backend_t::mkdir (str d, int mode, evi_t ev)
+    {
+        int rc = ::mkdir (d.cstr (), mode);
+        if (rc != 0) rc = -errno;
+        ev->trigger (rc);
+    }
+
+//-----------------------------------------------------------------------
 
 };
