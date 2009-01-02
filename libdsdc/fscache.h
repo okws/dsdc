@@ -1,5 +1,4 @@
-
-// -*-c++-*-
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 
 #ifndef _DSDC_FSCACHE_H_
 #define _DSDC_FSCACHE_H_
@@ -46,6 +45,7 @@ namespace fscache {
                 : _name (name), _index (index) {}
         str name () const { return _name; }
         str fullpath (int lev) const;
+        u_int32_t get_index () const { return _index; }
     private:
         const str _name;
         const u_int32_t _index;
