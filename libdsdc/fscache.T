@@ -1,5 +1,4 @@
-
-// -*-c++-*-
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 
 #include "fscache.h"
 #include "dsdc_prot.h"
@@ -18,6 +17,7 @@ namespace fscache {
     cfg_t::cfg_t ()
             : _backend (BACKEND_AIOD),
             _n_levels (3),
+            _n_dig (1),
             _root ("/disk/fscache"),
             _n_aiods (5),
             _shmsize (0x200000),
@@ -30,28 +30,40 @@ namespace fscache {
 //-----------------------------------------------------------------------
 
     str
-    file_id_t::fullpath (int lev) const
+    file_id_t::fullpath (int lev, int ndig) const
     {
 
 #define SZ 32
-        char buf[SZ];
-        int rc = snprintf (buf, SZ, "%08x", _index);
-#undef SZ
+#define NDIG 8
+#define FMT_SZ 10
 
+        char buf[SZ];
+        char tmp[NDIG+1];
+        char fmt[FMT_SZ];
+        snprintf (fmt, FMT_SZ, "%%0%dx", NDIG);
+        int rc = snprintf (buf, SZ, fmt, _index);
         assert (lev < rc);
-        char tmp[2];
+
+        if (ndig <= 0) ndig = 1;
+        ndig = min<int> (NDIG, ndig);
+        lev = min<int> (lev, SZ/ndig);
+
         const char *cp = buf;
         strbuf out;
 
-        tmp[1] = 0;
+        memset (tmp, 0, NDIG+1);
 
         for (int i = 0; i < lev; i++) {
-            tmp[0] = *cp++;
+            memcpy (tmp, cp, ndig);
+            cp += ndig;
             out << tmp << "/";
         }
         out << _name;
         return out;
     }
+#undef SZ
+#undef NDIG
+#undef FMT_SZ
 
 //-----------------------------------------------------------------------
 
@@ -162,7 +174,7 @@ namespace fscache {
         str s;
         b << _cfg->root ();
         b << "/" ;
-        s = id.fullpath (_cfg->n_levels ());
+        s = id.fullpath (_cfg->n_levels (), _cfg->n_dig ());
         b << s;
         return b;
     }

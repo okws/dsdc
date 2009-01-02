@@ -21,6 +21,7 @@ namespace fscache {
 
         backend_typ_t backend () const { return _backend; }
         int n_levels () const { return _n_levels; }
+        int n_dig () const { return _n_dig; }
         str root () const { return _root; }
         int n_aiods () const { return _n_aiods; }
         size_t shmsize () const { return _shmsize; }
@@ -29,7 +30,7 @@ namespace fscache {
         size_t blocksz () const { return _blocksz; }
 
         backend_typ_t _backend;
-        int _n_levels;
+        int _n_levels, _n_dig;
         str _root;
         int _n_aiods;
         size_t _shmsize, _maxbuf, _blocksz;
@@ -44,7 +45,7 @@ namespace fscache {
         file_id_t (const str &name, u_int32_t index)
                 : _name (name), _index (index) {}
         str name () const { return _name; }
-        str fullpath (int lev) const;
+        str fullpath (int lev, int ndig = 0) const;
         u_int32_t get_index () const { return _index; }
     private:
         const str _name;
