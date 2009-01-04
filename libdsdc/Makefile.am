@@ -25,6 +25,9 @@ dsdcinclude_HEADERS = dsdc_prot.h dsdc.h dsdc_ring.h dsdc_const.h \
 			dsdc_format.h dsdc_stats2.h
 endif
 
+
+libdsdc_la_LDFLAGS = $(LIBTOOL_VERSION_INFO)
+
 SUFFIXES = .C .T .h
 
 .T.C:

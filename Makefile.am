@@ -4,9 +4,7 @@
 
 SUBDIRS = libdsdc dsdc tst
 
-#test
-
-EXTRA_DIST = setup autoconf.sed .cvsignore 
+EXTRA_DIST = setup autoconf.sed .cvsignore setup.gnu
 
 CLEANFILES = core *.core *~
 
@@ -29,6 +27,11 @@ DISTCLEANFILES = config.h stamp-auto-h autom4te*.cache
 #clean-recursive: aux-clean
 #distclean-recursive: aux-distclean
 #maintainer-clean-recursive: aux-maintainer-clean
+
+##
+## New aclocal (1.10+) is asking for this...
+##
+ACLOCAL_AMFLAGS = -I m4
 
 .PHONY: rpcclean tameclean
 rpcclean:

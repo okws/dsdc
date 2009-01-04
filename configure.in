@@ -7,6 +7,10 @@ AC_INIT(config.h.in)
 AM_INIT_AUTOMAKE(dsdc, 0.4)
 AM_CONFIG_HEADER(config.h)
 
+SFS_INIT_LDVERSION(1)
+
+AC_CONFIG_MACRO_DIR([m4])
+
 AC_CANONICAL_HOST
 
 dnl Checks for programs.

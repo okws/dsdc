@@ -419,6 +419,51 @@ namespace fscache {
         ev->trigger (rc);
     }
 
+    //-----------------------------------------------------------------------
+
+    tamed void
+    engine_t::statvfs (struct statvfs *buf, evi_t ev)
+    {
+        tvars {
+            str d;
+            int rc;
+        }
+
+        if (_cfg && _cfg->_root) { d = _cfg->_root; }
+        else { d = "."; }
+
+        twait { _backend->statvfs (d, buf, mkevent (rc)); }
+        ev->trigger (rc);
+    }
+
+    //-----------------------------------------------------------------------
+
+    void
+    simple_backend_t::statvfs (str d, struct statvfs *buf, evi_t ev)
+    {
+        int rc = ::statvfs (d.cstr (), buf);
+        if (rc != 0) rc = -errno;
+        ev->trigger (rc);
+    }
+
+//-----------------------------------------------------------------------
+
+    tamed void
+    aiod_backend_t::statvfs_T (str d, struct statvfs *buf, evi_t ev)
+    {
+        tvars {
+            int rc;
+            struct statvfs *tmp (NULL);
+        }
+        twait { _aiod->statvfs (d.cstr (), mkevent (tmp, rc)); }
+        if (rc == 0 && tmp) {
+            *buf = *tmp;
+        } else if (rc != 0) {
+            rc = -rc;
+        }
+        ev->trigger (rc);
+    }
+
 //-----------------------------------------------------------------------
 
 };

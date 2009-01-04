@@ -60,6 +60,7 @@ namespace fscache {
         virtual void str2file (str f, str s, int mode, evi_t cb) = 0;
         virtual void remove (str f, cbi cb) = 0;
         virtual void mkdir (str s, int mode, evi_t cb) = 0;
+        virtual void statvfs (str d, struct statvfs *buf, evi_t ev) = 0;
     protected:
         void mk_parent_dirs (str s, int mode, evi_t ev, CLOSURE);
     };
@@ -74,6 +75,7 @@ namespace fscache {
         void remove (file_id_t id, cbi cb, CLOSURE);
 
         str filename (file_id_t id) const;
+        void statvfs (struct statvfs *buf, evi_t ev, CLOSURE);
 
     private:
         const cfg_t *_cfg;
@@ -87,6 +89,7 @@ namespace fscache {
         void str2file (str f, str s, int mode, evi_t cb);
         void remove (str f, cbi cb);
         void mkdir (str s, int mode, evi_t ev);
+        void statvfs (str d, struct statvfs *buf, evi_t ev);
     };
 
     class aiod_backend_t : public backend_t {
@@ -100,12 +103,15 @@ namespace fscache {
 
         void remove (str f, cbi cb) { remove_T (f, cb); }
         void mkdir (str f, int mode, evi_t ev) { mkdir_T (f, mode, ev); }
+        void statvfs (str d, struct statvfs *buf, evi_t ev)
+        { statvfs_T (d, buf, ev); }
 
     private:
         void file2str_T (str fn, cbis_t cb, CLOSURE);
         void str2file_T (str f, str s, int mode, evi_t cb, CLOSURE);
         void remove_T (str f, cbi cb, CLOSURE);
         void mkdir_T (str f, int mode, evi_t ev, CLOSURE);
+        void statvfs_T (str d, struct statvfs *buf, evi_t ev, CLOSURE);
 
         const cfg_t *_cfg;
         aiod *_aiod;
@@ -141,6 +147,9 @@ namespace fscache {
         void remove (file_id_t id, cbi cb) { _engine->remove (id, cb); }
         str filename (file_id_t id) const
         { return _engine->filename (id); }
+
+        void statvfs (struct statvfs *buf, evi_t ev)
+        { _engine->statvfs (buf, ev); }
 
     private:
 
