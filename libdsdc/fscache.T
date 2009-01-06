@@ -303,8 +303,9 @@ namespace fscache {
             _aiod->open (fn, O_WRONLY|O_CREAT, mode, mkevent (fh, rc));
         }
 
-        // Eventually, when tested, call mk_parent_dirs
-        if (rc == -ENOENT && 0) {
+        // Remember: DM's aio library returns errnos in the
+        // positive space, so check against that here..
+        if (rc == ENOENT) {
             twait { mk_parent_dirs (fn, 0777, mkevent (rc)); }
         }
 
