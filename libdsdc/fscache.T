@@ -10,6 +10,11 @@
 #define TRIGGER(x,...) (*cb)(__VA_ARGS__)
 #endif
 
+#ifndef __STDC_FORMAT_MACROS
+# define __STDC_FORMAT_MACROS
+#endif
+#include <inttypes.h>
+
 namespace fscache {
 
 //-----------------------------------------------------------------------
@@ -136,7 +141,8 @@ namespace fscache {
             } else {
                 tm = file.data.timestamp;
                 mstr m (file.data.data.size ());
-                memcpy (m.cstr(), file.data.data.base (), file.data.data.size ());
+                memcpy (m.cstr(), file.data.data.base (),
+                        file.data.data.size ());
                 ret_str = m;
             }
         }
@@ -491,6 +497,12 @@ namespace fscache {
         ev->trigger (rc);
     }
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
+
+    str
+    file_id_t::to_str () const
+    { return strbuf ("%s:%" PRIu32, _name.cstr (), _index); }
+
+    //-----------------------------------------------------------------------
 
 };

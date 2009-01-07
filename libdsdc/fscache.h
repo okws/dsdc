@@ -8,9 +8,6 @@
 #include "aiod.h"
 #include "crypt.h"
 
-#define __STDC_FORMAT_MACROS
-#include <inttypes.h>
-
 namespace fscache {
 
     typedef enum {
@@ -55,9 +52,8 @@ namespace fscache {
         str name () const { return _name; }
         str fullpath (int lev, int ndig = 0) const;
         u_int32_t get_index () const { return _index; }
+        str to_str () const;
 
-        str to_str () const
-        { return strbuf ("%s:%" PRIu32, _name.cstr (), _index); }
     private:
         str _name;
         u_int32_t _index;
