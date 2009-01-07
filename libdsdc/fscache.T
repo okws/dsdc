@@ -14,7 +14,7 @@ namespace fscache {
 
 //-----------------------------------------------------------------------
 
-    cfg_t::cfg_t ()
+    cfg_t::cfg_t (bool fake_jail)
             : _backend (BACKEND_AIOD),
             _n_levels (3),
             _n_dig (1),
@@ -23,11 +23,29 @@ namespace fscache {
             _shmsize (0x200000),
             _maxbuf (0x10000),
             _blocksz (0x4000),
-            _file_mode (0664)
+            _file_mode (0664),
+            _fake_jail (fake_jail)
     {
     }
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
+
+    str
+    cfg_t::root () const
+    {
+        str ret;
+        if (_fake_jail && _jaildir) {
+            strbuf b ("%s/%s", _jaildir.cstr (), _root.cstr ());
+            ret = b;
+        } else {
+            ret = _root;
+        }
+        return ret;
+    }
+
+    //-----------------------------------------------------------------------
+
+
 
     str
     file_id_t::fullpath (int lev, int ndig) const
@@ -437,8 +455,9 @@ namespace fscache {
             int rc;
         }
 
-        if (_cfg && _cfg->_root) { d = _cfg->_root; }
-        else { d = "."; }
+        if (!_cfg || !(d = _cfg->root ())) {
+            d = ".";
+        }
 
         twait { _backend->statvfs (d, buf, mkevent (rc)); }
         ev->trigger (rc);

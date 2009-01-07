@@ -17,17 +17,18 @@ namespace fscache {
 
     class cfg_t {
     public:
-        cfg_t ();
+        cfg_t (bool fake_jail = false);
 
         backend_typ_t backend () const { return _backend; }
         int n_levels () const { return _n_levels; }
         int n_dig () const { return _n_dig; }
-        str root () const { return _root; }
+        str root () const;
         int n_aiods () const { return _n_aiods; }
         size_t shmsize () const { return _shmsize; }
         size_t maxbuf () const { return _maxbuf; }
         int file_mode () const { return _file_mode; }
         size_t blocksz () const { return _blocksz; }
+        void set_fake_jail (bool b) { _fake_jail = b; }
 
         backend_typ_t _backend;
         int _n_levels, _n_dig;
@@ -35,6 +36,9 @@ namespace fscache {
         int _n_aiods;
         size_t _shmsize, _maxbuf, _blocksz;
         int _file_mode;
+
+        str _jaildir;
+        bool _fake_jail;
     };
 
     typedef callback<void,int,time_t,str>::ref cbits_t;
