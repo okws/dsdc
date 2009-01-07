@@ -296,17 +296,22 @@ namespace fscache {
             const char *ep (s.cstr () + s.len ());
             ssize_t wsz, bsz;
             size_t blocksz;
+            int flags (O_WRONLY|O_CREAT);
+            int i;
         }
         blocksz = _cfg->blocksz ();
 
-        twait {
-            _aiod->open (fn, O_WRONLY|O_CREAT, mode, mkevent (fh, rc));
-        }
 
-        // Remember: DM's aio library returns errnos in the
-        // positive space, so check against that here..
-        if (rc == ENOENT) {
-            twait { mk_parent_dirs (fn, 0777, mkevent (rc)); }
+        for (i = 0; i < 2; i++) {
+            twait {
+                _aiod->open (fn, flags, mode, mkevent (fh, rc));
+            }
+
+            // Remember: DM's aio library returns errnos in the
+            // positive space, so check against that here..
+            if (i == 0 && !fh && rc == ENOENT) {
+                twait { mk_parent_dirs (fn, 0777, mkevent (rc)); }
+            }
         }
 
         if (rc == 0) {
@@ -379,21 +384,23 @@ namespace fscache {
             char *ep;
             const char *bp;
             int rc (0);
+            bool first;
         }
 
         memcpy (dir.cstr (), s.cstr (), s.len () + 1);
         bp = ep = dir.cstr ();
 
-        for (  ; *ep && rc == 0; ep++) {
-            if (*ep == '/') {
+        for (first = true; *ep && rc == 0; ep++, first = false) {
+            if (*ep == '/' && !first) {
                 *ep = 0;
                 twait { mkdir (bp, mode, mkevent (rc)); }
-                if (rc == -EEXIST) {
+                if (rc == EEXIST) {
                     rc = 0;
                 } else if (rc != 0) {
                     errno = -rc;
                     warn ("could not make directory %s: %m\n", bp);
                 }
+                *ep = '/';
             }
         }
         ev->trigger (rc);
