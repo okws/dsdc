@@ -54,6 +54,7 @@ namespace fscache {
         u_int32_t get_index () const { return _index; }
         str to_str () const;
 
+        u_int32_t get_index () const { return _index; }
     private:
         str _name;
         u_int32_t _index;
