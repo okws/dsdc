@@ -170,7 +170,9 @@ namespace fscache {
             warn ("Cannot convert file to XDR form: %s\n", fn.cstr ());
             rc = -EINVAL;
         } else {
-            twait { _backend->str2file (fn, out, _cfg->file_mode (), mkevent (rc));}
+            twait {
+                _backend->str2file (fn, out, _cfg->file_mode (), mkevent (rc));
+            }
         }
         TRIGGER (cb, rc);
     }
@@ -467,6 +469,9 @@ namespace fscache {
         }
 
         twait { _backend->statvfs (d, buf, mkevent (rc)); }
+        if (rc != 0) {
+            warn ("statvfs failed on root directory '%s': %m\n", d.cstr ());
+        }
         ev->trigger (rc);
     }
 
