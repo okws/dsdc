@@ -29,6 +29,8 @@ namespace fscache {
         int file_mode () const { return _file_mode; }
         size_t blocksz () const { return _blocksz; }
         void set_fake_jail (bool b) { _fake_jail = b; }
+        void set_skip_sha (bool b) { _skip_sha = b; }
+        bool skip_sha () const { return _skip_sha; }
 
         backend_typ_t _backend;
         int _n_levels, _n_dig;
@@ -36,9 +38,9 @@ namespace fscache {
         int _n_aiods;
         size_t _shmsize, _maxbuf, _blocksz;
         int _file_mode;
-
         str _jaildir;
         bool _fake_jail;
+        bool _skip_sha;
     };
 
     typedef callback<void,int,time_t,str>::ref cbits_t;
@@ -82,6 +84,8 @@ namespace fscache {
 
         str filename (file_id_t id) const;
         void statvfs (struct statvfs *buf, evi_t ev, CLOSURE);
+
+        bool skip_sha () const { return _cfg->skip_sha (); }
 
     private:
         const cfg_t *_cfg;

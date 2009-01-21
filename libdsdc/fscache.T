@@ -29,7 +29,8 @@ namespace fscache {
             _maxbuf (0x10000),
             _blocksz (0x4000),
             _file_mode (0664),
-            _fake_jail (fake_jail)
+            _fake_jail (fake_jail),
+            _skip_sha (false)
     {
     }
 
@@ -123,19 +124,23 @@ namespace fscache {
             time_t tm (0);
             str ret_str;
             int rc;
+            bool ss;
         }
+        ss = skip_sha ();
         fn = filename (id);
         twait { _backend->file2str (fn, mkevent (rc, out)); }
         if (rc == 0) {
             fscache_file_t file;
-            char digest[SHA1SZ];
+            char digest[sha1::hashsize];
             if (!str2xdr (file, out)) {
                 warn ("Cannot decode file: %s\n", fn.cstr ());
                 rc = -EINVAL;
-            } else if (!sha1_hashxdr (digest, file.data)) {
+            } else if (!ss && !sha1_hashxdr (digest, file.data)) {
                 warn ("Cannot hash data from file: %s\n", fn.cstr ());
                 rc = -EINVAL;
-            } else if (memcmp (file.checksum.base (), digest, SHA1SZ) != 0) {
+            } else if (!ss &&
+                       memcmp (file.checksum.base (), digest,
+                               sha1::hashsize) != 0) {
                 warn ("Bad checksum on file: %s\n", fn.cstr ());
                 rc = -EINVAL;
             } else {
@@ -151,6 +156,15 @@ namespace fscache {
 
 //-----------------------------------------------------------------------
 
+    static bool
+    write_null_checksum (char *v)
+    {
+        memset (v, 0, sha1::hashsize);
+        return true;
+    }
+
+//-----------------------------------------------------------------------
+
     tamed void
     engine_t::store (file_id_t id, time_t tm, str data, cbi cb)
     {
@@ -159,11 +173,16 @@ namespace fscache {
             int rc;
             fscache_file_t file;
             str out;
+            bool ss;
         }
+        ss = skip_sha ();
         fn = filename (id);
         file.data.timestamp = tm;
         file.data.data = data;
-        if (!sha1_hashxdr (file.checksum.base (), file.data)) {
+        if (ss && !write_null_checksum (file.checksum.base ())) {
+            warn ("Cannot write empty checksum for file: %s\n", fn.cstr ());
+            rc = -EINVAL;
+        } else if (!ss && !sha1_hashxdr (file.checksum.base (), file.data)) {
             warn ("Cannot compute checksum for file: %s\n", fn.cstr ());
             rc = -EINVAL;
         } else if (!(out = xdr2str (file))) {
