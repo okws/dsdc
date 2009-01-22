@@ -103,7 +103,7 @@ usage (bool err = true)
 static bool
 parse_memsize (const str &in, char units, u_int32_t *outp)
 {
-    u_int32_t out;
+    u_int32_t out = 0;
     static rxx x ("([0-9]+)([bB]|[kKmMgG][bB]?)?");
     if (!x.match (in))
         return false;
@@ -155,7 +155,7 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
     int port = -1;
     str hostname;
     int dbg_lev = 0;
-    int dbg_opt;
+    int dbg_opt = 0;
     bool daemon_mode = false;
     int opts = 0;
     int stats_interval = -1;
