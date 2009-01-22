@@ -87,7 +87,7 @@ main (int argc, char *argv[])
     int ch;
 
     str name;
-    u_int32_t key;
+    u_int32_t key = 0;
     str file;
 
     int opts = 0;
