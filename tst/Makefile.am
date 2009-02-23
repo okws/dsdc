@@ -1,3 +1,4 @@
+-include $(SFS_LIB_MK)
 
 $(PROGRAMS): $(LDEPS)
 

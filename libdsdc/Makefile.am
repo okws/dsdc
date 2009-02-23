@@ -1,4 +1,6 @@
 
+-include $(SFS_LIB_MK)
+
 dsdclib_LTLIBRARIES = libdsdc.la
 
 if DSDC_NO_CUPID
