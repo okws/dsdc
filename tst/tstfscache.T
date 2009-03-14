@@ -97,8 +97,11 @@ main (int argc, char *argv[])
 
     cfg._n_levels = 2;
 
-    while ((ch = getopt (argc, argv, "r:n:cD")) != -1) {
+    while ((ch = getopt (argc, argv, "sr:n:cD")) != -1) {
         switch (ch) {
+        case 's':
+            cfg._backend = fscache::BACKEND_SIMPLE_FAST;
+            break;
         case 'c':
             opts |= OPT_CORRUPT;
             break;

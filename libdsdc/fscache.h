@@ -10,10 +10,15 @@
 
 namespace fscache {
 
+    //-----------------------------------------------------------------------
+
     typedef enum {
         BACKEND_SIMPLE = 0,
-        BACKEND_AIOD = 1
+        BACKEND_AIOD = 1,
+        BACKEND_SIMPLE_FAST = 2
     } backend_typ_t;
+
+    //-----------------------------------------------------------------------
 
     class cfg_t {
     public:
@@ -43,8 +48,12 @@ namespace fscache {
         bool _skip_sha;
     };
 
+    //-----------------------------------------------------------------------
+
     typedef callback<void,int,time_t,str>::ref cbits_t;
     typedef callback<void,int,str>::ref cbis_t;
+
+    //-----------------------------------------------------------------------
 
     class file_id_t {
     public:
@@ -60,6 +69,8 @@ namespace fscache {
         u_int32_t _index;
     };
 
+    //-----------------------------------------------------------------------
+
     class backend_t {
     public:
         backend_t () {}
@@ -72,6 +83,8 @@ namespace fscache {
     protected:
         void mk_parent_dirs (str s, int mode, evi_t ev, CLOSURE);
     };
+
+    //-----------------------------------------------------------------------
 
     class engine_t {
     public:
@@ -92,15 +105,27 @@ namespace fscache {
         backend_t *_backend;
     };
 
+    //-----------------------------------------------------------------------
+
     class simple_backend_t : public backend_t {
     public:
         simple_backend_t () : backend_t () {}
         void file2str (str fn, cbis_t cb);
-        void str2file (str f, str s, int mode, evi_t cb);
+        virtual void str2file (str f, str s, int mode, evi_t cb);
         void remove (str f, cbi cb);
         void mkdir (str s, int mode, evi_t ev);
         void statvfs (str d, struct statvfs *buf, evi_t ev);
     };
+
+    //-----------------------------------------------------------------------
+
+    class simple_fast_backend_t : public simple_backend_t {
+    public:
+        simple_fast_backend_t () : simple_backend_t () {}
+        void str2file (str f, str s, int mode, evi_t cb);
+    };
+
+    //-----------------------------------------------------------------------
 
     class aiod_backend_t : public backend_t {
     public:
@@ -127,6 +152,7 @@ namespace fscache {
         aiod *_aiod;
     };
 
+    //-----------------------------------------------------------------------
 
     template<class C>
     class iface_t {
@@ -177,12 +203,10 @@ namespace fscache {
             (*cb) (rc, tm, ret);
         }
 
-
         engine_t *_engine;
-
     };
 
-
+    //-----------------------------------------------------------------------
 };
 
 #endif /* _DSDC_FSCACHE_H_ */

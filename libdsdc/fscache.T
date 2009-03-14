@@ -100,6 +100,9 @@ namespace fscache {
         case BACKEND_AIOD:
             _backend = New aiod_backend_t (c);
             break;
+        case BACKEND_SIMPLE_FAST:
+            _backend = New simple_fast_backend_t ();
+            break;
         default:
             panic ("Unknown backend given: %d\n", int (c->backend ()));
             break;
@@ -235,6 +238,40 @@ namespace fscache {
         } else {
             TRIGGER (cb, 0-errno, NULL);
         }
+    }
+
+//-----------------------------------------------------------------------
+
+    void
+    simple_fast_backend_t::str2file (str fn, str s, int mode, evi_t ev)
+    {
+        int fd = ::open (fn.cstr (), O_WRONLY | O_CREAT, mode);
+        int rc = 0;
+        const char *fnc = fn.cstr ();
+
+        if (fd < 0) {
+            warn ("failed to open file %s: %m\n", fnc);
+        } else {
+            size_t bsz = 8196;
+            const char *bp = s.cstr ();
+            const char *endp = s.cstr () + s.len ();
+
+            while (bp < endp && rc >=0 ) {
+                size_t len = min<size_t> (bsz, endp - bp);
+                rc = write (fd, bp, len);
+                if (rc < 0) {
+                    warn ("write failed on file %s: %m\n", fnc);
+                } else if (rc == 0) {
+                    warn ("unexpected 0-length write on file %s\n", fnc);
+                    rc = EINVAL;
+                } else {
+                    bp += rc;
+                    rc = 0;
+                }
+            }
+            close (fd);
+        }
+        ev->trigger (0 - rc);
     }
 
 //-----------------------------------------------------------------------
