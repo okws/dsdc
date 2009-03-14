@@ -15,8 +15,13 @@ namespace fscache {
     typedef enum {
         BACKEND_SIMPLE = 0,
         BACKEND_AIOD = 1,
-        BACKEND_SIMPLE_FAST = 2
+        BACKEND_SIMPLE_FAST = 2,
+        BACKEND_ERROR = 3
     } backend_typ_t;
+
+    //-----------------------------------------------------------------------
+
+    backend_typ_t str2backend (const str &s);
 
     //-----------------------------------------------------------------------
 

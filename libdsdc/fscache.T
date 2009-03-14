@@ -5,6 +5,8 @@
 #include "crypt.h"
 #include "arpc.h"
 #include "sha1.h"
+#include "dynenum.h"
+#include "parseopt.h"
 
 #ifndef TRIGGER
 #define TRIGGER(x,...) (*cb)(__VA_ARGS__)
@@ -50,8 +52,6 @@ namespace fscache {
     }
 
     //-----------------------------------------------------------------------
-
-
 
     str
     file_id_t::fullpath (int lev, int ndig) const
@@ -567,4 +567,44 @@ namespace fscache {
 
     //-----------------------------------------------------------------------
 
+    class backend_tab_t : public dynamic_enum_t {
+    public:
+        backend_tab_t ()
+                : dynamic_enum_t (int (BACKEND_AIOD), true, "backends")
+        {
+            pair_t tab[] = { { "aiod", int (BACKEND_AIOD) },
+                { "simple", int (BACKEND_SIMPLE) },
+                { "simplefast", int (BACKEND_SIMPLE_FAST) },
+                { NULL, 0 }
+            };
+            init (tab, true);
+        }
+        backend_typ_t lookup (str s) const;
+    };
+
+    //-----------------------------------------------------------------------
+
+    static backend_tab_t backend_tab;
+
+    //-----------------------------------------------------------------------
+
+    backend_typ_t
+    backend_tab_t::lookup (str s) const
+    {
+        s = mytolower (s);
+        int i;
+        backend_typ_t ret = BACKEND_ERROR;
+        if (dynamic_enum_t::lookup (s, &i)) { ret = backend_typ_t (i); }
+        return ret;
+    }
+
+    //-----------------------------------------------------------------------
+
+    backend_typ_t
+    str2backend (const str &s)
+    {
+        return backend_tab.lookup (s);
+    }
+
+    //-----------------------------------------------------------------------
 };
