@@ -129,7 +129,8 @@ get_cb (tst_key_t k, dsdc_res_t status, ptr<tst_obj_checked_t> obj)
 static void
 get (dsdc_smartcli_t *sc, tst_key_t k, bool safe)
 {
-    sc->Xtmpl get2<tst_obj_checked_t> (mkkey_ptr (k), wrap (get_cb, k), safe);
+  sc->Xtmpl get2<tst_obj_checked_t> (mkkey_ptr (k), wrap (get_cb, k), safe,
+				     NULL, NULL);
 }
 
 static void

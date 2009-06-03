@@ -1,13 +1,13 @@
-
-// -*-c++-*-
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
+//-----------------------------------------------------------------------
 /* $Id$ */
 
 #ifndef _DSDC_SMARTCLI_H_
 #define _DSDC_SMARTCLI_H_
 
 // when we hit a major version it should go to 100000
-#define DSDC_VERSION_STR "0.4.0"
-#define DSDC_VERSION    4000
+#define DSDC_VERSION_STR "0.5.0"
+#define DSDC_VERSION    5000
 
 #include "dsdc_prot.h"
 #include "dsdc_ring.h"
@@ -19,6 +19,7 @@
 #include "dsdc_stats.h"
 #include "dsdc_format.h"
 #include "tame.h"
+#include "sha1.h"
 
 typedef dsdc::annotation::base_t annotation_t;
 
@@ -170,7 +171,8 @@ public:
     void get (const K &k,
               typename callback<void, dsdc_res_t, ptr<V> >::ref cb,
               bool safe = false,
-              const annotation_t *a = NULL);
+              const annotation_t *a = NULL,
+              dsdc_cksum_t *cksum = NULL);
 
     /**
      * Put an object into DSDC.
@@ -182,7 +184,8 @@ public:
      */
     void put (const K &k, const V &obj, cbi::ptr cb = NULL,
               bool safe = false,
-              const annotation_t *a = NULL);
+              const annotation_t *a = NULL,
+              const dsdc_cksum_t *cks = NULL);
 
     /**
      * Remove an object from DSDC
@@ -321,7 +324,7 @@ public:
     //   of the cache state.
     //
     void put (ptr<dsdc_put_arg_t> arg, cbi::ptr cb = NULL, bool safe = false);
-    void put (ptr<dsdc_put3_arg_t> arg, cbi::ptr cb = NULL, bool safe = false);
+    void put (ptr<dsdc_put4_arg_t> arg, cbi::ptr cb = NULL, bool safe = false);
     void get (ptr<dsdc_key_t> key, dsdc_get_res_cb_t cb,
               bool safe = false, int time_to_expire=-1,
               const annotation_t *a = NULL, CLOSURE);
@@ -338,22 +341,30 @@ public:
     // automatically, and therefore less code for the app designer
     template<class T> void put2 (const dsdc_key_t &k, const T &obj,
                                  cbi::ptr cb = NULL, bool safe = false,
-                                 const annotation_t *a = NULL);
+                                 const annotation_t *a = NULL,
+                                 const dsdc_cksum_t *cks = NULL);
+
+
     template<class T>
     void get2 (ptr<dsdc_key_t> k,
                typename callback<void, dsdc_res_t, ptr<T> >::ref cb,
                bool safe = false, int time_to_expire= -1,
-               const annotation_t *a = NULL);
+               const annotation_t *a = NULL,
+               dsdc_cksum_t *cksum = NULL);
 
     // even more convenient version of the above!
     template<class K, class V> void
     put3 (const K &k, const V &obj, cbi::ptr cb = NULL,
           bool safe = false,
-          const annotation_t *a = NULL);
+          const annotation_t *a = NULL,
+          const dsdc_cksum_t *cksum = NULL);
+
     template<class K, class V> void
     get3 (const K &k, typename callback<void, dsdc_res_t, ptr<V> >::ref cb,
           bool safe = false, int time_to_expire = -1,
-          const annotation_t *a = NULL);
+          const annotation_t *a = NULL,
+          dsdc_cksum_t *cksum = NULL);
+
     template<class K> void
     remove3 (const K &k, cbi::ptr cb = NULL, bool safe = false,
              const annotation_t *a = NULL);
@@ -403,10 +414,7 @@ protected:
                        dsdc_lock_acquire_res_cb_t cb,
                        ptr<aclnt> cli);
 
-    template<class T> void
-    get2_cb_1 (typename callback<void, dsdc_res_t, ptr<T> >::ref cb,
-               ptr<dsdc_get_res_t> res);
-
+  
 
     //---------------------------------------------------------------------
     // change cache code
@@ -418,7 +426,8 @@ protected:
     struct cc_t {
         cc_t () {}
         cc_t (const dsdc_key_t &k, ptr<T> a, int p, cbi::ptr c)
-                : key (k), arg (a), proc (p), cb (c), res (New refcounted<int> ()) {}
+                : key (k), arg (a), proc (p), cb (c), 
+		  res (New refcounted<int> ()) {}
 
         ~cc_t () { if (cb) (*cb) (*res); }
 
@@ -577,55 +586,30 @@ dsdc_smartcli_t::change_cache (ptr<cc_t<T> > cc, bool safe)
 //
 //-----------------------------------------------------------------------
 
-//
-//
+
 
 //-----------------------------------------------------------------------
-// lazy man's version of the standard put/get interface, for simplifying
-// use
 
-template<class T> void
-dsdc_smartcli_t::get2_cb_1 (typename callback<void, dsdc_res_t,
-                            ptr<T> >::ref cb,
-                            ptr<dsdc_get_res_t> res)
-{
-    ptr<T> obj;
-    if (res->status == DSDC_OK) {
-        obj = New refcounted<T> ();
-        if (!bytes2xdr (*obj, *res->obj)) {
-            (*cb) (DSDC_ERRDECODE, NULL);
-            return;
-        }
-    } else if (res->status == DSDC_RPC_ERROR) {
-        warn << __func__ << ": DSDC RPC ERROR: " << (int)*(res->err) << "\n";
-    }
-    (*cb) (res->status, obj);
-}
-
-template<class T> void
-dsdc_smartcli_t::get2 (ptr<dsdc_key_t> k,
-                       typename callback<void, dsdc_res_t, ptr<T> >::ref cb,
-                       bool safe, int time_to_expire,
-                       const annotation_t *a)
-{
-    get (k, wrap (this, &dsdc_smartcli_t::get2_cb_1<T>, cb),
-         safe, time_to_expire, a);
-}
 
 template<class T> void
 dsdc_smartcli_t::put2 (const dsdc_key_t &k, const T &obj,
                        cbi::ptr cb, bool safe,
-                       const annotation_t *a)
+                       const annotation_t *a,
+                       const dsdc_cksum_t *ck)
 {
-    ptr<dsdc_put3_arg_t> arg3;
+    ptr<dsdc_put4_arg_t> arg4;
     ptr<dsdc_put_arg_t> arg;
     bool bad_encode = false;
-    if (a) {
-        arg3 = New refcounted<dsdc_put3_arg_t> ();
-        arg3->key = k;
-        annotation_t::to_xdr (a, &arg3->annotation);
-        if (xdr2bytes (arg3->obj, obj)) {
-            put (arg3, cb, false);
+    if (a || ck) {
+        arg4 = New refcounted<dsdc_put4_arg_t> ();
+        arg4->key = k;
+        annotation_t::to_xdr (a, &arg4->annotation);
+        if (ck) {
+            arg4->checksum.alloc ();
+            *arg4->checksum = *ck;
+        }
+        if (xdr2bytes (arg4->obj, obj)) {
+            put (arg4, cb, false);
         } else {
             bad_encode = true;
         }
@@ -654,9 +638,10 @@ template<class K, class V> void
 dsdc_smartcli_t::get3 (const K &k,
                        typename callback<void, dsdc_res_t, ptr<V> >::ref cb,
                        bool safe, int time_to_expire,
-                       const annotation_t *a)
+                       const annotation_t *a,
+                       dsdc_cksum_t *out)
 {
-    get2<V> (mkkey_ptr (k), cb, safe, time_to_expire, a);
+    get2<V> (mkkey_ptr (k), cb, safe, time_to_expire, a, out);
 }
 
 template<class K> str
@@ -669,9 +654,10 @@ dsdc_smartcli_t::which_slave3 (const K &k)
 
 template<class K, class V> void
 dsdc_smartcli_t::put3 (const K &k, const V &obj, cbi::ptr cb, bool safe,
-                       const annotation_t *a)
+                       const annotation_t *a,
+                       const dsdc_cksum_t *cksm)
 {
-    put2 (mkkey (k), obj, cb, safe, a);
+    put2 (mkkey (k), obj, cb, safe, a, cksm);
 }
 
 template<class K> void
@@ -723,13 +709,15 @@ template<class K, class V> void
 dsdc_iface_t<K,V>::get (const K &k,
                         typename callback<void, dsdc_res_t, ptr<V> >::ref cb,
                         bool safe,
-                        const annotation_t *a)
-{ _cli->template get3<K,V> (k, cb, safe, time_to_expire, a); }
+                        const annotation_t *a,
+                        dsdc_cksum_t *cksum)
+			
+{ _cli->template get3<K,V> (k, cb, safe, time_to_expire, a, cksum); }
 
 template<class K, class V> void
 dsdc_iface_t<K,V>::put (const K &k, const V &obj, cbi::ptr cb, bool safe,
-                        const annotation_t *a)
-{ _cli->put3 (k, obj, cb, safe, a); }
+                        const annotation_t *a, const dsdc_cksum_t *cks)
+{ _cli->put3 (k, obj, cb, safe, a, cks); }
 
 template<class K, class V> void
 dsdc_iface_t<K,V>::remove (const K &k, cbi::ptr cb, bool safe,
@@ -754,5 +742,38 @@ dsdc_iface_t<K,V>::lock_release (const K &k, dsdcl_id_t id,
 //-----------------------------------------------------------------------
 
 
+//-----------------------------------------------------------------------   
+// get2
+//
+
+template<class T>
+class get2_tame_helper {
+public:
+    get2_tame_helper () {}
+    void fn (dsdc_smartcli_t *cli,
+               ptr<dsdc_key_t> k,
+               typename callback<void, dsdc_res_t, ptr<T> >::ref cb,
+               bool safe = false, int time_to_expire= -1,
+               const annotation_t *a = NULL,
+               dsdc_cksum_t *cksum = NULL,
+               CLOSURE);
+};
+
+template<class T> void 
+dsdc_smartcli_t::get2 (ptr<dsdc_key_t> k,
+                       typename callback<void, dsdc_res_t, ptr<T> >::ref cb,
+                       bool safe, int time_to_expire,
+                       const annotation_t *a,
+                       dsdc_cksum_t *cksum)
+{
+    get2_tame_helper<T> th;
+    th.fn (this, k, cb, safe, time_to_expire, a, cksum);
+}
+
+//
+//-----------------------------------------------------------------------
+
+// tame-generated from dsdc_tamed.h
+#include "dsdc_tamed.h"
 
 #endif /* _DSDC_SMARTCLI_H_ */

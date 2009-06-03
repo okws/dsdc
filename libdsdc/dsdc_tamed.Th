@@ -1,0 +1,39 @@
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
+//-----------------------------------------------------------------------
+
+#ifndef __LIBDSDC__DSDC_TAMED_H__
+#define __LIBDSDC__DSDC_TAMED_H__
+
+
+tamed template<class T> void
+get2_tame_helper<T>::fn (dsdc_smartcli_t *cli,
+                         ptr<dsdc_key_t> k,
+                         typename callback<void, dsdc_res_t, ptr<T> >::ref cb,
+                         bool safe, int time_to_expire,
+                         const annotation_t *a,
+                         dsdc_cksum_t *cksum)
+{
+    tvars {
+        ptr<dsdc_get_res_t> res;
+        ptr<T> obj;
+        dsdc_res_t status;
+    }
+
+    twait { cli->get (k, mkevent (res), safe, time_to_expire, a); }
+
+    status = res->status;
+
+    if (status == DSDC_RPC_ERROR) {
+        warn << __func__ << ": DSDC RPC ERROR: " << int (*res->err) << "\n";
+    } else if (status != DSDC_OK) {
+        /* noop */
+    } else if (!(obj = New refcounted<T> ()) || !bytes2xdr (*obj, *res->obj)) {
+        status = DSDC_ERRDECODE;
+    } else if (cksum) {
+        sha1_hashxdr<dsdc_obj_t> (cksum->base (), *res->obj);
+    }
+    (*cb) (status, obj);
+}
+
+
+#endif /* __LIBDSDC__DSDC_TAMED_H__ */

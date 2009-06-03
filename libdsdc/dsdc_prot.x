@@ -116,7 +116,9 @@ enum dsdc_res_t {
   DSDC_TIMEOUT = 9,             /* Not used yet.... */
   DSDC_ERRDECODE = 10,		/* Error decoding object. */
   DSDC_ERRENCODE = 11,		/* Error encoding object. */
-  DSDC_BAD_STATS = 12           /* Error in statistics collection */
+  DSDC_BAD_STATS = 12,          /* Error in statistics collection */
+  DSDC_DATA_CHANGED = 13,       /* checksum commit precondition failed */
+  DSDC_DATA_DISAPPEARED = 14    /* as above, but data disappeared */
 };
 
 /*
@@ -292,6 +294,15 @@ struct dsdc_put3_arg_t {
 	dsdc_key_t 		key;
 	dsdc_obj_t 		obj;
 	dsdc_annotation_t  annotation;
+};
+
+typedef dsdc_key_t dsdc_cksum_t;
+
+struct dsdc_put4_arg_t {
+	dsdc_key_t 		key;
+	dsdc_obj_t 		obj;
+	dsdc_annotation_t       annotation;
+	dsdc_cksum_t		*checksum;
 };
 
 struct dsdc_remove3_arg_t {
@@ -470,6 +481,10 @@ program DSDC_PROG
 
 	 void
 	 DSDC_SET_STATS_MODE(bool) = 20;
+
+	 dsdc_res_t
+	 DSDC_PUT4(dsdc_put4_arg_t) = 21;
+
 	  
 
 #ifndef DSDC_NO_CUPID

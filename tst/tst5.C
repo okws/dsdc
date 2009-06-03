@@ -1,3 +1,4 @@
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 
 #include "dsdc_util.h"
 #include "dsdc.h"
@@ -116,7 +117,7 @@ put_cb (str mapping, int res)
 }
 
 static void
-put (tst_key_t k, str v, bool safe, annotation_t *a = NULL)
+put (tst_key_t k, str v, bool safe, annotation_t *a = NULL, str cks_str = NULL)
 {
     tst_obj_checked_t obj;
     obj.obj.key = k;
@@ -129,11 +130,28 @@ put (tst_key_t k, str v, bool safe, annotation_t *a = NULL)
     strbuf mapping ("%d -> %s", k, tmp.cstr ());
 
     tst2_cbct++;
-    cli->put (k, obj, wrap (put_cb, str (mapping)), safe, a);
+
+    dsdc_cksum_t cks;
+    dsdc_cksum_t *cks_p = NULL;
+
+    if (cks_str) {
+        str s = dearmor64 (cks_str);
+        if (!s) {
+            warn << "dearmor64 failed on checksum: " << cks_str << "\n";
+        } else if (s.len () > cks.size ()) {
+            warn << "checksum given is of wrong len (" << cks_str << ")\n";
+        } else {
+            memcpy (cks.base (), s.cstr (), s.len ());
+            cks_p = &cks;
+        }
+    }
+
+    cli->put (k, obj, wrap (put_cb, str (mapping)), safe, a, cks_p);
 }
 
 static void
-get_cb (tst_key_t k, dsdc_res_t status, ptr<tst_obj_checked_t> obj)
+get_cb (tst_key_t k, ptr<dsdc_cksum_t> cks, dsdc_res_t status, 
+	ptr<tst_obj_checked_t> obj)
 {
     switch (status) {
     case DSDC_NOTFOUND:
@@ -143,8 +161,10 @@ get_cb (tst_key_t k, dsdc_res_t status, ptr<tst_obj_checked_t> obj)
         if (!check_obj (obj)) {
             warn ("** GET: checksum on object failed: %d\n", k);
         } else {
-            aout << strbuf ("GET: %d -> %s\n",
-                            k, key_to_str (obj->checksum).cstr ());
+            str sum = armor64 (cks->base (), cks->size ());
+            aout << strbuf ("GET: %d -> %s (whole obj checuksum: %s)\n",
+                            k, key_to_str (obj->checksum).cstr (),
+                            sum.cstr ());
         }
         break;
     case DSDC_RPC_ERROR:
@@ -199,7 +219,8 @@ static void
 get (tst_key_t k, bool safe, annotation_t *a = NULL)
 {
     tst2_cbct++;
-    cli->get (k, wrap (get_cb, k), safe, a);
+    ptr<dsdc_cksum_t> cks = New refcounted<dsdc_cksum_t> ();
+    cli->get (k, wrap (get_cb, k, cks), safe, a, cks);
 }
 
 static void
@@ -346,10 +367,17 @@ rdline (str ln, int err)
     val = lnrx[4];
 
     switch (com) {
-    case 'p':
-        if (args.size () == 3 && convertint (args[1], &key)) {
-            val = args[2];
-            put (key, val, safe);
+    case 'p': 
+        {
+            str cksum;
+            if ((args.size () == 3  || args.size () == 4) && 
+                convertint (args[1], &key)) {
+                val = args[2];
+                if (args.size () == 4) {
+                    cksum = args[3];
+                }
+                put (key, val, safe, NULL, cksum);
+            }
         }
         break;
     case 'r':

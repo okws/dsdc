@@ -1,4 +1,5 @@
-// -*-c++-*-
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
+//-----------------------------------------------------------------------
 /* $Id$ */
 
 #ifndef _DSDC_SLAVE_H
@@ -33,6 +34,7 @@ struct dsdc_cache_obj_t {
     { return _key.size () + _obj.size () + sizeof (*this); }
     void collect_statistics (bool del = true,
                              dsdc::action_code_t t = dsdc::AC_NONE);
+    bool match_checksum (const dsdc_cksum_t &cksum) const;
 
     dsdc_key_t _key;
     dsdc_obj_t _obj;
@@ -190,6 +192,7 @@ public:
     void handle_mget (svccb *sbp);
     void handle_put (svccb *sbp);
     void handle_put3 (svccb *sbp);
+    void handle_put4 (svccb *sbp);
     void handle_remove (svccb *sbp);
     void handle_get_stats (svccb *sbp);
     void handle_set_stats_mode (svccb *sbp);
@@ -209,7 +212,8 @@ protected:
     void run_stats2_loop (CLOSURE);
 
     dsdc_res_t handle_put (const dsdc_key_t &k, const dsdc_obj_t &o,
-                           dsdc::annotation::base_t *a = NULL);
+                           dsdc::annotation::base_t *a = NULL,
+                           const dsdc_cksum_t *cksum = NULL);
     void genkeys ();
 
     dsdc_obj_t * lru_lookup (const dsdc_key_t &k, const int expire=-1,
@@ -218,8 +222,9 @@ protected:
     size_t lru_remove_obj (dsdc_cache_obj_t *o, bool del,
                            dsdc::action_code_t t);
     bool lru_remove (const dsdc_key_t &k);
-    bool lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o,
-                     dsdc::annotation::base_t *a = NULL);
+    dsdc_res_t lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o,
+                           dsdc::annotation::base_t *a = NULL,
+                           const dsdc_cksum_t *cks = NULL);
     size_t _lrusz;
 
     void clean_cache ();

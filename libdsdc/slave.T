@@ -1,6 +1,5 @@
-
-
-// -*-c++-*-
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
+//-----------------------------------------------------------------------
 /*
  * $Id$
  */
@@ -27,6 +26,14 @@ dsdc_cache_obj_t::set (const dsdc_key_t &k, const dsdc_obj_t &o,
     if ((_annotation = a)) {
         a->elem_create (_obj.size ());
     }
+}
+
+bool
+dsdc_cache_obj_t::match_checksum (const dsdc_cksum_t &cksum) const
+{
+    dsdc_cksum_t tmp;
+    return (sha1_hashxdr (tmp.base (), _obj) &&
+            memcmp (tmp.base (), cksum.base (), cksum.size()) == 0);
 }
 
 void
@@ -256,6 +263,9 @@ dsdc_slave_t::dispatch (svccb *sbp)
     case DSDC_PUT3:
         handle_put3 (sbp);
         break;
+    case DSDC_PUT4:
+        handle_put4 (sbp);
+        break;
     case DSDC_REMOVE:
     case DSDC_REMOVE3:
         handle_remove (sbp);
@@ -451,27 +461,40 @@ dsdc_slave_t::handle_remove (svccb *sbp)
 void
 dsdc_slave_t::handle_put (svccb *sbp)
 {
-    dsdc_put_arg_t *a = sbp->Xtmpl getarg<dsdc_put_arg_t> ();
+    RPC::dsdc_prog_1::dsdc_put_srv_t<svccb> srv (sbp);
+    const dsdc_put_arg_t *a = srv.getarg ();
     dsdc_res_t res = handle_put (a->key, a->obj);
-    sbp->replyref (res);
+    srv.reply (res);
 }
 
 void
 dsdc_slave_t::handle_put3 (svccb *sbp)
 {
-    dsdc_put3_arg_t *a = sbp->Xtmpl getarg<dsdc_put3_arg_t> ();
+    RPC::dsdc_prog_1::dsdc_put3_srv_t<svccb> srv (sbp);
+    const dsdc_put3_arg_t *a = srv.getarg ();
     dsdc::annotation::base_t *n = NULL;
     n = dsdc::stats::collector ()->alloc (a->annotation);
     dsdc_res_t res = handle_put (a->key, a->obj, n);
-    sbp->replyref (res);
+    srv.reply (res);
+}
+
+void
+dsdc_slave_t::handle_put4 (svccb *sbp)
+{
+    RPC::dsdc_prog_1::dsdc_put4_srv_t<svccb> srv (sbp);
+    const dsdc_put4_arg_t *a = srv.getarg ();
+    dsdc::annotation::base_t *n = NULL;
+    n = dsdc::stats::collector ()->alloc (a->annotation);
+    dsdc_res_t res = handle_put (a->key, a->obj, n, a->checksum);
+    srv.reply (res);
 }
 
 dsdc_res_t
 dsdc_slave_t::handle_put (const dsdc_key_t &k, const dsdc_obj_t &o,
-                          dsdc::annotation::base_t *a)
+                          dsdc::annotation::base_t *a,
+                          const dsdc_cksum_t *cksum)
 {
-    bool rc = lru_insert (k, o, a);
-    dsdc_res_t res = rc ? DSDC_REPLACED : DSDC_INSERTED;
+    dsdc_res_t res = lru_insert (k, o, a, cksum);
     if (show_debug (DSDC_DBG_MED)) {
         warn ("insert issued (rc=%d): %s\n", res, key_to_str (k).cstr ());
     }
@@ -562,39 +585,51 @@ dsdc_slave_t::lru_remove (const dsdc_key_t &k)
     return ret;
 }
 
-bool
+dsdc_res_t
 dsdc_slave_t::lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o,
-                          dsdc::annotation::base_t *a)
+                          dsdc::annotation::base_t *a,
+                          const dsdc_cksum_t *cksum)
 {
-    bool ret = false;
+    dsdc_res_t ret = DSDC_INSERTED;
     dsdc_cache_obj_t *co;
 
     if ((co = _objs[k])) {
 
-        lru_remove_obj (co, false, dsdc::AC_REPLACE);
+        if (cksum && !co->match_checksum (*cksum)) {
+            ret = DSDC_DATA_CHANGED;
+        } else {
 
-        // this reset needs to come after the above lru_remove_obj
-        // to preserve statistics.
-        co->reset ();
+            lru_remove_obj (co, false, dsdc::AC_REPLACE);
 
-        ret = true;
+            // this reset needs to come after the above lru_remove_obj
+            // to preserve statistics.
+            co->reset ();
+            
+            ret = DSDC_REPLACED;
+        }
+    } else if (cksum) {
+        ret = DSDC_DATA_DISAPPEARED;
     } else {
         co = New dsdc_cache_obj_t ();
+        ret = DSDC_INSERTED;
     }
 
-    co->set (k, o, a);
+    // Only in the success cases should we continue with the insert!
+    if (ret == DSDC_INSERTED || ret == DSDC_REPLACED) {
+        co->set (k, o, a);
 
-    size_t sz = co->size ();
+        size_t sz = co->size ();
 
-    // stop looping when either (1) we've made enough room or
-    // (2) there is nothing more to delete!
-    while (_lrusz && sz + _lrusz > _maxsz) {
-        lru_remove_obj (NULL, true, dsdc::AC_MAKE_ROOM);
+        // stop looping when either (1) we've made enough room or
+        // (2) there is nothing more to delete!
+        while (_lrusz && sz + _lrusz > _maxsz) {
+            lru_remove_obj (NULL, true, dsdc::AC_MAKE_ROOM);
+        }
+        
+        _lru.insert_tail (co);
+        _objs.insert (co);
+        _lrusz += co->size ();
     }
-
-    _lru.insert_tail (co);
-    _objs.insert (co);
-    _lrusz += co->size ();
 
     return ret;
 }
