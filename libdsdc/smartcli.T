@@ -231,6 +231,12 @@ dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
 }
 
 void
+dsdc_smartcli_t::put (ptr<dsdc_put3_arg_t> arg, cbi::ptr cb, bool safe)
+{
+    change_cache<dsdc_put3_arg_t> (arg->key, arg, int (DSDC_PUT3), cb, safe);
+}
+
+void
 dsdc_smartcli_t::put (ptr<dsdc_put4_arg_t> arg, cbi::ptr cb, bool safe)
 {
     change_cache<dsdc_put4_arg_t> (arg->key, arg, int (DSDC_PUT4), cb, safe);

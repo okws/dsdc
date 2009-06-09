@@ -328,6 +328,7 @@ public:
     //
     void put (ptr<dsdc_put_arg_t> arg, cbi::ptr cb = NULL, bool safe = false);
     void put (ptr<dsdc_put4_arg_t> arg, cbi::ptr cb = NULL, bool safe = false);
+    void put (ptr<dsdc_put3_arg_t> arg, cbi::ptr cb = NULL, bool safe = false);
     void get (ptr<dsdc_key_t> key, dsdc_get_res_cb_t cb,
               bool safe = false, int time_to_expire=-1,
               const annotation_t *a = NULL, CLOSURE);
@@ -602,17 +603,25 @@ dsdc_smartcli_t::put2 (const dsdc_key_t &k, const T &obj,
 {
     ptr<dsdc_put4_arg_t> arg4;
     ptr<dsdc_put_arg_t> arg;
+    ptr<dsdc_put3_arg_t> arg3;
     bool bad_encode = false;
-    if (a || ck) {
+    if (ck) {
         arg4 = New refcounted<dsdc_put4_arg_t> ();
         arg4->key = k;
         annotation_t::to_xdr (a, &arg4->annotation);
-        if (ck) {
-            arg4->checksum.alloc ();
-            *arg4->checksum = *ck;
-        }
+        arg4->checksum.alloc ();
+        *arg4->checksum = *ck;
         if (xdr2bytes (arg4->obj, obj)) {
             put (arg4, cb, false);
+        } else {
+            bad_encode = true;
+        }
+    } else if (a) {
+        arg3 = New refcounted<dsdc_put3_arg_t> ();
+        arg3->key = k;
+        annotation_t::to_xdr (a, &arg3->annotation);
+        if (xdr2bytes (arg3->obj, obj)) {
+            put (arg3, cb, false);
         } else {
             bad_encode = true;
         }
