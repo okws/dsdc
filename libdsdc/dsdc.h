@@ -9,18 +9,20 @@
 #define DSDC_VERSION_STR "0.5.0"
 #define DSDC_VERSION    5000
 
-#include "dsdc_prot.h"
-#include "dsdc_ring.h"
+#include "async.h"
+#include "arpc.h"
+#include "qhash.h"
 #include "crypt.h"
 #include "sha1.h"
-#include "arpc.h"
+#include "tame.h"
+
+#include "dsdc_prot.h"
+#include "dsdc_ring.h"
 #include "dsdc_state.h"
-#include "qhash.h"
 #include "dsdc_lock.h"
 #include "dsdc_const.h"
 #include "dsdc_stats.h"
 #include "dsdc_format.h"
-#include "tame.h"
 
 typedef dsdc::annotation::base_t annotation_t;
 
