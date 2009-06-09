@@ -11,7 +11,9 @@
 
 #include "dsdc_prot.h"
 #include "dsdc_ring.h"
+#include "crypt.h"
 #include "arpc.h"
+#include "sha1.h"
 #include "dsdc_state.h"
 #include "qhash.h"
 #include "dsdc_lock.h"
@@ -19,8 +21,6 @@
 #include "dsdc_stats.h"
 #include "dsdc_format.h"
 #include "tame.h"
-#include "crypt.h"
-#include "sha1.h"
 
 typedef dsdc::annotation::base_t annotation_t;
 
