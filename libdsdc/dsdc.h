@@ -19,6 +19,7 @@
 #include "dsdc_stats.h"
 #include "dsdc_format.h"
 #include "tame.h"
+#include "crypt.h"
 #include "sha1.h"
 
 typedef dsdc::annotation::base_t annotation_t;
