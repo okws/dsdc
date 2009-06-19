@@ -488,3 +488,16 @@ dsdci_master_t::retry (ptr<bool> df)
 }
 //
 //-----------------------------------------------------------------------
+
+bool 
+dsdc_smartcli_t::obj_too_big (const dsdc_obj_t &obj)
+{
+  // conservative limit with overhead from put packet
+  size_t lim = dsdc_packet_sz - 
+    sizeof (dsdc_put4_arg_t) - 
+    sizeof (dsdc_cksum_t);
+
+  return obj.size () >  lim;
+}
+
+//-----------------------------------------------------------------------

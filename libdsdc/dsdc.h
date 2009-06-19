@@ -348,6 +348,8 @@ public:
                                  const annotation_t *a = NULL,
                                  const dsdc_cksum_t *cks = NULL);
 
+    template<class T, class A> dsdc_res_t 
+    put2_helper (ptr<A> arg, const T &obj, cbi::ptr cb);
 
     template<class T>
     void get2 (ptr<dsdc_key_t> k,
@@ -385,6 +387,8 @@ public:
                    bool safe = false);
 
     str which_slave (const dsdc_key_t &k);
+
+    static bool obj_too_big (const dsdc_obj_t &obj);
 
 
     /**
@@ -590,7 +594,22 @@ dsdc_smartcli_t::change_cache (ptr<cc_t<T> > cc, bool safe)
 //
 //-----------------------------------------------------------------------
 
+//-----------------------------------------------------------------------
 
+template<class T, class A> dsdc_res_t 
+dsdc_smartcli_t::put2_helper (ptr<A> arg, const T &obj, cbi::ptr cb)
+{
+    dsdc_res_t err = DSDC_OK;
+    if (!xdr2bytes (arg->obj, obj)) {
+        err = DSDC_ERRENCODE;
+    } else if (obj_too_big (arg->obj)) {
+        err = DSDC_TOO_BIG;
+    } else {
+        put (arg, cb, false);
+        err = DSDC_OK;
+    }
+    return err;
+}
 
 //-----------------------------------------------------------------------
 
@@ -604,40 +623,28 @@ dsdc_smartcli_t::put2 (const dsdc_key_t &k, const T &obj,
     ptr<dsdc_put4_arg_t> arg4;
     ptr<dsdc_put_arg_t> arg;
     ptr<dsdc_put3_arg_t> arg3;
-    bool bad_encode = false;
+    dsdc_res_t res = DSDC_OK;
     if (ck) {
         arg4 = New refcounted<dsdc_put4_arg_t> ();
         arg4->key = k;
         annotation_t::to_xdr (a, &arg4->annotation);
         arg4->checksum.alloc ();
         *arg4->checksum = *ck;
-        if (xdr2bytes (arg4->obj, obj)) {
-            put (arg4, cb, false);
-        } else {
-            bad_encode = true;
-        }
+        res = put2_helper (arg4, obj, cb);
     } else if (a) {
         arg3 = New refcounted<dsdc_put3_arg_t> ();
         arg3->key = k;
         annotation_t::to_xdr (a, &arg3->annotation);
-        if (xdr2bytes (arg3->obj, obj)) {
-            put (arg3, cb, false);
-        } else {
-            bad_encode = true;
-        }
+        res = put2_helper (arg3, obj, cb);
     } else {
         // Use compatibility layer if not using annotations
         arg = New refcounted<dsdc_put_arg_t> ();
         arg->key = k;
-        if (xdr2bytes (arg->obj, obj)) {
-            put (arg, cb, false);
-        } else {
-            bad_encode = true;
-        }
+        res = put2_helper (arg3, obj, cb);
     }
 
-    if (bad_encode)
-        cb(DSDC_ERRENCODE);
+    if (res != DSDC_OK)
+        cb(res);
 }
 
 //

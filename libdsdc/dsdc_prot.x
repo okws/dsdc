@@ -118,7 +118,8 @@ enum dsdc_res_t {
   DSDC_ERRENCODE = 11,		/* Error encoding object. */
   DSDC_BAD_STATS = 12,          /* Error in statistics collection */
   DSDC_DATA_CHANGED = 13,       /* checksum commit precondition failed */
-  DSDC_DATA_DISAPPEARED = 14    /* as above, but data disappeared */
+  DSDC_DATA_DISAPPEARED = 14,   /* as above, but data disappeared */
+  DSDC_TOO_BIG = 15             /* packet was too big; don't send */
 };
 
 /*
