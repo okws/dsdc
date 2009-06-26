@@ -70,6 +70,7 @@ getMatchAnswered(matchd_qanswer_row_t &answer)
     return (true);
 }
 
+#if !SFSLITE_AT_VERSION(1,2,8,3)
 inline const strbuf &
 strbuf_cat (const strbuf &b, double n)
 {
@@ -79,6 +80,7 @@ strbuf_cat (const strbuf &b, double n)
     b << buf;
     return b;
 }
+#endif /* SFSLITE_AT_VERSION */
 
 static double
 calcMatchAvg(
