@@ -1,4 +1,4 @@
-// -*-c++-*-
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 /* $Id$ */
 
 #ifndef _DSDC_STATE_H
@@ -35,6 +35,7 @@ protected:
 
     void refresh_lock_server ();
     void change_lock_server_to (aclnt_wrap_t *nl);
+    str fingerprint (str *in) const;
 
     dsdcx_state_t  _system_state;
     dsdc_key_t _system_state_hash;

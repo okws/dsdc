@@ -1,7 +1,10 @@
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 
 #include "dsdc_state.h"
 #include "dsdc_const.h"
 #include "crypt.h"
+
+//-----------------------------------------------------------------------
 
 void
 dsdc_system_state_cache_t::change_lock_server_to (aclnt_wrap_t *nl)
@@ -19,6 +22,8 @@ dsdc_system_state_cache_t::change_lock_server_to (aclnt_wrap_t *nl)
         warn << "activating new lock server: "
         << _lock_server->remote_peer_id () << "\n";
 }
+
+//-----------------------------------------------------------------------
 
 void
 dsdc_system_state_cache_t::refresh_lock_server ()
@@ -39,6 +44,8 @@ dsdc_system_state_cache_t::refresh_lock_server ()
     }
 }
 
+//-----------------------------------------------------------------------
+
 void
 dsdc_system_state_cache_t::handle_refresh (const dsdc_getstate_res_t &res)
 {
@@ -58,6 +65,8 @@ dsdc_system_state_cache_t::handle_refresh (const dsdc_getstate_res_t &res)
     }
 }
 
+//-----------------------------------------------------------------------
+
 void
 dsdc_system_state_cache_t::construct_tree ()
 {
@@ -72,6 +81,8 @@ dsdc_system_state_cache_t::construct_tree ()
     }
 }
 
+//-----------------------------------------------------------------------
+
 dsdc_system_state_cache_t::dsdc_system_state_cache_t ()
         : _n_updates_since_clean (0),
         _destroyed (New refcounted<bool> (false)),
@@ -80,6 +91,8 @@ dsdc_system_state_cache_t::dsdc_system_state_cache_t ()
     memset (_system_state_hash.base (), 0, _system_state_hash.size ());
 }
 
+//-----------------------------------------------------------------------
+
 dsdc_system_state_cache_t::~dsdc_system_state_cache_t ()
 {
     *_destroyed = true;
@@ -87,12 +100,16 @@ dsdc_system_state_cache_t::~dsdc_system_state_cache_t ()
     //_hash_ring.deleteall ();
 }
 
+//-----------------------------------------------------------------------
+
 void
 dsdc_system_state_cache_t::schedule_refresh ()
 {
     delaycb (dsdcs_getstate_interval, 0,
              wrap (this, &dsdc_system_state_cache_t::refresh, _destroyed));
 }
+
+//-----------------------------------------------------------------------
 
 void
 dsdc_system_state_cache_t::refresh_cb (ptr<bool> df,
@@ -127,4 +144,14 @@ dsdc_system_state_cache_t::refresh (ptr<bool> df)
                _destroyed, res));
     }
 }
+
+//-----------------------------------------------------------------------
+
+str
+dsdc_system_state_cache_t::fingerprint (str *p) const
+{
+    return _hash_ring.fingerprint (p);
+}
+
+//-----------------------------------------------------------------------
 

@@ -1,4 +1,4 @@
-// -*-c++-*-
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 /* $Id$ */
 
 #ifndef _DSDC_HASHRING_H
@@ -34,6 +34,7 @@ public:
     itree_entry<dsdc_ring_node_t> _lnk;      // for implementing itree
 
     aclnt_wrap_t * get_aclnt_wrap () { return _aclnt_wrap; }
+    const aclnt_wrap_t * get_aclnt_wrap () const { return _aclnt_wrap; }
 
 private:
     aclnt_wrap_t *_aclnt_wrap;
@@ -49,6 +50,10 @@ class dsdc_hash_ring_t :
 {
 public:
     dsdc_ring_node_t *successor (const dsdc_key_t &k) const;
+    str fingerprint (str *long_fp) const;
+private:
+    str fingerprint_long () const;
+    void fingerprint_long (vec<str> *v) const;
 };
 
 #endif

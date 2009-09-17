@@ -1,5 +1,7 @@
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 
 #include "dsdc_ring.h"
+#include "crypt.h"
 
 dsdc_ring_node_t::dsdc_ring_node_t (aclnt_wrap_t *w, const dsdc_key_t &k)
         :  _aclnt_wrap (w)
@@ -59,3 +61,50 @@ dsdc_hash_ring_t::successor (const dsdc_key_t &k) const
 //
 //-----------------------------------------------------------------------
 
+//-----------------------------------------------------------------------
+
+str
+dsdc_hash_ring_t::fingerprint (str *long_fp) const
+{
+    str lfp = fingerprint_long ();
+    if (long_fp) { *long_fp = lfp; }
+    char buf[sha1::hashsize];
+    sha1_hash (buf, lfp.cstr (), lfp.len ());
+    return str (buf, sha1::hashsize);
+}
+
+//-----------------------------------------------------------------------
+
+str
+dsdc_hash_ring_t::fingerprint_long () const
+{
+    vec<str> v;
+    fingerprint_long (&v);
+    strbuf b;
+    for (size_t i = 0; i < v.size (); i++) {
+        if (i > 0) b << ",";
+        b << v[i];
+    }
+    return b;
+}
+
+//-----------------------------------------------------------------------
+
+void
+dsdc_hash_ring_t::fingerprint_long (vec<str> *vc) const
+{
+    const dsdc_ring_node_t *n, *nn;
+    for (n = first (); n; n = nn) {
+        nn = next (n);
+        str k = armor32 (n->_key.base (), n->_key.size ());
+        str v;
+        const aclnt_wrap_t *w = n->get_aclnt_wrap ();
+        if (w) { v = w->remote_peer_id (); }
+        if (k && v) {
+            strbuf b ("%s:%s", k.cstr (), v.cstr ());
+            vc->push_back (b);
+        }
+    }
+}
+
+//-----------------------------------------------------------------------
