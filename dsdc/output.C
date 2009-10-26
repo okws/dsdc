@@ -2,7 +2,9 @@
 #include "dsdc_admin.h"
 #include "aios.h"
 
-#define __STDC_FORMAT_MACROS
+#ifndef __STDC_FORMAT_MACROS
+# define __STDC_FORMAT_MACROS 1
+#endif
 #include <inttypes.h>
 
 void
