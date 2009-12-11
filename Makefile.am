@@ -4,7 +4,7 @@
 
 SUBDIRS = libdsdc dsdc tst
 
-EXTRA_DIST = setup autoconf.sed .cvsignore setup.gnu
+EXTRA_DIST = setup .cvsignore setup.gnu
 
 CLEANFILES = core *.core *~
 
