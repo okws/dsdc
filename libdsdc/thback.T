@@ -1,0 +1,419 @@
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
+
+#include <pthread.h>
+#include "fscache.h"
+#include "tame_io.h"
+
+#ifndef __STDC_FORMAT_MACROS
+# define __STDC_FORMAT_MACROS
+#endif
+#include <inttypes.h>
+
+namespace fscache {
+
+#define BUFSZ 64
+    //-----------------------------------------------------------------------
+
+#define CI "zu"
+
+#define TWARN0(fmt)                             \
+    fprintf (stderr, "TXX[%" CI "] " fmt, cell->_id)
+#define TWARN(fmt, ...)                                             \
+    fprintf (stderr, "TXX[%" CI "] " fmt, cell->_id, __VA_ARGS__)
+
+    //-----------------------------------------------------------------------
+
+    typedef thread_backend_t::out_t out_t;
+    typedef thread_backend_t::in_t in_t;
+    typedef thread_backend_t::cell_t cell_t;
+
+    bool
+    handle_event (cell_t *cell)
+    {
+        typedef simple_fast_backend_t sb;
+        bool ret = true;
+        int rc = 0;
+        const in_t &in = cell->_in;
+
+        switch (cell->_in._op) {
+        case thread_backend_t::OP_FILE2STR: 
+            rc = sb::s_file2str (in._path, &cell->_out._data);
+            break;
+        case thread_backend_t::OP_STR2FILE:
+            rc = sb::s_str2file (in._path, in._data, in._mode, in._can_fail);
+            break;
+        case thread_backend_t::OP_REMOVE:
+            rc = sb::s_remove (in._path);
+            break;
+        case thread_backend_t::OP_STATVFS:
+            rc = sb::s_statvfs (in._path, &cell->_out._statvfs);
+            break;
+        case thread_backend_t::OP_MKDIR:
+            rc = sb::s_mkdir (in._path, in._mode);
+            break;
+        case thread_backend_t::OP_SHUTDOWN:
+            ret = false;
+            break;
+        case thread_backend_t::OP_STAT:
+            rc = sb::s_stat (in._path, &cell->_out._stat);
+            break;
+        }
+        cell->_out._rc = rc;
+
+        if (cell->_cfg->debug(DEBUG_OP_TRACE)) {
+            str p = in._path;
+            if (!p) { p = "<null>"; }
+            TWARN("op-trace: op=%d; file=%s; rc=%d\n",
+                  int (cell->_in._op), p.cstr (), rc);
+        }
+
+        return ret;
+    }
+    
+    //-----------------------------------------------------------------------
+
+    static void
+    thread_run (cell_t *cell)
+    {
+        char buf[BUFSZ];
+        bool go = true;
+        TWARN0("running\n");
+       
+        while (go) {
+            TWARN0("A\n");
+            ssize_t rc = read (cell->_thread_fd, buf, BUFSZ);
+            TWARN("B %d\n", int (rc));
+            if (rc < 0 && errno != EAGAIN) {
+                TWARN ("read failed: %s", strerror (errno));
+                go = false;
+            } else {
+                go = handle_event (cell);
+                TWARN0("C\n");
+                rc = sprintf (buf, "1");
+                write (cell->_thread_fd, buf, rc);
+            }
+        }
+        TWARN0 ("thread exiting");
+        cell->_alive = false;
+        pthread_exit (NULL);
+    }
+    
+    //-----------------------------------------------------------------------
+    
+    static void * thread_run_v (void *v) 
+    { thread_run (reinterpret_cast<cell_t *> (v)); return NULL; }
+            
+    //-----------------------------------------------------------------------
+            
+    thread_backend_t::thread_backend_t (const cfg_t *c) 
+        : backend_t (), 
+          _cfg (c),
+          _n_threads (c->_n_aiods > 0 ? c->_n_aiods : 1),
+          _alive (New refcounted<bool> (true)) {}
+
+    //-----------------------------------------------------------------------
+
+    thread_backend_t::~thread_backend_t () { *_alive = false; }
+
+    //-----------------------------------------------------------------------
+
+    bool
+    thread_backend_t::mkthread (size_t i, cell_t *slot)
+    {
+        bool ret = true;
+        int fds[2];
+        int rc = socketpair (AF_UNIX, SOCK_STREAM, 0, fds);
+        if (rc < 0) {
+            warn ("socketpair: %m\n");
+            ret = false;
+        } else {
+            memset ((void *)slot, 0, sizeof (slot));
+            slot->_id = i;
+            slot->_alive = true;
+            slot->_main_fd = fds[0];
+            slot->_cfg = _cfg;
+            make_async (fds[0]);
+            slot->_thread_fd = fds[1];
+            int rc = pthread_create (&slot->_thread, NULL, 
+                                     thread_run_v, slot);
+            if (rc != 0) {
+                warn ("pthread_create failed: %m\n");
+                ret = false;
+            } else {
+                return_thread (i);
+            }
+        }
+        return ret;
+    }
+
+    //-----------------------------------------------------------------------
+
+    bool
+    thread_backend_t::init ()
+    {
+        bool ret = true;
+        _threads.setsize (_n_threads);
+        for (size_t i = 0; i < _n_threads; i++) {
+            if (!mkthread (i, &_threads[i])) {
+                ret = false;
+            } else {
+                _ready_q.push_back (i);
+            }
+        }
+        return ret;
+    }
+
+    //-----------------------------------------------------------------------
+
+    bool 
+    thread_backend_t::fire_off (cell_t *cell)
+    {
+        char buf[BUFSZ];
+        int dlen = sprintf (buf, "1");
+        int rc = write (cell->_main_fd, buf, dlen);
+        bool ret = false;
+        if (rc < 0) {
+            warn ("XX[%" CI "] write failure: %m\n", cell->_id);
+        } else if (rc != dlen) {
+            warn ("XX[%" CI "] wrong-sized write: len=%d (v %d)\n", 
+                  cell->_id, rc, dlen);
+        } else {
+            ret = true;
+        }
+        return ret;
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    thread_backend_t::harvest (cell_t *cell, evb_t ev)
+    {
+        tvars {
+            int rc (0);
+            char buf[BUFSZ];
+            bool go (true);
+        }
+
+        while (go) {
+            twait { tame::waitread (cell->_main_fd, mkevent ()); }
+            rc = read (cell->_main_fd, buf, BUFSZ);
+            go = false;
+            if (rc == 0) {
+                TWARN0 ("EOF on thread\n");
+            } else if (rc < 0 && errno == EAGAIN) {
+                go = true;
+                /* go again */
+            } else if (rc < 0) {
+                TWARN("unexpected read failure: %s", strerror (errno));
+            }
+        }
+        ev->trigger (rc > 0);
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    thread_backend_t::grab_thread (ev_sz_t ev)
+    {
+        tvars {
+            size_t ret;
+        }
+        twait { _lock.acquire (tame::lock_t::EXCLUSIVE, mkevent ()); }
+        while (!_ready_q.size ()) {
+            twait { _waiter_ev = mkevent (); }
+        }
+        ret = _ready_q.pop_back ();
+        _lock.release ();
+        ev->trigger (ret);
+    }
+
+    //-----------------------------------------------------------------------
+
+    void
+    thread_backend_t::return_thread (size_t i)
+    {
+        _ready_q.push_back (i);
+        if (_waiter_ev) {
+            evv_t::ptr tmp = _waiter_ev;
+            _waiter_ev = NULL;
+            tmp->trigger ();
+        }
+    }
+
+    //-----------------------------------------------------------------------
+
+    static int
+    fix_rc (bool ok, const out_t &out)
+    {
+        return ok ? out._rc : -EINVAL;
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    thread_backend_t::statvfs_T (str d, struct statvfs *buf, evi_t ev)
+    {
+        tvars {
+            in_t in;
+            out_t out;
+            bool ok;
+        }
+        in._op = OP_STATVFS;
+        in._path = d;
+        twait { execute (in, &out, mkevent (ok)); }
+        if (ok) { *buf = out._statvfs; }
+        ev->trigger (fix_rc (ok, out));
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    thread_backend_t::file2str_T (str fn, evis_t ev)
+    {
+        tvars {
+            in_t in;
+            out_t out;
+            bool ok;
+            str dat;
+        }
+        in._op = OP_FILE2STR;
+        in._path = fn;
+        twait { execute (in, &out, mkevent (ok)); }
+        if (ok) { dat = out._data; }
+        ev->trigger (fix_rc (ok, out), dat);
+    }
+
+    //-----------------------------------------------------------------------
+    
+    tamed void
+    thread_backend_t::remove_T (str f, evi_t ev)
+    {
+        tvars {
+            in_t in;
+            out_t out;
+            bool ok;
+        }
+        in._op = OP_REMOVE;
+        in._path = f;
+        twait { execute (in, &out, mkevent (ok)); }
+        ev->trigger (fix_rc (ok, out));
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    thread_backend_t::stat_T (str f, struct stat *sb, evi_t ev)
+    {
+        tvars {
+            in_t in;
+            out_t out;
+            bool ok;
+        }
+        in._op = OP_STAT;
+        in._path = f;
+        twait { execute (in, &out, mkevent (ok)); }
+        ev->trigger (fix_rc (ok, out));
+    }
+
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    thread_backend_t::mkdir_T (str f, int mode, evi_t ev)
+    {
+        tvars {
+            in_t in;
+            out_t out;
+            bool ok;
+        }
+        in._op = OP_MKDIR;
+        in._path = f;
+        in._mode = mode;
+        twait { execute (in, &out, mkevent (ok)); }
+        ev->trigger (fix_rc (ok, out));
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    thread_backend_t::str2file_inner_T (str f, str s, int md, bool cf, evi_t ev)
+    {
+        tvars {
+            in_t in;
+            out_t out;
+            bool ok;
+        }
+        in._op = OP_STR2FILE;
+        in._path = f;
+        in._data = s;
+        in._mode = md;
+        in._can_fail = cf;
+        twait { execute (in, &out, mkevent (ok)); }
+        ev->trigger (fix_rc (ok, out));
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    thread_backend_t::execute (const in_t &in, out_t *out, evb_t ev)
+    {
+
+        tvars {
+            cell_t *cell;
+            size_t id;
+            bool ok;
+        }
+
+        twait { grab_thread (mkevent (id)); }
+        cell = &_threads[id];
+        cell->_in = in;
+
+        ok = fire_off (cell);
+        if (ok) {
+            twait { harvest (cell, mkevent (ok)); }
+            if (!ok) {
+                warn ("XX[%d] failed to harvest thread\n", int (id));
+            } else {
+                *out = cell->_out;
+            }
+        } else {
+            warn ("XX[%d] failed to fire thread\n", int (id));
+        }
+        
+        // XXX find someplace better to check this.
+        if (ok && !cell->_alive) {
+            warn ("XX[%d] thread died!\n", int (id));
+            ok = false;
+        }
+
+        ev->trigger (ok);
+
+        if (!ok) { fix_thread (id, cell); }
+        else { return_thread (id); }
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    thread_backend_t::fix_thread (size_t id, cell_t *cell)
+    {
+        tvars {
+            bool ok (false);
+            int w (1);
+            ptr<bool> alive;
+        }
+        alive = _alive;
+
+        while (!ok && *alive) {
+            ok = mkthread (id, cell);
+            if (!ok) {
+                twait { delaycb (w, 0, mkevent ()); }
+                warn ("XX[%" CI "] failed to make new thread; "
+                      "will retry in %ds\n", id, w);
+            }
+        }
+    }
+
+    //-----------------------------------------------------------------------
+
+};

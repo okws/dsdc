@@ -7,7 +7,7 @@ if DSDC_NO_CUPID
 libdsdc_la_SOURCES = dsdc_prot.C dsdc_util.C state.C const.C ring.C \
 		     smartcli.C smartcli_mget.C lock.C slave.C \
 			stats.C fscache.C fslru.C stats1.C \
-			stats2.C
+			stats2.C thback.C
 
 dsdcinclude_HEADERS = dsdc_prot.h dsdc.h dsdc_ring.h dsdc_const.h \
 		     dsdc_util.h dsdc_slave.h dsdc_state.h \
@@ -18,7 +18,7 @@ else
 libdsdc_la_SOURCES = dsdc_prot.C dsdc_util.C state.C const.C ring.C \
 		     smartcli.C smartcli_mget.C match.C lock.C \
 		     slave.C stats.C fscache.C fslru.C stats1.C \
-			stats2.C
+			stats2.C thback.C
 
 dsdcinclude_HEADERS = dsdc_prot.h dsdc.h dsdc_ring.h dsdc_const.h \
 		     dsdc_util.h dsdc_slave.h dsdc_state.h \

@@ -1,5 +1,4 @@
-
-// -*-c++-*-
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 
 #include "fscache.h"
 #include <stdlib.h>
@@ -20,10 +19,17 @@ main2 (fscache::cfg_t *cfg, str name, u_int32_t key, str fn, int opts)
         int rc;
         str ffn;
     }
+
+    if (!fsc.init ()) {
+      warn << "failed to initialize the backend FS-engine!\n";
+      exit (1);
+    }
+
     if (!(fdat = file2str (fn))) {
         warn << "Cannot open file: " << fn << "\n";
         exit (1);
     }
+
     ffn = fsc.filename (id);
     warn << "File name is: '" << ffn << "'\n";
     t = time (NULL);
@@ -76,8 +82,15 @@ main2 (fscache::cfg_t *cfg, str name, u_int32_t key, str fn, int opts)
 static void
 usage ()
 {
-    warn << "usage: " << progname << " [-r<root>] [-n<levels>] "
-    << " <name> <key> <file>\n";
+    warn << "usage: " << progname << " [-tsDc] [-r<root>] [-n<levels>] "
+         << " <name> <key> <file>\n"
+         << "\n"
+         << "  OPTIONS:\n"
+         << "     -d   set debug tracing\n"
+         << "     -s   simple-fast backend\n"
+         << "     -t   threaded backend\n"
+         << "     -D   don't delete the file\n"
+         << "     -c   corrupt the file\n";
     exit (1);
 }
 
@@ -97,10 +110,13 @@ main (int argc, char *argv[])
 
     cfg._n_levels = 2;
 
-    while ((ch = getopt (argc, argv, "sr:n:cD")) != -1) {
+    while ((ch = getopt (argc, argv, "tsr:n:cDd")) != -1) {
         switch (ch) {
         case 's':
             cfg._backend = fscache::BACKEND_SIMPLE_FAST;
+            break;
+        case 't':
+            cfg._backend = fscache::BACKEND_THREADS;
             break;
         case 'c':
             opts |= OPT_CORRUPT;
@@ -114,6 +130,9 @@ main (int argc, char *argv[])
         case 'n':
             if (!convertint (optarg, &cfg._n_levels))
                 usage ();
+            break;
+        case 'd':
+            cfg.set_debug_flag (fscache::DEBUG_OP_TRACE);
             break;
         default:
             usage ();

@@ -12,7 +12,7 @@ tamed static void
 main2 (fscache::cfg_t *cfg)
 {
     tvars {
-        holdvar fscache::engine_t fsc (cfg);
+        fscache::engine_t fsc (cfg);
         fscache::lru_t<u_int64_t, my_str_t> l ("foos", &fsc, 60, 1);
         my_str_t s, s2;
         int rc;
@@ -20,6 +20,10 @@ main2 (fscache::cfg_t *cfg)
         ptr<my_str_t> sp, sp2, sp3, sp5, sp6;
         int i, j;
         int rc2, rc3, rc4;
+    }
+
+    if (!fsc.init ()) {
+      fatal << "failed to initialize the backend FS-engine!\n";
     }
 
     // make 1 trip through the select loop

@@ -8,33 +8,59 @@
 #include "dynenum.h"
 #include "parseopt.h"
 
-#ifndef TRIGGER
-#define TRIGGER(x,...) (*cb)(__VA_ARGS__)
-#endif
-
 #ifndef __STDC_FORMAT_MACROS
 # define __STDC_FORMAT_MACROS
 #endif
 #include <inttypes.h>
 
 namespace fscache {
-
-//-----------------------------------------------------------------------
+    
+    //-----------------------------------------------------------------------
 
     cfg_t::cfg_t (bool fake_jail)
             : _backend (BACKEND_AIOD),
-            _n_levels (3),
-            _n_dig (1),
-            _root ("/disk/fscache"),
-            _n_aiods (5),
-            _shmsize (0x200000),
-            _maxbuf (0x10000),
-            _blocksz (0x4000),
-            _file_mode (0664),
-            _fake_jail (fake_jail),
-            _skip_sha (false)
+              _n_levels (3),
+              _n_dig (1),
+              _root ("/disk/fscache"),
+              _n_aiods (5),
+              _shmsize (0x200000),
+              _maxbuf (0x10000),
+              _blocksz (0x4000),
+              _file_mode (0664),
+              _fake_jail (fake_jail),
+              _skip_sha (false),
+              _debug (0)
+    {}
+
+    //-----------------------------------------------------------------------
+    
+    void
+    cfg_t::set_debug_options (const char *s)
     {
+        _debug = 0;
+        for (const char *cp = s; *cp; cp++) {
+            switch (*cp) {
+            case 't': _debug |= DEBUG_OP_TRACE; break;
+            default:
+                warn ("unknown config flag '%c' passed\n", *cp);
+                break;
+            }
+        }
     }
+
+    //-----------------------------------------------------------------------
+
+    str
+    cfg_t::get_debug_docs ()
+    {
+        strbuf b;
+        b << "  -t   debug operation traces\n";
+        return b;
+    }
+
+    //-----------------------------------------------------------------------
+
+    str cfg_t::get_debug_optstr () { return "s"; }
 
     //-----------------------------------------------------------------------
 
@@ -89,7 +115,7 @@ namespace fscache {
 #undef NDIG
 #undef FMT_SZ
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
 
     engine_t::engine_t (const cfg_t *c) : _cfg (c)
     {
@@ -103,20 +129,23 @@ namespace fscache {
         case BACKEND_SIMPLE_FAST:
             _backend = New simple_fast_backend_t ();
             break;
+        case BACKEND_THREADS:
+            _backend = New thread_backend_t (c);
+            break;
         default:
             panic ("Unknown backend given: %d\n", int (c->backend ()));
             break;
         }
     }
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
 
     engine_t::~engine_t ()
     {
         delete _backend;
     }
-
-//-----------------------------------------------------------------------
+    
+    //-----------------------------------------------------------------------
 
     tamed void
     engine_t::load (file_id_t id, cbits_t cb)
@@ -154,10 +183,11 @@ namespace fscache {
                 ret_str = m;
             }
         }
-        TRIGGER (cb, rc, tm, ret_str);
+
+        (*cb) (rc, tm, ret_str);
     }
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
 
     static bool
     write_null_checksum (char *v)
@@ -166,10 +196,10 @@ namespace fscache {
         return true;
     }
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
 
     tamed void
-    engine_t::store (file_id_t id, time_t tm, str data, cbi cb)
+    engine_t::store (file_id_t id, time_t tm, str data, evi_t ev)
     {
         tvars {
             str fn;
@@ -196,13 +226,13 @@ namespace fscache {
                 _backend->str2file (fn, out, _cfg->file_mode (), mkevent (rc));
             }
         }
-        TRIGGER (cb, rc);
+        ev->trigger (rc);
     }
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
 
     tamed void
-    engine_t::remove (file_id_t id, cbi cb)
+    engine_t::remove (file_id_t id, evi_t ev)
     {
         tvars {
             str fn;
@@ -210,10 +240,10 @@ namespace fscache {
         }
         fn = filename (id);
         twait { _backend->remove (fn, mkevent (rc)); }
-        TRIGGER (cb, rc);
+        ev->trigger (rc);
     }
-
-//-----------------------------------------------------------------------
+    
+    //-----------------------------------------------------------------------
 
     str
     engine_t::filename (file_id_t id) const
@@ -227,31 +257,44 @@ namespace fscache {
         return b;
     }
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
 
-    void
-    simple_backend_t::file2str (str fn, cbis_t cb)
+    int
+    simple_backend_t::s_file2str (str fn, str *out)
     {
+        int ret;
         str s = ::file2str (fn);
         if (s) {
-            TRIGGER (cb, 0, s);
+            ret = 0;
         } else {
-            TRIGGER (cb, 0-errno, NULL);
+            ret = 0 - errno;
         }
+        *out = s;
+        return ret;
     }
 
-//-----------------------------------------------------------------------
+
+    //-----------------------------------------------------------------------
 
     void
-    simple_fast_backend_t::str2file (str fn, str s, int mode, evi_t ev)
+    simple_backend_t::file2str (str fn, evis_t ev)
+    {
+        int ret;
+        str out;
+        ret = s_file2str (fn, &out);
+        ev->trigger (ret, out);
+    }
+
+    //-----------------------------------------------------------------------
+
+    int
+    simple_fast_backend_t::s_str2file (str fn, str s, int mode, bool canfail)
     {
         int fd = ::open (fn.cstr (), O_WRONLY | O_CREAT, mode);
         int rc = 0;
         const char *fnc = fn.cstr ();
 
-        if (fd < 0) {
-            warn ("failed to open file %s: %m\n", fnc);
-        } else {
+        if (fd >= 0) {
             size_t bsz = 8196;
             const char *bp = s.cstr ();
             const char *endp = s.cstr () + s.len ();
@@ -270,36 +313,85 @@ namespace fscache {
                 }
             }
             close (fd);
+        } else {
+            rc = errno;
+            if (!canfail) {
+                warn ("open on file '%s' failed: %m\n", fnc);
+            }
         }
-        ev->trigger (0 - rc);
+        return (0 - rc);
     }
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
 
-    void
-    simple_backend_t::str2file (str fn, str s, int mode, evi_t ev)
+    tamed void
+    backend_t::str2file_T (str fn, str s, int mode, evi_t ev)
     {
-        bool b = ::str2file (fn, s, mode);
-        int rc = 0;
-        if (!b) {
-            rc = (errno > 0) ? -errno : -EIO;
+        tvars {
+            int rc;
+        }
+        twait { str2file_inner (fn, s, mode, true, mkevent (rc)); }
+        if (rc == -ENOENT) {
+            twait { mk_parent_dirs (fn, 0777, mkevent (rc)); }
+            if (rc == 0) {
+                twait { str2file_inner (fn, s, mode, false, mkevent (rc)); }
+            }
         }
         ev->trigger (rc);
     }
 
-//-----------------------------------------------------------------------
-
+    //-----------------------------------------------------------------------
+    
     void
-    simple_backend_t::remove (str f, cbi cb)
+    simple_fast_backend_t::str2file_inner (str fn, str s, int mode, 
+                                           bool cf, evi_t ev)
     {
-        int rc = unlink (f.cstr ());
-        TRIGGER (cb, rc == 0 ? 0 : 0 - errno);
+        int rc = simple_fast_backend_t::s_str2file (fn, s, mode, cf);
+        ev->trigger (rc);
     }
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
+
+    int
+    simple_backend_t::s_str2file (str fn, str s, int mode, bool canfail)
+    {
+        bool b = ::str2file (fn, s, mode);
+        int rc = (b && errno > 0) ? -errno : -EIO;
+        return rc;
+    }
+
+    //-----------------------------------------------------------------------
+
+    void
+    simple_backend_t::str2file_inner (str fn, str s, int md, bool cf, evi_t ev)
+    {
+        int rc = s_str2file (fn, s, md, cf);
+        ev->trigger (rc);
+    }
+
+    //-----------------------------------------------------------------------
+
+    int
+    simple_backend_t::s_remove (str f)
+    {
+        int rc = unlink (f.cstr ());
+        if (rc != 0) { rc = 0 - errno; }
+        return rc;
+    }
+
+    //-----------------------------------------------------------------------
+
+    void
+    simple_backend_t::remove (str f, evi_t ev)
+    {
+        int rc = s_remove (f);
+        ev->trigger (rc);
+    }
+
+    //-----------------------------------------------------------------------
 
     tamed void
-    aiod_backend_t::file2str_T (str fn, cbis_t cb)
+    aiod_backend_t::file2str_T (str fn, evis_t ev)
     {
         tvars {
             int rc, crc;
@@ -361,10 +453,10 @@ namespace fscache {
             // reversing the polarity of errnos.
             rc = 0 - rc;
         }
-        TRIGGER (cb, rc, ret);
+        ev->trigger (rc, ret);
     }
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
 
     tamed void
     aiod_backend_t::str2file_T (str fn, str s, int mode, evi_t ev)
@@ -430,33 +522,33 @@ namespace fscache {
         ev->trigger (rc);
     }
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
 
     tamed void
-    aiod_backend_t::remove_T (str f, cbi cb)
+    aiod_backend_t::remove_T (str f, evi_t ev)
     {
         tvars {
             int rc;
         }
         twait { _aiod->unlink (f, mkevent (rc)); }
-        TRIGGER (cb, rc);
+        ev->trigger (rc);
     }
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
 
     aiod_backend_t::aiod_backend_t (const cfg_t *c) : _cfg (c)
     {
         _aiod = New aiod (_cfg->n_aiods (), _cfg->shmsize (), _cfg->maxbuf ());
     }
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
 
     aiod_backend_t::~aiod_backend_t ()
     {
         if (_aiod) _aiod->finalize ();
     }
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
 
     tamed void
     backend_t::mk_parent_dirs (str s, int mode, evi_t ev)
@@ -476,7 +568,7 @@ namespace fscache {
             if (*ep == '/' && !first) {
                 *ep = 0;
                 twait { mkdir (bp, mode, mkevent (rc)); }
-                if (rc == EEXIST) {
+                if (rc == -EEXIST) {
                     rc = 0;
                 } else if (rc != 0) {
                     errno = -rc;
@@ -488,7 +580,7 @@ namespace fscache {
         ev->trigger (rc);
     }
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
 
     tamed void
     aiod_backend_t::mkdir_T (str d, int mode, evi_t ev)
@@ -497,16 +589,25 @@ namespace fscache {
             int rc;
         }
         twait { _aiod->mkdir (d, mode, mkevent (rc)); }
-        ev->trigger (rc);
+        ev->trigger (0 - rc);
     }
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
+    
+    int 
+    simple_backend_t::s_mkdir (str d, int mode)
+    {
+        int rc = ::mkdir (d.cstr (), mode);
+        if (rc != 0) rc = -errno;
+        return rc;
+    }
+
+    //-----------------------------------------------------------------------
 
     void
     simple_backend_t::mkdir (str d, int mode, evi_t ev)
     {
-        int rc = ::mkdir (d.cstr (), mode);
-        if (rc != 0) rc = -errno;
+        int rc = s_mkdir (d, mode);
         ev->trigger (rc);
     }
 
@@ -533,15 +634,42 @@ namespace fscache {
 
     //-----------------------------------------------------------------------
 
-    void
-    simple_backend_t::statvfs (str d, struct statvfs *buf, evi_t ev)
+    int
+    simple_backend_t::s_statvfs (str d, struct statvfs *buf)
     {
         int rc = ::statvfs (d.cstr (), buf);
         if (rc != 0) rc = -errno;
+        return rc;
+    }
+
+    //-----------------------------------------------------------------------
+
+    int
+    simple_backend_t::s_stat (str f, struct stat *sb)
+    {
+        int rc = ::stat (f.cstr (), sb);
+        if (rc != 0) rc = -errno;
+        return rc;
+    }
+
+    //-----------------------------------------------------------------------
+
+    void
+    simple_backend_t::stat (str f, struct stat *sb, evi_t ev)
+    {
+        ev->trigger (s_stat (f, sb));
+    }
+
+    //-----------------------------------------------------------------------
+
+    void
+    simple_backend_t::statvfs (str d, struct statvfs *buf, evi_t ev)
+    {
+        int rc = s_statvfs (d, buf);
         ev->trigger (rc);
     }
 
-//-----------------------------------------------------------------------
+    //-----------------------------------------------------------------------
 
     tamed void
     aiod_backend_t::statvfs_T (str d, struct statvfs *buf, evi_t ev)
@@ -573,9 +701,10 @@ namespace fscache {
                 : dynamic_enum_t (int (BACKEND_AIOD), true, "backends")
         {
             pair_t tab[] = { { "aiod", int (BACKEND_AIOD) },
-                { "simple", int (BACKEND_SIMPLE) },
-                { "simplefast", int (BACKEND_SIMPLE_FAST) },
-                { NULL, 0 }
+                             { "simple", int (BACKEND_SIMPLE) },
+                             { "simplefast", int (BACKEND_SIMPLE_FAST) },
+                             { "thread", int (BACKEND_THREADS) },
+                             { NULL, 0 }
             };
             init (tab, true);
         }

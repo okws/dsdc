@@ -7,6 +7,7 @@
 #include "tame.h"
 #include "aiod.h"
 #include "crypt.h"
+#include "tame_lock.h"
 
 namespace fscache {
 
@@ -16,7 +17,8 @@ namespace fscache {
         BACKEND_SIMPLE = 0,
         BACKEND_AIOD = 1,
         BACKEND_SIMPLE_FAST = 2,
-        BACKEND_ERROR = 3
+        BACKEND_THREADS = 3,
+        BACKEND_ERROR = 4
     } backend_typ_t;
 
     //-----------------------------------------------------------------------
@@ -24,6 +26,10 @@ namespace fscache {
     backend_typ_t str2backend (const str &s);
 
     //-----------------------------------------------------------------------
+
+    enum {
+        DEBUG_OP_TRACE = 1 << 0
+    };
 
     class cfg_t {
     public:
@@ -42,6 +48,13 @@ namespace fscache {
         void set_skip_sha (bool b) { _skip_sha = b; }
         bool skip_sha () const { return _skip_sha; }
 
+        u_int64_t debug_level () const { return _debug; }
+        void set_debug_options (const char *in);
+        static str get_debug_docs ();
+        static str get_debug_optstr ();
+        bool debug (u_int64_t u) const { return (u & _debug) == u; }
+        void set_debug_flag (u_int64_t f) { _debug |= f; }
+
         backend_typ_t _backend;
         int _n_levels, _n_dig;
         str _root;
@@ -51,12 +64,14 @@ namespace fscache {
         str _jaildir;
         bool _fake_jail;
         bool _skip_sha;
+        u_int64_t _debug;
     };
 
     //-----------------------------------------------------------------------
 
-    typedef callback<void,int,time_t,str>::ref cbits_t;
-    typedef callback<void,int,str>::ref cbis_t;
+    typedef callback<void, int,time_t,str>::ref cbits_t;
+    typedef event<int,str>::ref evis_t;
+    typedef event<size_t>::ref ev_sz_t;
 
     //-----------------------------------------------------------------------
 
@@ -80,13 +95,26 @@ namespace fscache {
     public:
         backend_t () {}
         virtual ~backend_t () {}
-        virtual void file2str (str fn, cbis_t cb) = 0;
-        virtual void str2file (str f, str s, int mode, evi_t cb) = 0;
-        virtual void remove (str f, cbi cb) = 0;
+        virtual void file2str (str fn, evis_t cb) = 0;
+
+        // str2file_inner is in the case of simple, fast and threaded
+        // called up to twice per str2file. The first call tries and maybe
+        // fails to make a parent dir.  Then the parent dirs are created
+        // and the second call is made.
+        virtual void str2file (str f, str s, int mode, evi_t cb)
+        { str2file_T (f, s, mode, cb); }
+        virtual void str2file_inner (str f, str s, int md, bool cf, evi_t cb) {}
+
+
+        virtual void remove (str f, evi_t ev) = 0;
         virtual void mkdir (str s, int mode, evi_t cb) = 0;
         virtual void statvfs (str d, struct statvfs *buf, evi_t ev) = 0;
+        virtual bool init () { return true; }
+        virtual void stat (str f, struct stat *sb, evi_t ev) {}
     protected:
         void mk_parent_dirs (str s, int mode, evi_t ev, CLOSURE);
+    private:
+        void str2file_T (str f, str s, int mode, evi_t ev, CLOSURE);
     };
 
     //-----------------------------------------------------------------------
@@ -96,9 +124,10 @@ namespace fscache {
         engine_t (const cfg_t *c);
         ~engine_t ();
 
+        bool init () { return _backend && _backend->init (); }
         void load (file_id_t id, cbits_t cb, CLOSURE);
-        void store (file_id_t id, time_t tm, str data, cbi cb, CLOSURE);
-        void remove (file_id_t id, cbi cb, CLOSURE);
+        void store (file_id_t id, time_t tm, str data, evi_t ev, CLOSURE);
+        void remove (file_id_t id, evi_t ev, CLOSURE);
 
         str filename (file_id_t id) const;
         void statvfs (struct statvfs *buf, evi_t ev, CLOSURE);
@@ -115,11 +144,19 @@ namespace fscache {
     class simple_backend_t : public backend_t {
     public:
         simple_backend_t () : backend_t () {}
-        void file2str (str fn, cbis_t cb);
-        virtual void str2file (str f, str s, int mode, evi_t cb);
-        void remove (str f, cbi cb);
+        void file2str (str fn, evis_t cb);
+        virtual void str2file_inner (str f, str s, int mode, bool cf, evi_t cb);
+        void remove (str f, evi_t ev);
         void mkdir (str s, int mode, evi_t ev);
         void statvfs (str d, struct statvfs *buf, evi_t ev);
+        void stat (str f, struct stat *sb, evi_t ev);
+
+        static int s_file2str (str fn, str *out);
+        static int s_remove (str fn);
+        static int s_statvfs (str fd, struct statvfs *buf);
+        static int s_mkdir (str f, int mode);
+        static int s_str2file (str fn, str s, int mode, bool canfail);
+        static int s_stat (str fn, struct stat *sb);
     };
 
     //-----------------------------------------------------------------------
@@ -127,7 +164,88 @@ namespace fscache {
     class simple_fast_backend_t : public simple_backend_t {
     public:
         simple_fast_backend_t () : simple_backend_t () {}
-        void str2file (str f, str s, int mode, evi_t cb);
+        void str2file_inner (str f, str s, int mode, bool cf, evi_t cb);
+        static int s_str2file (str fn, str s, int mode, bool canfail);
+    };
+
+    //-----------------------------------------------------------------------
+
+    class thread_backend_t : public backend_t {
+    public:
+        thread_backend_t (const cfg_t *c);
+        ~thread_backend_t ();
+
+        void file2str (str fn, evis_t cb) { file2str_T (fn, cb); }
+        void str2file_inner (str f, str s, int m, bool cf, evi_t cb)
+        { str2file_inner_T (f, s, m, cf, cb); }
+
+        void remove (str f, evi_t cb) { remove_T (f, cb); }
+        void mkdir (str f, int mode, evi_t ev) { mkdir_T (f, mode, ev); }
+        void statvfs (str d, struct statvfs *buf, evi_t ev)
+        { statvfs_T (d, buf, ev); }
+        bool init ();
+        void stat (str f, struct stat *sb, evi_t ev) { stat_T (f, sb, ev); }
+
+        typedef enum {
+            OP_FILE2STR = 1,
+            OP_STR2FILE = 2,
+            OP_REMOVE = 3,
+            OP_MKDIR = 4,
+            OP_STATVFS = 5,
+            OP_STAT = 6,
+            OP_SHUTDOWN = 7
+        } op_t;
+
+        struct in_t {
+            op_t _op;
+            str _path;
+            str _data;
+            int _mode;
+            bool _can_fail;
+        };
+
+        struct out_t {
+            int _rc;
+            struct statvfs _statvfs;
+            time_t _mtime;
+            str _data;
+            struct stat _stat;
+        };
+
+        struct cell_t {
+            size_t _id;
+            pthread_t _thread;
+            in_t _in;
+            out_t _out;
+            int _thread_fd;
+            int _main_fd;
+            bool _alive;
+            const cfg_t *_cfg;
+        };
+
+    private:
+        void file2str_T (str fn, evis_t cb, CLOSURE);
+        void str2file_inner_T (str f, str s, int m, bool c, evi_t e, CLOSURE);
+        void remove_T (str f, evi_t ev, CLOSURE);
+        void mkdir_T (str f, int mode, evi_t ev, CLOSURE);
+        void statvfs_T (str d, struct statvfs *buf, evi_t ev, CLOSURE);
+        void stat_T (str f, struct stat *sb, evi_t ev, CLOSURE);
+
+        bool mkthread (size_t i, cell_t *slot);
+        void fix_thread (size_t i, cell_t *slot, CLOSURE);
+        bool fire_off (cell_t *i);
+        void return_thread (size_t i);
+        void execute (const in_t &in, out_t *out, evb_t ev, CLOSURE);
+        void harvest (cell_t *cell, evb_t ev, CLOSURE);
+        void grab_thread (ev_sz_t ev, CLOSURE);
+
+        const cfg_t *_cfg;
+        const size_t _n_threads;
+        vec<cell_t> _threads;
+        vec<size_t> _ready_q;
+        tame::lock_t _lock;
+        evv_t::ptr _waiter_ev;
+        ptr<bool> _alive;
     };
 
     //-----------------------------------------------------------------------
@@ -137,19 +255,19 @@ namespace fscache {
         aiod_backend_t (const cfg_t *c);
         ~aiod_backend_t ();
 
-        void file2str (str fn, cbis_t cb) { file2str_T (fn, cb); }
+        void file2str (str fn, evis_t cb) { file2str_T (fn, cb); }
         void str2file (str f, str s, int m, evi_t cb)
         { str2file_T (f, s, m, cb); }
 
-        void remove (str f, cbi cb) { remove_T (f, cb); }
+        void remove (str f, evi_t cb) { remove_T (f, cb); }
         void mkdir (str f, int mode, evi_t ev) { mkdir_T (f, mode, ev); }
         void statvfs (str d, struct statvfs *buf, evi_t ev)
         { statvfs_T (d, buf, ev); }
 
     private:
-        void file2str_T (str fn, cbis_t cb, CLOSURE);
+        void file2str_T (str fn, evis_t cb, CLOSURE);
         void str2file_T (str f, str s, int mode, evi_t cb, CLOSURE);
-        void remove_T (str f, cbi cb, CLOSURE);
+        void remove_T (str f, evi_t cb, CLOSURE);
         void mkdir_T (str f, int mode, evi_t ev, CLOSURE);
         void statvfs_T (str d, struct statvfs *buf, evi_t ev, CLOSURE);
 
@@ -164,14 +282,14 @@ namespace fscache {
     public:
         iface_t (engine_t *e) : _engine (e) {}
 
-        typedef typename callback<void, int, time_t, ptr<C> >::ref load_cb_t;
+        typedef typename event<int, time_t, ptr<C> >::ref load_cb_t;
 
         void load (file_id_t id, load_cb_t cb)
         {
             _engine->load (id, wrap (this, &iface_t<C>::load_cb, id, cb));
         }
 
-        void store (file_id_t id, time_t tm, const C &obj, cbi cb)
+        void store (file_id_t id, time_t tm, const C &obj, evi_t ev)
         {
             str s;
             str fn = filename (id);
@@ -179,13 +297,13 @@ namespace fscache {
             if (!(s = xdr2str (obj))) {
                 warn << "Failed to marshal data struct: " << fn << "\n";
                 ret = -EINVAL;
-                (*cb) (ret);
+                ev->trigger (ret);
             } else {
-                _engine->store (id, tm, s, cb);
+                _engine->store (id, tm, s, ev);
             }
         }
 
-        void remove (file_id_t id, cbi cb) { _engine->remove (id, cb); }
+        void remove (file_id_t id, evi_t cb) { _engine->remove (id, cb); }
         str filename (file_id_t id) const
         { return _engine->filename (id); }
 
