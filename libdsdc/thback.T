@@ -17,9 +17,10 @@ namespace fscache {
 #define CI "zu"
 
 #define TWARN0(fmt)                             \
-    fprintf (stderr, "TXX[%" CI "] " fmt, cell->_id)
-#define TWARN(fmt, ...)                                             \
-    fprintf (stderr, "TXX[%" CI "] " fmt, cell->_id, __VA_ARGS__)
+    fprintf (stderr, "%s: TXX[%" CI "] " fmt, progname.cstr (), cell->_id)
+#define TWARN(fmt, ...)                                                 \
+    fprintf (stderr, "%s: TXX[%" CI "] " fmt, progname.cstr (), cell->_id,  \
+             __VA_ARGS__)
 
     //-----------------------------------------------------------------------
 
@@ -77,23 +78,25 @@ namespace fscache {
     {
         char buf[BUFSZ];
         bool go = true;
-        TWARN0("running\n");
        
         while (go) {
-            TWARN0("A\n");
             ssize_t rc = read (cell->_thread_fd, buf, BUFSZ);
-            TWARN("B %d\n", int (rc));
+            go = false;
             if (rc < 0 && errno != EAGAIN) {
-                TWARN ("read failed: %s", strerror (errno));
-                go = false;
+                TWARN ("read failed: %s\n", strerror (errno));
+            } else if (rc == 0) {
+                TWARN0 ("EOF on thread\n");
+            } else if (rc != 1) {
+                TWARN ("expected one byte, but got %zd!\n", rc);
             } else {
                 go = handle_event (cell);
-                TWARN0("C\n");
                 rc = sprintf (buf, "1");
                 write (cell->_thread_fd, buf, rc);
             }
         }
-        TWARN0 ("thread exiting");
+        TWARN0 ("thread exiting!\n");
+        close (cell->_thread_fd);
+        cell->_thread_fd = -1;
         cell->_alive = false;
         pthread_exit (NULL);
     }
@@ -124,7 +127,7 @@ namespace fscache {
         int fds[2];
         int rc = socketpair (AF_UNIX, SOCK_STREAM, 0, fds);
         if (rc < 0) {
-            warn ("socketpair: %m\n");
+            warn ("socketpair failed: %m\n");
             ret = false;
         } else {
             memset ((void *)slot, 0, sizeof (slot));
@@ -156,9 +159,12 @@ namespace fscache {
         for (size_t i = 0; i < _n_threads; i++) {
             if (!mkthread (i, &_threads[i])) {
                 ret = false;
-            } else {
-                _ready_q.push_back (i);
             }
+        }
+        
+        // run a background loop to fix any broken threads!
+        if (ret) {
+            fix_threads ();
         }
         return ret;
     }
@@ -192,19 +198,23 @@ namespace fscache {
             int rc (0);
             char buf[BUFSZ];
             bool go (true);
+            size_t id;
         }
+        id = cell->_id;
 
         while (go) {
             twait { tame::waitread (cell->_main_fd, mkevent ()); }
             rc = read (cell->_main_fd, buf, BUFSZ);
             go = false;
             if (rc == 0) {
-                TWARN0 ("EOF on thread\n");
+                warn ("XX[%" CI "] EOF on thread\n", id);
+            } else if (rc != 1) {
+                warn ("XX[%" CI "] wrong number of bytes back: %d\n", id, rc);
             } else if (rc < 0 && errno == EAGAIN) {
                 go = true;
                 /* go again */
             } else if (rc < 0) {
-                TWARN("unexpected read failure: %s", strerror (errno));
+                warn ("XX[%" CI "] unexpected read failure: %m", id);
             }
         }
         ev->trigger (rc > 0);
@@ -357,7 +367,6 @@ namespace fscache {
     tamed void
     thread_backend_t::execute (const in_t &in, out_t *out, evb_t ev)
     {
-
         tvars {
             cell_t *cell;
             size_t id;
@@ -372,44 +381,52 @@ namespace fscache {
         if (ok) {
             twait { harvest (cell, mkevent (ok)); }
             if (!ok) {
-                warn ("XX[%d] failed to harvest thread\n", int (id));
+                warn ("XX[%" CI "] failed to harvest thread\n", id);
             } else {
                 *out = cell->_out;
             }
         } else {
-            warn ("XX[%d] failed to fire thread\n", int (id));
-        }
-        
-        // XXX find someplace better to check this.
-        if (ok && !cell->_alive) {
-            warn ("XX[%d] thread died!\n", int (id));
-            ok = false;
+            warn ("XX[%" CI "] failed to fire thread\n", id);
         }
 
         ev->trigger (ok);
 
-        if (!ok) { fix_thread (id, cell); }
+        if (!ok) { kill_thread (cell); }
         else { return_thread (id); }
     }
 
     //-----------------------------------------------------------------------
 
+    void thread_backend_t::kill_thread (cell_t *cell)
+    { 
+        // Closing our FD should get that guy to leave his loop.
+        close (cell->_main_fd);
+        cell->_main_fd = -1;
+    }
+
+    //-----------------------------------------------------------------------
+
     tamed void
-    thread_backend_t::fix_thread (size_t id, cell_t *cell)
+    thread_backend_t::fix_threads ()
     {
         tvars {
-            bool ok (false);
             int w (1);
             ptr<bool> alive;
+            size_t i;
         }
         alive = _alive;
 
-        while (!ok && *alive) {
-            ok = mkthread (id, cell);
-            if (!ok) {
-                twait { delaycb (w, 0, mkevent ()); }
-                warn ("XX[%" CI "] failed to make new thread; "
-                      "will retry in %ds\n", id, w);
+        while (*alive) {
+            twait { delaycb (w, 0, mkevent ()); }
+            for (i = 0; i < _threads.size (); i++) {
+                cell_t *cell = &_threads[i];
+                if (cell->_alive) { /* ok! */ } 
+                else if (!mkthread (i, cell)) {
+                    warn ("XX[%" CI "] failed to make new thread; "
+                          "will retry in %ds\n", i, w);
+                } else {
+                    warn ("XX[%" CI "] recovered thread\n", i);
+                }
             }
         }
     }

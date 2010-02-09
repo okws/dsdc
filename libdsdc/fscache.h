@@ -232,12 +232,13 @@ namespace fscache {
         void stat_T (str f, struct stat *sb, evi_t ev, CLOSURE);
 
         bool mkthread (size_t i, cell_t *slot);
-        void fix_thread (size_t i, cell_t *slot, CLOSURE);
+        void fix_threads (CLOSURE);
         bool fire_off (cell_t *i);
         void return_thread (size_t i);
         void execute (const in_t &in, out_t *out, evb_t ev, CLOSURE);
         void harvest (cell_t *cell, evb_t ev, CLOSURE);
         void grab_thread (ev_sz_t ev, CLOSURE);
+        void kill_thread (cell_t *cell);
 
         const cfg_t *_cfg;
         const size_t _n_threads;

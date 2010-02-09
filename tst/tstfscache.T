@@ -83,7 +83,7 @@ static void
 usage ()
 {
     warn << "usage: " << progname << " [-tsDc] [-r<root>] [-n<levels>] "
-         << " <name> <key> <file>\n"
+         << "[-N<threads>] <name> <key> <file>\n"
          << "\n"
          << "  OPTIONS:\n"
          << "     -d   set debug tracing\n"
@@ -110,7 +110,7 @@ main (int argc, char *argv[])
 
     cfg._n_levels = 2;
 
-    while ((ch = getopt (argc, argv, "tsr:n:cDd")) != -1) {
+    while ((ch = getopt (argc, argv, "tsr:n:cDdN:")) != -1) {
         switch (ch) {
         case 's':
             cfg._backend = fscache::BACKEND_SIMPLE_FAST;
@@ -129,6 +129,10 @@ main (int argc, char *argv[])
             break;
         case 'n':
             if (!convertint (optarg, &cfg._n_levels))
+                usage ();
+            break;
+        case 'N':
+            if (!convertint (optarg, &cfg._n_aiods))
                 usage ();
             break;
         case 'd':
