@@ -5,6 +5,17 @@
 #include "parseopt.h"
 #include "prng.h"
 #include "aios.h"
+#include "rxx.h"
+
+#ifndef __STDC_FORMAT_MACROS
+# define __STDC_FORMAT_MACROS
+#endif
+#include <inttypes.h>
+
+//-----------------------------------------------------------------------
+
+typedef fscache::file_id_t file_id_t;
+
 
 //-----------------------------------------------------------------------
 
@@ -18,12 +29,7 @@ file_id_t mkfid (u_int32_t id)
 
 class cmd_t {
 public:
-    cmd_t () : _op (OP_NONE) 
-    {
-        for (size_t i = 0; i < N_ARGS; i++) {
-            args[i] = 0;
-        }
-    }
+    cmd_t () : _op (OP_NONE) {}
 
     typedef enum { OP_NONE = 0,
                    OP_CREATE = 1,
@@ -31,20 +37,20 @@ public:
                    OP_LOAD = 3,
                    OP_ERROR = 4 } op_t;
     
-    static op_t char2cmd (str s);
-    file_id_t filename () const { return mkfid (args[1]); }
+    static op_t str2cmd (str s);
+    file_id_t filename () const { return mkfid (_args[1]); }
 
-    enum { N_ARGS = 3; }
+    enum { N_ARGS = 3 } ;
     bool parse (str s);
     static ptr<cmd_t> alloc (str s);
     op_t _op;
-    u_int32_t args[N_ARGS];
+    vec<u_int32_t> _args;
 };
 
 //-----------------------------------------------------------------------
 
-op_t
-cmd_t::char2cmd (str s)
+cmd_t::op_t
+cmd_t::str2cmd (str s)
 {
     op_t ret = OP_NONE;
     if (s.len ()) {
@@ -90,19 +96,22 @@ cmd_t::parse (str s)
         // EOF
     } else if (v.size () < 2) {
         warn << "XX need at least 2 args, but got '" << s << "'\n";
-    } else if ((_op = str2cmd (v[0])) == OP_NONE || _op == OP_ERROR) {
-        warn << "XX bad command: " << v[0] << "\n";
     } else if (v.size () > 4) {
         warn << "XX too many arguments in command: " << s << "\n";
     } else {
-        for (size_t i = 1; i < v.size (); i++) {
-            if (!convertint (v[i], &_args[i-1])) {
-                warn << "Could not convert to int: " << v[i] << "\n";
-                convert_ok = false;
+        _args.setsize (v.size () - 1);
+        if ((_op = str2cmd (v[0])) == OP_NONE || _op == OP_ERROR) {
+            warn << "XX bad command: " << v[0] << "\n";
+        } else {
+            for (size_t i = 1; i < v.size (); i++) {
+                if (!convertint (v[i], &_args[i-1])) {
+                    warn << "Could not convert to int: " << v[i] << "\n";
+                    convert_ok = false;
+                }
             }
-        }
-        if (convert_ok) {
-            ret = true;
+            if (convert_ok) {
+                ret = true;
+            }
         }
     }
     return ret;
@@ -114,16 +123,14 @@ class tester_t {
 public:
     tester_t (fscache::cfg_t *cfg, int c)
         : _cfg (cfg), 
-          _engine (cfg),
+          _fsc (cfg),
           _concur (c),
           _rand_data_size (256 * 1024 * 1024),
           _min_filesz (128),
           _max_filesz (_rand_data_size >> 3),
-          _filesz_range (_max_filesz - min_filesz),
-          _p_resue (.1),
-          _p_unlink (.1),
+          _filesz_range (_max_filesz - _min_filesz),
           _nfiles_low_watermark (100),
-          _filename_len (20) 
+          _filename_len (20) {}
 
     void run (CLOSURE);
 
@@ -139,6 +146,8 @@ private:
     void do_load (ptr<cmd_t> cmd, evv_t ev, CLOSURE);
     void do_delete (ptr<cmd_t> cmd, evv_t ev, CLOSURE);
     str fullpath (const file_id_t &fid) const;
+    void get_next_cmd (bool *eof, event<ptr<cmd_t> >::ref ev, CLOSURE);
+    void problem (str op, int rc, file_id_t fid) const;
 
 
     fscache::cfg_t *_cfg;
@@ -147,10 +156,9 @@ private:
     vec<str> _files;
     str _rand_data;
     size_t _rand_data_size;
-    size_t _nfile_low_watermark;
+    size_t _min_filesz, _max_filesz, _filesz_range;
+    size_t _nfiles_low_watermark;
     size_t _filename_len;
-
-    double _p_resue, _p_unlink;
 };
 
 //-----------------------------------------------------------------------
@@ -158,7 +166,7 @@ private:
 str
 tester_t::fullpath (const file_id_t &fid) const
 {
-    str s = fid.fullpath (cfg->n_levels ());
+    str s = fid.fullpath (_cfg->n_levels ());
     strbuf b ("%s (%" PRIu32 ")", s.cstr (), fid.get_index ());
     return b;
 }
@@ -169,7 +177,7 @@ str
 tester_t::random_filename () const
 {
     size_t offset = random_getword () % (_rand_data_size - _filename_len);
-    return armor32 (_rand_data_size.cstr () + offset, _filename_len);
+    return armor32 (_rand_data.cstr () + offset, _filename_len);
 }
 
 //-----------------------------------------------------------------------
@@ -208,7 +216,7 @@ tester_t::get_next_cmd (bool *eof, event<ptr<cmd_t> >::ref ev)
 //-----------------------------------------------------------------------
 
 void
-tester_t::problem (str op, int rc, file_id_t fid)
+tester_t::problem (str op, int rc, file_id_t fid) const
 {
     errno = -rc;
     str s = fullpath (fid);
@@ -254,7 +262,7 @@ tester_t::do_delete (ptr<cmd_t> cmd, evv_t ev)
         int rc;
     }
     
-    twait { _fs.remove (fid, mkevent (rc)); }
+    twait { _fsc.remove (fid, mkevent (rc)); }
     if (rc != 0) {
         problem ("delete", rc, fid);
     }
@@ -272,10 +280,10 @@ tester_t::do_create (ptr<cmd_t> cmd, evv_t ev)
         int rc;
         str dat;
     }
-    if (cmd->args.size () < 3) {
-        warn ("XX wrong number of args for create: %zu", cmd->args.size ());
+    if (cmd->_args.size () < 3) {
+        warn ("XX wrong number of args for create: %zu", cmd->_args.size ());
     } else {
-        dat = random_data (cmd->args[2]);
+        dat = random_data (cmd->_args[2]);
 
         twait { _fsc.store (fid, t, dat, mkevent (rc)); }
         if (rc != 0) {
@@ -291,9 +299,9 @@ void
 tester_t::do_cmd (ptr<cmd_t> cmd, evv_t ev)
 {
     switch (cmd->_op) {
-    case OP_CREATE: do_create (cmd, ev); break;
-    case OP_DELETE: do_delete (cmd, ev); break;
-    case OP_LOAD:   do_load (cmd, ev); break;
+    case cmd_t::OP_CREATE: do_create (cmd, ev); break;
+    case cmd_t::OP_DELETE: do_delete (cmd, ev); break;
+    case cmd_t::OP_LOAD:   do_load (cmd, ev); break;
     default: 
         {
             warn << "XX unhandled opcode\n";
@@ -308,10 +316,10 @@ tamed void
 tester_t::run ()
 {
     tvars {
-        rendezvous<void> rv (__FILE__, __LINE__);
+        rendezvous_t<> rv (__FILE__, __LINE__);
         size_t n_out (0);
-        bool go;
         ptr<cmd_t> cmd;
+        bool eof (false);
     }
 
     if (!_fsc.init ()) {
@@ -349,7 +357,7 @@ usage ()
          << "     -d   set debug tracing\n"
          << "     -s   simple-fast backend\n"
          << "     -t   threaded backend\n"
-         << "     -c   concurrency (default: 20)\n"
+         << "     -c   concurrency (default: 20)\n";
     
     exit (1);
 }
