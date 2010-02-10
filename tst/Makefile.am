@@ -30,6 +30,9 @@ tst_prot.h: $(srcdir)/tst_prot.x
 	@rm -f $@
 	-$(RPCC) -h $(srcdir)/tst_prot.x || rm -f $@
 
+stress_data: $(srcdir)/gen_stress.py
+	python $< 10000 > $@
+
 
 SUFFIXES = .C .T .h
 

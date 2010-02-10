@@ -385,7 +385,7 @@ main (int argc, char *argv[])
     cfg._n_levels = 2;
     cfg._n_aiods = 1;
 
-    while ((ch = getopt (argc, argv, "tsdr:n:N:v")) != -1) {
+    while ((ch = getopt (argc, argv, "tsdr:n:N:vc:")) != -1) {
         switch (ch) {
         case 's':
             cfg._backend = fscache::BACKEND_SIMPLE_FAST;
