@@ -38,7 +38,7 @@ public:
                    OP_ERROR = 4 } op_t;
     
     static op_t str2cmd (str s);
-    file_id_t filename () const { return mkfid (_args[1]); }
+    file_id_t filename () const { return mkfid (_args[0]); }
 
     enum { N_ARGS = 3 } ;
     bool parse (str s);
@@ -121,16 +121,17 @@ cmd_t::parse (str s)
 
 class tester_t {
 public:
-    tester_t (fscache::cfg_t *cfg, int c)
+    tester_t (fscache::cfg_t *cfg, int c, bool verbose)
         : _cfg (cfg), 
           _fsc (cfg),
           _concur (c),
-          _rand_data_size (256 * 1024 * 1024),
+          _rand_data_size (64 * 1024 * 1024),
           _min_filesz (128),
-          _max_filesz (_rand_data_size >> 3),
+          _max_filesz (4 * 1024 * 1024),
           _filesz_range (_max_filesz - _min_filesz),
           _nfiles_low_watermark (100),
-          _filename_len (20) {}
+          _filename_len (20),
+          _verbose (verbose) {}
 
     void run (CLOSURE);
 
@@ -147,7 +148,7 @@ private:
     void do_delete (ptr<cmd_t> cmd, evv_t ev, CLOSURE);
     str fullpath (const file_id_t &fid) const;
     void get_next_cmd (bool *eof, event<ptr<cmd_t> >::ref ev, CLOSURE);
-    void problem (str op, int rc, file_id_t fid) const;
+    void report (str op, file_id_t fid, int rc) const;
 
 
     fscache::cfg_t *_cfg;
@@ -159,6 +160,7 @@ private:
     size_t _min_filesz, _max_filesz, _filesz_range;
     size_t _nfiles_low_watermark;
     size_t _filename_len;
+    bool _verbose;
 };
 
 //-----------------------------------------------------------------------
@@ -216,11 +218,21 @@ tester_t::get_next_cmd (bool *eof, event<ptr<cmd_t> >::ref ev)
 //-----------------------------------------------------------------------
 
 void
-tester_t::problem (str op, int rc, file_id_t fid) const
+tester_t::report (str op, file_id_t fid, int rc) const
 {
-    errno = -rc;
-    str s = fullpath (fid);
-    warn ("XX %s on file '%s' failed: %m\n", op.cstr(), s.cstr ());
+    str s;
+    if (rc != 0 || _verbose) {
+        s = fullpath (fid);
+    }
+
+    if (rc != 0) {
+        errno = -rc;
+        warn ("XX %s on file '%s' failed: %m\n", op.cstr(), s.cstr ());
+    }
+
+    if (_verbose) {
+        warn ("II %s on file '%s' -> %d\n", op.cstr (), s.cstr (), rc);
+    }
 }
 
 //-----------------------------------------------------------------------
@@ -236,9 +248,7 @@ tester_t::do_load (ptr<cmd_t> cmd, evv_t ev)
     }
 
     twait { _fsc.load (fid, mkevent (rc, t, dat)); }
-    if (rc != 0) {
-        problem ("load", rc, fid);
-    }
+    report ("load", fid, rc);
     ev->trigger ();
 }
 
@@ -263,9 +273,7 @@ tester_t::do_delete (ptr<cmd_t> cmd, evv_t ev)
     }
     
     twait { _fsc.remove (fid, mkevent (rc)); }
-    if (rc != 0) {
-        problem ("delete", rc, fid);
-    }
+    report ("delete", fid, rc);
     ev->trigger ();
 }
 
@@ -280,16 +288,14 @@ tester_t::do_create (ptr<cmd_t> cmd, evv_t ev)
         int rc;
         str dat;
     }
-    if (cmd->_args.size () < 3) {
-        warn ("XX wrong number of args for create: %zu", cmd->_args.size ());
+    if (cmd->_args.size () < 2) {
+        warn ("XX wrong number of args for create: %zu\n", cmd->_args.size ());
+        rc = -EINVAL;
     } else {
-        dat = random_data (cmd->_args[2]);
-
+        dat = random_data (cmd->_args[1]);
         twait { _fsc.store (fid, t, dat, mkevent (rc)); }
-        if (rc != 0) {
-            problem ("store", rc, fid);
-        }
     }
+    report ("store", fid, rc);
     ev->trigger ();
 }
 
@@ -350,16 +356,17 @@ tester_t::run ()
 static void
 usage ()
 {
-    warn << "usage: " << progname << " [-tsd] [-r<root>] [-n<levels>] "
-         << "[-N<threads>] [-c<concurrency>]\n"
+    warn << "usage: " << progname << " [-tsdv] [-n<levels>] "
+         << "[-N<threads>] [-c<concurrency>] <root>\n"
          << "\n"
          << "  OPTIONS:\n"
          << "     -d   set debug tracing\n"
          << "     -s   simple-fast backend\n"
          << "     -t   threaded backend\n"
-         << "     -c   concurrency (default: 20)\n";
+         << "     -c   concurrency (default: 20)\n"
+         << "     -v   verbose\n";
     
-    exit (1);
+        exit (1);
 }
 
 //-----------------------------------------------------------------------
@@ -370,13 +377,15 @@ main (int argc, char *argv[])
     int ch;
     tester_t *tester;
     int concurrency = 20;
+    bool verbose = false;
 
     setprogname (argv[0]);
     fscache::cfg_t cfg;
 
     cfg._n_levels = 2;
+    cfg._n_aiods = 1;
 
-    while ((ch = getopt (argc, argv, "tsdr:n:N:")) != -1) {
+    while ((ch = getopt (argc, argv, "tsdr:n:N:v")) != -1) {
         switch (ch) {
         case 's':
             cfg._backend = fscache::BACKEND_SIMPLE_FAST;
@@ -384,8 +393,6 @@ main (int argc, char *argv[])
         case 't':
             cfg._backend = fscache::BACKEND_THREADS;
             break;
-        case 'r':
-            cfg._root = optarg;
             break;
         case 'n':
             if (!convertint (optarg, &cfg._n_levels)) {
@@ -407,6 +414,10 @@ main (int argc, char *argv[])
                 warn << "bad -c argument: " << optarg << "\n";
                 usage ();
             }
+            break;
+        case 'v':
+            verbose = true;
+            break;
         default:
             usage ();
             break;
@@ -416,12 +427,13 @@ main (int argc, char *argv[])
     argc -= optind;
     argv += optind;
 
-    if (argc != 0) {
+    if (argc != 1) {
         warn << "no arguments expected; got " << argc << "\n";
         usage ();
     }
+    cfg._root = argv[0];
     
-    tester = New tester_t (&cfg, concurrency);
+    tester = New tester_t (&cfg, concurrency, verbose);
     tester->run ();
 
     amain ();
