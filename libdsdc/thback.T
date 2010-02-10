@@ -78,20 +78,31 @@ namespace fscache {
     {
         char buf[BUFSZ];
         bool go = true;
+        int rc, len;
        
         while (go) {
-            ssize_t rc = read (cell->_thread_fd, buf, BUFSZ);
+            rc = read (cell->_thread_fd, buf, BUFSZ);
             go = false;
             if (rc < 0 && errno != EAGAIN) {
                 TWARN ("read failed: %s\n", strerror (errno));
             } else if (rc == 0) {
                 TWARN0 ("EOF on thread\n");
             } else if (rc != 1) {
-                TWARN ("expected one byte, but got %zd!\n", rc);
+                TWARN ("expected one byte, but got %d!\n", rc);
             } else {
                 go = handle_event (cell);
-                rc = sprintf (buf, "1");
-                write (cell->_thread_fd, buf, rc);
+                len = sprintf (buf, "1");
+
+                while ((rc = write (cell->_thread_fd, buf, rc)) < 0 &&
+                       errno == EAGAIN) {}
+                
+                if (rc < 0) {
+                    TWARN ("write returned an error: %s\n", strerror (errno));
+                    go = false;
+                } else if (rc != len) {
+                    TWARN ("got short write: %d v %d\n", len, rc);
+                    go = false;
+                }
             }
         }
         TWARN0 ("thread exiting!\n");

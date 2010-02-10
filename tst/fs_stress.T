@@ -1,5 +1,7 @@
 // -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 
+#include "async.h"
+#include "sysconf.h"
 #include "fscache.h"
 #include <stdlib.h>
 #include "parseopt.h"
@@ -121,13 +123,13 @@ cmd_t::parse (str s)
 
 class tester_t {
 public:
-    tester_t (fscache::cfg_t *cfg, int c, bool verbose)
+    tester_t (fscache::cfg_t *cfg, int c, bool verbose, size_t mfs)
         : _cfg (cfg), 
           _fsc (cfg),
           _concur (c),
           _rand_data_size (64 * 1024 * 1024),
           _min_filesz (128),
-          _max_filesz (4 * 1024 * 1024),
+          _max_filesz (mfs),
           _filesz_range (_max_filesz - _min_filesz),
           _nfiles_low_watermark (100),
           _filename_len (20),
@@ -335,7 +337,7 @@ tester_t::run ()
 
     initialize_random_area ();
 
-    while (!eof || n_out > _concur) {
+    while (!eof || n_out > 0) {
         if (n_out > _concur || eof) {
             twait (rv);
             n_out--;
@@ -348,6 +350,7 @@ tester_t::run ()
             }
         }
     }
+
     exit (0);
 }
 
@@ -364,7 +367,8 @@ usage ()
          << "     -s   simple-fast backend\n"
          << "     -t   threaded backend\n"
          << "     -c   concurrency (default: 20)\n"
-         << "     -v   verbose\n";
+         << "     -v   verbose\n"
+         << "     -m   max-file-size (default: 128k)\n";
     
         exit (1);
 }
@@ -378,6 +382,7 @@ main (int argc, char *argv[])
     tester_t *tester;
     int concurrency = 20;
     bool verbose = false;
+    size_t mfs = 128 * 1024;
 
     setprogname (argv[0]);
     fscache::cfg_t cfg;
@@ -385,7 +390,7 @@ main (int argc, char *argv[])
     cfg._n_levels = 2;
     cfg._n_aiods = 1;
 
-    while ((ch = getopt (argc, argv, "tsdr:n:N:vc:")) != -1) {
+    while ((ch = getopt (argc, argv, "tsdr:n:N:vc:m:")) != -1) {
         switch (ch) {
         case 's':
             cfg._backend = fscache::BACKEND_SIMPLE_FAST;
@@ -418,6 +423,12 @@ main (int argc, char *argv[])
         case 'v':
             verbose = true;
             break;
+        case 'm':
+            if (!convertint (optarg, &mfs)) {
+                warn << "bad -m argument: " << optarg << "\n";
+                usage ();
+            }
+            break;
         default:
             usage ();
             break;
@@ -433,7 +444,7 @@ main (int argc, char *argv[])
     }
     cfg._root = argv[0];
     
-    tester = New tester_t (&cfg, concurrency, verbose);
+    tester = New tester_t (&cfg, concurrency, verbose, mfs);
     tester->run ();
 
     amain ();
