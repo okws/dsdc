@@ -736,4 +736,20 @@ namespace fscache {
     }
 
     //-----------------------------------------------------------------------
+
+    str
+    backend2str (backend_typ_t t)
+    {
+        str ret = "none";
+        switch (t) {
+        case BACKEND_AIOD: ret = "aiod"; break;
+        case BACKEND_SIMPLE: ret = "simple"; break;
+        case BACKEND_SIMPLE_FAST: ret = "simple-fast"; break;
+        case BACKEND_THREADS: ret = "threads"; break;
+        default: break;
+        }
+        return ret;
+    }
+
+    //-----------------------------------------------------------------------
 };

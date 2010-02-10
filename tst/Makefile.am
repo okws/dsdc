@@ -2,7 +2,7 @@
 
 $(PROGRAMS): $(LDEPS)
 
-noinst_PROGRAMS = tst tst2 tst3 tst4 tst5 tstfscache tstfslru
+noinst_PROGRAMS = tst tst2 tst3 tst4 tst5 tstfscache tstfslru fs_stress
 tst_SOURCES = tst_prot.C tst.C
 
 tst.o: tst_prot.h
@@ -20,6 +20,7 @@ tst4_SOURCES = tst4.C tst_prot.C
 tst5_SOURCES = tst5.C tst_prot.C
 tstfscache_SOURCES = tstfscache.C
 tstfslru_SOURCES = tstfslru.C
+fs_stress_SOURCES = fs_stress.C
 
 tst_prot.C: $(srcdir)/tst_prot.x tst_prot.h
 	@rm -f $@
@@ -39,12 +40,14 @@ tstfscache.o:	tstfscache.C
 tstfscache.lo:	tstfscache.C
 tstfslru.o: tstfslru.C
 tstfslru.lo: tstfslru.C
+fs_stress.o: fs_stress.C
+fs_stress.lo: fs_stress.C
 
-CLEANFILES = core *.core *~ tstfscache.C tstfslru.C
+CLEANFILES = core *.core *~ tstfscache.C tstfslru.C fs_stress.C
 EXTRA_DIST = .cvsignore tstfscache.T tstfslru.T
 MAINTAINERCLEANFILES = Makefile.in
 
 .PHONY: tameclean
 
 tameclean:
-	@rm -f tstfscache.C tstfslru.C
+	@rm -f tstfscache.C tstfslru.C fs_stress.C
