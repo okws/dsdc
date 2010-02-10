@@ -158,7 +158,9 @@ private:
 str
 tester_t::fullpath (const file_id_t &fid) const
 {
-    return fid.fullpath (cfg->n_levels ());
+    str s = fid.fullpath (cfg->n_levels ());
+    strbuf b ("%s (%" PRIu32 ")", s.cstr (), fid.get_index ());
+    return b;
 }
 
 //-----------------------------------------------------------------------
