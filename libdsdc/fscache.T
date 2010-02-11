@@ -29,7 +29,8 @@ namespace fscache {
               _file_mode (0664),
               _fake_jail (fake_jail),
               _skip_sha (false),
-              _debug (0)
+              _debug (0),
+              _rollover_time (120)
     {}
 
     //-----------------------------------------------------------------------
@@ -117,20 +118,28 @@ namespace fscache {
 
     //-----------------------------------------------------------------------
 
-    engine_t::engine_t (const cfg_t *c) : _cfg (c)
+    engine_t::engine_t (const cfg_t *c) : 
+        _cfg (c),
+        _alive (New refcounted<bool> (true))
     {
         switch (c->backend ()) {
         case BACKEND_SIMPLE:
-            _backend = New simple_backend_t ();
+            _backend = New refcounted<simple_backend_t> ();
             break;
         case BACKEND_AIOD:
-            _backend = New aiod_backend_t (c);
+            _backend = New refcounted<aiod_backend_t> (c);
             break;
         case BACKEND_SIMPLE_FAST:
-            _backend = New simple_fast_backend_t ();
+            _backend = New refcounted<simple_fast_backend_t> ();
             break;
         case BACKEND_THREADS:
-            _backend = New thread_backend_t (c);
+            _backend = New refcounted<thread_backend_t> (c);
+            break;
+        case BACKEND_HYBRID:
+            _backend_v.setsize (2);
+            _backend_v[0] = New refcounted<simple_fast_backend_t> ();
+            _backend_v[1] = New refcounted<aiod_backend_t> (c);
+            _backend = _backend_v[0];
             break;
         default:
             panic ("Unknown backend given: %d\n", int (c->backend ()));
@@ -140,9 +149,43 @@ namespace fscache {
 
     //-----------------------------------------------------------------------
 
+    bool
+    engine_t::init ()
+    {
+        bool ret;
+        ret = _backend && _backend->init ();
+        if (ret && _cfg->backend () == BACKEND_HYBRID) {
+            rotate ();
+        }
+        return ret;
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    engine_t::rotate ()
+    {
+        tvars {
+            ptr<bool> alive;
+            time_t t;
+        }
+        t = _cfg->rollover_time ();
+        alive = _alive;
+        twait {
+            delaycb (t, 0, mkevent ());
+        }
+
+        if (*alive) {
+            warn << "delayed" << t << "s; switching over to aiod backend\n";
+            _backend = _backend_v[1];
+        }
+    }
+
+    //-----------------------------------------------------------------------
+
     engine_t::~engine_t ()
     {
-        delete _backend;
+        *_alive = false;
     }
     
     //-----------------------------------------------------------------------
@@ -704,6 +747,7 @@ namespace fscache {
                              { "simple", int (BACKEND_SIMPLE) },
                              { "simplefast", int (BACKEND_SIMPLE_FAST) },
                              { "thread", int (BACKEND_THREADS) },
+                             { "hybrid", int (BACKEND_HYBRID) },
                              { NULL, 0 }
             };
             init (tab, true);
@@ -746,6 +790,7 @@ namespace fscache {
         case BACKEND_SIMPLE: ret = "simple"; break;
         case BACKEND_SIMPLE_FAST: ret = "simple-fast"; break;
         case BACKEND_THREADS: ret = "threads"; break;
+        case BACKEND_HYBRID: ret = "hybrid"; break;
         default: break;
         }
         return ret;

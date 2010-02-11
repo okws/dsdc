@@ -348,6 +348,8 @@ tester_t::run ()
                do_cmd (cmd, mkevent (rv)); 
                n_out++;
             }
+            // return to main loop to get timer events
+            twait { delaycb (0, 0, mkevent ()); }
         }
     }
 
@@ -359,8 +361,8 @@ tester_t::run ()
 static void
 usage ()
 {
-    warn << "usage: " << progname << " [-tsdv] [-n<levels>] "
-         << "[-N<threads>] [-c<concurrency>] <root>\n"
+    warn << "usage: " << progname << " [-tsdvH] [-n<levels>] "
+         << "[-N<threads>] [-c<concurrency>] [-w<wait>] <root>\n"
          << "\n"
          << "  OPTIONS:\n"
          << "     -d   set debug tracing\n"
@@ -368,8 +370,9 @@ usage ()
          << "     -t   threaded backend\n"
          << "     -c   concurrency (default: 20)\n"
          << "     -v   verbose\n"
-         << "     -m   max-file-size (default: 128k)\n";
-    
+         << "     -m   max-file-size (default: 128k)\n"
+         << "     -H   hybrid (simple, then aiod)\n"
+         << "     -w   wait for X seconds before hybrid switch\n";
         exit (1);
 }
 
@@ -390,7 +393,7 @@ main (int argc, char *argv[])
     cfg._n_levels = 2;
     cfg._n_aiods = 1;
 
-    while ((ch = getopt (argc, argv, "tsdr:n:N:vc:m:")) != -1) {
+    while ((ch = getopt (argc, argv, "tsdr:n:N:vc:m:hw:")) != -1) {
         switch (ch) {
         case 's':
             cfg._backend = fscache::BACKEND_SIMPLE_FAST;
@@ -417,6 +420,15 @@ main (int argc, char *argv[])
         case 'c':
             if (!convertint (optarg, &concurrency)) {
                 warn << "bad -c argument: " << optarg << "\n";
+                usage ();
+            }
+            break;
+        case 'h':
+            cfg._backend = fscache::BACKEND_HYBRID;
+            break;
+        case 'w':
+            if (!convertint (optarg, &cfg._rollover_time)) {
+                warn << "bad -w argument: " << optarg << "\n";
                 usage ();
             }
             break;

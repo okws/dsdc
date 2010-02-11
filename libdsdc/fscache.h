@@ -18,7 +18,8 @@ namespace fscache {
         BACKEND_AIOD = 1,
         BACKEND_SIMPLE_FAST = 2,
         BACKEND_THREADS = 3,
-        BACKEND_ERROR = 4
+        BACKEND_HYBRID = 4,
+        BACKEND_ERROR = 5
     } backend_typ_t;
 
     //-----------------------------------------------------------------------
@@ -55,6 +56,7 @@ namespace fscache {
         static str get_debug_optstr ();
         bool debug (u_int64_t u) const { return (u & _debug) == u; }
         void set_debug_flag (u_int64_t f) { _debug |= f; }
+        time_t rollover_time () const { return _rollover_time; }
 
         backend_typ_t _backend;
         int _n_levels, _n_dig;
@@ -66,6 +68,7 @@ namespace fscache {
         bool _fake_jail;
         bool _skip_sha;
         u_int64_t _debug;
+        time_t _rollover_time;
     };
 
     //-----------------------------------------------------------------------
@@ -125,7 +128,7 @@ namespace fscache {
         engine_t (const cfg_t *c);
         ~engine_t ();
 
-        bool init () { return _backend && _backend->init (); }
+        bool init ();
         void load (file_id_t id, cbits_t cb, CLOSURE);
         void store (file_id_t id, time_t tm, str data, evi_t ev, CLOSURE);
         void remove (file_id_t id, evi_t ev, CLOSURE);
@@ -135,9 +138,13 @@ namespace fscache {
 
         bool skip_sha () const { return _cfg->skip_sha (); }
 
+        void rotate (CLOSURE);
+
     private:
         const cfg_t *_cfg;
-        backend_t *_backend;
+        ptr<backend_t> _backend;         // the current backend
+        vec<ptr<backend_t> > _backend_v; // all backends, including alternates
+        ptr<bool> _alive;
     };
 
     //-----------------------------------------------------------------------
@@ -313,6 +320,8 @@ namespace fscache {
 
         void statvfs (struct statvfs *buf, evi_t ev)
         { _engine->statvfs (buf, ev); }
+
+        void set_engine (engine_t *e) { _engine = e; }
 
     private:
 
