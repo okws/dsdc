@@ -176,7 +176,7 @@ namespace fscache {
         }
 
         if (*alive) {
-            warn << "delayed" << t << "s; switching over to aiod backend\n";
+            warn << "delayed " << t << "s; switching over to aiod backend\n";
             _backend = _backend_v[1];
         }
     }
