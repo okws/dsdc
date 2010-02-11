@@ -148,7 +148,10 @@ namespace fscache {
             slot->_cfg = _cfg;
             make_async (fds[0]);
             slot->_thread_fd = fds[1];
-            int rc = pthread_create (&slot->_thread, NULL, 
+            pthread_attr_t attr;
+            pthread_attr_init (&attr);
+            pthread_attr_setstacksize (&attr, 10*1024*1024);
+            int rc = pthread_create (&slot->_thread, &attr, 
                                      thread_run_v, slot);
             if (rc != 0) {
                 warn ("pthread_create failed: %m\n");
