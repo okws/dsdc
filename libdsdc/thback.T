@@ -29,6 +29,86 @@ namespace fscache {
     typedef thread_backend_t::cell_t cell_t;
 
 #if HAVE_DSDC_PTHREAD
+
+    //-----------------------------------------------------------------------
+
+    int
+    th_file2str (cell_t *cell, str file, str *out)
+    {
+        int rc = -1;
+        int fd = open (file, O_RDONLY, 0);
+        if (fd < 0) {
+            rc = -errno;
+        } else {
+            struct stat sb;
+            if (fstat (fd, &sb) < 0) {
+                close (fd);
+                rc = -errno;
+            } else if (!S_ISREG (sb.st_mode)) {
+                TWARN ("%s: not a regular file\n", file.cstr ());
+                close (fd);
+                rc = -EINVAL;
+            } else { 
+                mstr m (sb.st_size);
+                errno = EAGAIN;
+                ssize_t n = read (fd, m, sb.st_size);
+                int saved_errno = errno;
+                close (fd);
+                errno = saved_errno;
+                if (n < 0) {
+                    rc = -errno;
+                } else {
+                    rc = 0;
+                    m.setlen (n);
+                    *out = m;
+                }
+            }
+        }
+        return rc;
+    }
+
+    //-----------------------------------------------------------------------
+
+    static int
+    th_str2file (cell_t *cell, str fn, str s, int mode, bool canfail)
+    {
+        int fd = ::open (fn.cstr (), O_WRONLY | O_CREAT, mode);
+        int rc = 0;
+        const char *fnc = fn.cstr ();
+
+        if (fd >= 0) {
+            size_t bsz = 8196;
+            const char *bp = s.cstr ();
+            const char *endp = s.cstr () + s.len ();
+
+            while (bp < endp && rc >=0 ) {
+                size_t len = min<size_t> (bsz, endp - bp);
+                rc = write (fd, bp, len);
+                if (rc < 0) {
+                    TWARN ("write failed on file %s: %s\n", fnc, 
+                           strerror (errno));
+                } else if (rc == 0) {
+                    TWARN ("unexpected 0-length write on file %s\n", fnc);
+                    rc = EINVAL;
+                } else {
+                    bp += rc;
+                    rc = 0;
+                }
+            }
+            close (fd);
+        } else {
+            rc = errno;
+            if (!canfail) {
+                TWARN ("open on file '%s' failed: %s\n", fnc, 
+                       strerror (errno));
+            }
+        }
+        return (0 - rc);
+    }
+
+    //-----------------------------------------------------------------------
+
+
     bool
     handle_event (cell_t *cell)
     {
@@ -39,10 +119,10 @@ namespace fscache {
 
         switch (cell->_in._op) {
         case thread_backend_t::OP_FILE2STR: 
-            rc = sb::s_file2str (in._path, &cell->_out._data);
+            rc = th_file2str (cell, in._path, &cell->_out._data);
             break;
         case thread_backend_t::OP_STR2FILE:
-            rc = sb::s_str2file (in._path, in._data, in._mode, in._can_fail);
+            rc = th_str2file (cell, in._path, in._data, in._mode, in._can_fail);
             break;
         case thread_backend_t::OP_REMOVE:
             rc = sb::s_remove (in._path);
