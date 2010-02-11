@@ -28,6 +28,7 @@ namespace fscache {
     typedef thread_backend_t::in_t in_t;
     typedef thread_backend_t::cell_t cell_t;
 
+#if HAVE_DSDC_PTHREAD
     bool
     handle_event (cell_t *cell)
     {
@@ -116,6 +117,8 @@ namespace fscache {
     
     static void * thread_run_v (void *v) 
     { thread_run (reinterpret_cast<cell_t *> (v)); return NULL; }
+
+#endif /* HAVE_DSDC_PTHREAD */
             
     //-----------------------------------------------------------------------
             
@@ -148,6 +151,8 @@ namespace fscache {
             slot->_cfg = _cfg;
             make_async (fds[0]);
             slot->_thread_fd = fds[1];
+
+#if HAVE_DSDC_PTHREAD
             pthread_attr_t attr;
             pthread_attr_init (&attr);
             pthread_attr_setstacksize (&attr, 10*1024*1024);
@@ -159,6 +164,10 @@ namespace fscache {
             } else {
                 return_thread (i);
             }
+#else /* HAVE_DSDC_PTHREAD */
+            warn ("cannot run pthread backend without pthread support\n");
+            ret = false;
+#endif /* HAVE_DSDC_PTHREAD */
         }
         return ret;
     }

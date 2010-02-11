@@ -37,3 +37,17 @@ module_name=dsdc
 AC_SUBST(module_prefix)
 AC_SUBST(module_name)
 ])
+
+dnl
+dnl DSDC_PTHREADS
+dnl
+AC_DEFUN([DSDC_PTHREAD],
+[
+AC_ARG_ENABLE(pthread,
+--enable-pthreads      Enable pthread support)
+if test "${enable_pthread+set}" = "set" ; then
+      AC_DEFINE(HAVE_DSDC_PTHREAD, 1, DSDC-pthread backend)
+      CXXDEBUG="$CXXDEBUG -pthread"           
+      DEBUG="$DEBUG -pthread"           
+fi      
+])

@@ -215,7 +215,9 @@ namespace fscache {
 
         struct cell_t {
             size_t _id;
+#if HAVE_DSDC_PTHREAD
             pthread_t _thread;
+#endif
             in_t _in;
             out_t _out;
             int _thread_fd;

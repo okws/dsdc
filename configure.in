@@ -83,6 +83,11 @@ saved_LDADD="$LDADD"
 saved_LDEPS="$LDEPS"
 OKWS_OKWS
 
+#
+# Enable pthreads if the user asked for it
+#
+DSDC_PTHREAD
+
 dnl
 dnl Must make changes to LDADD after calling OKWS_OKWS, otherwise,
 dnl static builds will fail.
@@ -101,6 +106,7 @@ dsdcexecdir='${dsdctopdir}'
 dsdctopdir='${module_prefix}/${module_name}/${VERSION}/${sfstag}'
 dsdclibdir='${dsdctopdir}/lib'
 dsdcincludedir='${dsdctopdir}/include'
+
 
 OKWS_MODULE
 OKJAILDIR
