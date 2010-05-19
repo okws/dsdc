@@ -101,17 +101,19 @@ usage (bool err = true)
 }
 
 static bool
-parse_memsize (const str &in, char units, u_int32_t *outp)
+parse_memsize (const str &in, char units, size_t *outp)
 {
-    u_int32_t out = 0;
+    ssize_t out = 0;
     static rxx x ("([0-9]+)([bB]|[kKmMgG][bB]?)?");
     if (!x.match (in))
         return false;
     if (x[2])
         units = tolower (x[2][0]);
 
-    if (!convertint (x[1], &out))
+    ssize_t tmp;
+    if (!convertint (x[1], &tmp))
         return false;
+    out = tmp;
     switch (units) {
     case 'b':
         break;
@@ -151,7 +153,7 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
     dsdc_mode_t implicit_mode = DSDC_MODE_NONE;
     int ch;
     u_int nnodes = 0;
-    u_int maxsz = 0;
+    size_t maxsz = 0;
     int port = -1;
     str hostname;
     int dbg_lev = 0;

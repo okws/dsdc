@@ -177,7 +177,7 @@ public:
 class dsdc_slave_t : public dsdc_slave_app_t ,
             public dsdc_system_state_cache_t {
 public:
-    dsdc_slave_t (u_int nnodes = 0, u_int maxsz = 0,
+    dsdc_slave_t (u_int nnodes = 0, size_t maxsz = 0,
                   int port = dsdc_slave_port, int opts = 0);
     virtual ~dsdc_slave_t () {}
 

@@ -11,7 +11,7 @@ extern int dsdc_retry_wait_time;
 extern u_int dsdc_rpc_timeout;
 
 extern u_int dsdc_slave_nnodes;
-extern u_int dsdc_slave_maxsz;
+extern size_t dsdc_slave_maxsz;
 
 extern u_int dsdc_packet_sz;
 extern u_int dsdcs_port_attempts;

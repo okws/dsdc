@@ -733,7 +733,7 @@ dsdc_slave_t::startup_msg_v (strbuf *b) const
 }
 
 
-dsdc_slave_t::dsdc_slave_t (u_int n, u_int s, int p, int o)
+dsdc_slave_t::dsdc_slave_t (u_int n, size_t s, int p, int o)
         : dsdc_slave_app_t (p, o),
         dsdc_system_state_cache_t (),
         _lrusz (0),

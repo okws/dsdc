@@ -11,7 +11,7 @@ int dsdc_retry_wait_time = 10;         // time to wait before retrying
 u_int dsdcs_clean_interval = 120;      // force a clean at least every 2 hours
 
 u_int dsdc_slave_nnodes = 5;           // default number of nodes in key ring
-u_int dsdc_slave_maxsz = (0x10 << 20); // default max size in bytes (16MB)
+size_t dsdc_slave_maxsz = (0x10 << 20); // default max size in bytes (16MB)
 u_int dsdc_packet_sz = 0x100000;       // allow big packets!
 u_int dsdcs_port_attempts = 100;       // number of ports to try
 
