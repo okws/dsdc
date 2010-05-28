@@ -620,27 +620,24 @@ dsdc_smartcli_t::put2 (const dsdc_key_t &k, const T &obj,
                        const annotation_t *a,
                        const dsdc_cksum_t *ck)
 {
-    ptr<dsdc_put4_arg_t> arg4;
-    ptr<dsdc_put_arg_t> arg;
-    ptr<dsdc_put3_arg_t> arg3;
     dsdc_res_t res = DSDC_OK;
     if (ck) {
-        arg4 = New refcounted<dsdc_put4_arg_t> ();
+        ptr<dsdc_put4_arg_t> arg4 = New refcounted<dsdc_put4_arg_t> ();
         arg4->key = k;
         annotation_t::to_xdr (a, &arg4->annotation);
         arg4->checksum.alloc ();
         *arg4->checksum = *ck;
         res = put2_helper (arg4, obj, cb);
     } else if (a) {
-        arg3 = New refcounted<dsdc_put3_arg_t> ();
+        ptr<dsdc_put3_arg_t> arg3 = New refcounted<dsdc_put3_arg_t> ();
         arg3->key = k;
         annotation_t::to_xdr (a, &arg3->annotation);
         res = put2_helper (arg3, obj, cb);
     } else {
         // Use compatibility layer if not using annotations
-        arg = New refcounted<dsdc_put_arg_t> ();
+        ptr<dsdc_put_arg_t> arg = New refcounted<dsdc_put_arg_t> ();
         arg->key = k;
-        res = put2_helper (arg3, obj, cb);
+        res = put2_helper (arg, obj, cb);
     }
 
     if (res != DSDC_OK)
