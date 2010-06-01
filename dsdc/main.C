@@ -110,7 +110,7 @@ parse_memsize (const str &in, char units, size_t *outp)
     if (x[2])
         units = tolower (x[2][0]);
 
-    ssize_t tmp;
+    ssize_t tmp = 0;
     if (!convertint (x[1], &tmp))
         return false;
     out = tmp;
