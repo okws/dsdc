@@ -7,12 +7,12 @@ tst_SOURCES = tst_prot.C tst.C
 
 tst.o: tst_prot.h
 tst.lo: tst_prot.h
-tst2.o: tst_prot.h
-tst2.lo: tst_prot.h
-tst3.o: tst_prot.h
-tst3.lo: tst_prot.h
-tst4.o: tst_prot.h
-tst4.lo: tst_prot.h
+tst2.o: tst_prot.h tst2.C
+tst2.lo: tst_prot.h tst2.C
+tst3.o: tst_prot.h tst3.C
+tst3.lo: tst_prot.h tst3.C
+tst4.o: tst_prot.h tst4.C
+tst4.lo: tst_prot.h tst4.C
 
 tst2_SOURCES = tst2.C tst_prot.C
 tst3_SOURCES = tst3.C tst_prot.C
@@ -46,8 +46,9 @@ tstfslru.lo: tstfslru.C
 fs_stress.o: fs_stress.C
 fs_stress.lo: fs_stress.C
 
-CLEANFILES = core *.core *~ tstfscache.C tstfslru.C fs_stress.C
-EXTRA_DIST = .cvsignore tstfscache.T tstfslru.T
+CLEANFILES = core *.core *~ tstfscache.C tstfslru.C fs_stress.C \
+	tst2.T tst3.T tst4.T tst5.T
+EXTRA_DIST = .cvsignore tstfscache.T tstfslru.T tst2.T tst3.T tst4.T tst5.T
 MAINTAINERCLEANFILES = Makefile.in
 
 .PHONY: tameclean

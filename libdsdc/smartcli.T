@@ -38,7 +38,7 @@ dsdci_srv_t::hit_eof (ptr<bool> df)
 void
 dsdci_master_t::eof_hook ()
 {
-    schedule_retry ();
+    retry_loop ();
 }
 
 bool
@@ -163,9 +163,10 @@ dsdc_smartcli_t::post_construct ()
     // Only on initialization do we need to do this.  We delay return to
     // the caller until after we've initialized the hash ring via
     // the standard state refresh mechanism.
-    if (poke_after_refresh) {
-        poke_after_refresh->success ();
-        poke_after_refresh = NULL;
+    if (_poke_after_refresh) {
+        evv_t ev = _poke_after_refresh;
+        _poke_after_refresh = NULL;
+        ev->trigger ();
     }
 }
 
@@ -373,6 +374,11 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
             (*cb) (NULL);
             triggered = true;
 
+            if (!*df && show_debug (DSDC_DBG_LOW)) {
+                warn << "Connection to " << typ () << " "
+                     << key () << " did not complete in time! "
+                     << "Will continue connection in the background\n";
+            }
 
             // Now wait for the connection to complete, which can take
             // as long as it needs to, but we need not worry that anyone
@@ -399,42 +405,89 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
     }
 }
 
-void
-dsdc_smartcli_t::init_cb (ptr<init_t> i, dsdci_master_t *m, bool b)
-{
-    // in this case, it's the first success
-    if (b && !_curr_master) {
-        _curr_master = m;
+//-----------------------------------------------------------------------
 
-        // initialize our hash ring
-        poke_after_refresh = i;
-        refresh (_destroyed);
+tamed void
+dsdc_smartcli_t::master_connect (dsdci_master_t *m, evi_t ev)
+{
+    tvars {
+        bool ok (false);
+        int rc (-1);
     }
-    if (!b && (_opts & DSDC_RETRY_ON_STARTUP)) {
-        m->schedule_retry ();
+
+    twait { m->connect (mkevent (ok)); }
+    
+    if (!ok) {
+
+        rc = -1;
+
+        // Keep attempting to retry in the background, so that eventually
+        // this thing might work...
+        if (_opts & DSDC_RETRY_ON_STARTUP) {
+            m->retry_loop ();
+        }
+
+    } else if (!_curr_master) {
+
+        _curr_master = m;
+        rc = 1;
+
+        // initialize our hash ring.  The _poke_after_refresh
+        // event will be fired when the first refresh is completed...
+        twait { 
+            _poke_after_refresh = mkevent ();
+            refresh_loop ();
+        }
+
+    } else {
+        rc = 0;
     }
+
+    ev->trigger (rc);
 }
 
-void
-dsdc_smartcli_t::last_finished (cbb::ptr cb, bool b)
+//-----------------------------------------------------------------------
+
+tamed void
+dsdc_smartcli_t::init (evb_t::ptr ev)
 {
+    tvars {
+        dsdci_master_t *m;
+        rendezvous_t<ptr<int> > rv;
+        ptr<int> i;
+        size_t count (0);
+        bool success (false);
+    }
+
+    for (m = _masters.first; m; m = _masters.next (m)) {
+        i = New refcounted<int> (-1);
+        master_connect (m, mkevent (rv, i, *i));
+        count++;
+    }
+
+    while (count > 0) {
+        twait (rv, i);
+        count --;
+
+        // We're waiting for the first guy to report that he's successfully
+        // started up. When we get him, we're OK to report to the caller
+        // success (and clear out the event so that it's only called once).
+        if (*i == 1) {
+            success = true;
+            if (ev) {
+                evb_t::ptr tmp = ev;
+                ev = NULL;
+                tmp->trigger (true); 
+            }
+        }
+    }
+
     // if all connects failed, then still start the refresh timer anyways,
     // even though it will definitely fail at first.
-    if (!b && (_opts & DSDC_RETRY_ON_STARTUP))
-        refresh (_destroyed);
-    if (cb)
-        (*cb) (b);
-}
+    if (!success && (_opts & DSDC_RETRY_ON_STARTUP))
+        refresh_loop ();
 
-
-void
-dsdc_smartcli_t::init (cbb::ptr cb)
-{
-    ptr<init_t> i =
-        New refcounted<init_t> (wrap (this, &dsdc_smartcli_t::last_finished, cb));
-    for (dsdci_master_t *m = _masters.first; m; m = _masters.next (m)) {
-        m->connect (wrap (this, &dsdc_smartcli_t::init_cb, i, m));
-    }
+    if (ev) ev->trigger (false);
 }
 
 //-----------------------------------------------------------------------
@@ -530,37 +583,36 @@ dsdc_smartcli_t::lock_acquire (ptr<dsdc_lock_acquire_arg_t> arg,
 // be combined with the code for the slaves trying to reconnect in
 // slave.C
 //
-void
-dsdci_master_t::schedule_retry ()
-{
-    delaycb (dsdc_retry_wait_time, 0,
-             wrap (this, &dsdci_master_t::retry, _destroyed));
-}
 
-void
-dsdci_master_t::retry_cb (ptr<bool> df, bool res)
+tamed void
+dsdci_master_t::retry_loop ()
 {
-    if (*df)
-        return;
-    if (res) {
-        if (show_debug (DSDC_DBG_LOW))
-            warn << "Retry succeeded: " << key () << "\n";
-    } else {
-        schedule_retry ();
+    tvars {
+        ptr<bool> df;
+        bool first (true);
+        bool ok (false);
+    }
+
+    df = _destroyed;
+    while (!*df && !ok) {
+
+        if (first) { first = false; }
+        else { 
+            
+            if (show_debug (DSDC_DBG_MED))
+                warn << "Retrying remote master: " << key () << "\n";
+
+            twait { connect (mkevent (ok)); }
+            if (ok && show_debug (DSDC_DBG_LOW)) {
+                warn << "Retry succeeded: " << key () << "\n";
+            }
+        }
+        if (!ok) { 
+            twait { delaycb (dsdc_retry_wait_time, 0, mkevent ()); }
+        }
     }
 }
 
-void
-dsdci_master_t::retry (ptr<bool> df)
-{
-    if (*df)
-        return;
-
-    if (show_debug (DSDC_DBG_MED))
-        warn << "Retrying remote peer: " << key () << "\n";
-
-    connect (wrap (this, &dsdci_master_t::retry_cb, df));
-}
 //
 //-----------------------------------------------------------------------
 

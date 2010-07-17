@@ -685,7 +685,7 @@ dsdc_slave_t::init ()
         return false;
 
     genkeys ();
-    schedule_refresh ();
+    refresh_loop ();
     return true;
 }
 

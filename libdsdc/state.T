@@ -85,8 +85,9 @@ dsdc_system_state_cache_t::construct_tree ()
 
 dsdc_system_state_cache_t::dsdc_system_state_cache_t ()
         : _n_updates_since_clean (0),
-        _destroyed (New refcounted<bool> (false)),
-        _lock_server (NULL)
+          _destroyed (New refcounted<bool> (false)),
+          _lock_server (NULL),
+          _loop_running (false) 
 {
     memset (_system_state_hash.base (), 0, _system_state_hash.size ());
 }
@@ -102,47 +103,51 @@ dsdc_system_state_cache_t::~dsdc_system_state_cache_t ()
 
 //-----------------------------------------------------------------------
 
-void
-dsdc_system_state_cache_t::schedule_refresh ()
+tamed void
+dsdc_system_state_cache_t::refresh_loop ()
 {
-    delaycb (dsdcs_getstate_interval, 0,
-             wrap (this, &dsdc_system_state_cache_t::refresh, _destroyed));
+    tvars {
+        ptr<bool> df;
+    }
+    df = _destroyed;
+
+    if (!_loop_running) {
+        _loop_running = true; 
+
+        while (!*df) {
+            twait { refresh (mkevent ()); } 
+            twait { delaycb (dsdcs_getstate_interval, 0, mkevent ()); }
+        }
+    }
 }
 
 //-----------------------------------------------------------------------
 
-void
-dsdc_system_state_cache_t::refresh_cb (ptr<bool> df,
-                                       ptr<dsdc_getstate_res_t> res,
-                                       clnt_stat err)
+tamed void
+dsdc_system_state_cache_t::refresh (evv_t::ptr ev)
 {
-    if (*df)
-        return;
+    tvars {
+        clnt_stat err;
+        ptr<aclnt> c;
+        dsdc_getstate_res_t res;
+        ptr<bool> df;
+    }
 
-    if (err)
-        warn << "DSDC_GETSTATE failure: " << err << "\n";
-    else
-        handle_refresh (*res);
-}
-
-void
-dsdc_system_state_cache_t::refresh (ptr<bool> df)
-{
-    if (*df)
-        return;
-
-    schedule_refresh ();
-    ptr<aclnt> c = get_primary ();
-    if (!c) {
+    df = _destroyed;
+    if (!(c = get_primary ())) {
         warn << "Cannot find any masters that are alive!\n";
     } else {
-        ptr<dsdc_getstate_res_t> res = New refcounted<dsdc_getstate_res_t> ();
-
-        RPC::dsdc_prog_1::dsdc_getstate
-        (c, &_system_state_hash, res,
-         wrap (this, &dsdc_system_state_cache_t::refresh_cb,
-               _destroyed, res));
+        twait { 
+            RPC::dsdc_prog_1::dsdc_getstate
+                (c, _system_state_hash, &res, mkevent (err));
+        }
+        if (err) {
+            warn << "DSDC_GETSTATE failure: " << err << "\n";
+        } else if (!*df) {
+            handle_refresh (res);
+        }
     }
+    if (ev) ev->trigger ();
 }
 
 //-----------------------------------------------------------------------

@@ -439,6 +439,8 @@ done:
     return;
 }
 
+//-----------------------------------------------------------------------
+
 void
 srdline ()
 {
@@ -446,21 +448,20 @@ srdline ()
         ain->readline (wrap (&rdline));
 }
 
-static void
-main2 (bool b)
-{
-    if (!b)
-        warn << "all master connections failed\n";
-    srdline ();
-}
+//-----------------------------------------------------------------------
 
-int
-main (int argc, char *argv[])
+tamed static void 
+main2 (int argc, char **argv)
 {
+    tvars {
+        int ch;
+        int dbg_lev (0);
+        int i;
+        bool b;
+    }
+
     tst2_done = false;
     tst2_cbct = 0;
-    int ch;
-    int dbg_lev = 0;
 
     setprogname (argv[0]);
 
@@ -478,7 +479,7 @@ main (int argc, char *argv[])
 
     set_debug (dbg_lev);
 
-    for (int i = optind; i < argc; i++) {
+    for (i = optind; i < argc; i++) {
         str host = "localhost";
         int port = dsdc_port;
         if (!parse_hn (argv[i], &host, &port))
@@ -486,8 +487,23 @@ main (int argc, char *argv[])
         sc->add_master (host, port);
     }
     cli = sc->make_interface<tst_key_t, tst_obj_checked_t> ();
-    sc->init (wrap (main2));
+
+    twait { sc->init (mkevent (b)); }
+    if (!b)
+        warn << "all master connections failed\n";
+    srdline ();
+}
+
+//-----------------------------------------------------------------------
+
+int
+main (int argc, char *argv[])
+{
+    setprogname (argv[0]);
+    main2 (argc, argv);
     amain ();
 }
+
+//-----------------------------------------------------------------------
 
 

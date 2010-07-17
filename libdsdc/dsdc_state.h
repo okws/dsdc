@@ -7,6 +7,7 @@
 #include "dsdc_prot.h"
 #include "dsdc_ring.h"
 #include "arpc.h"
+#include "tame.h"
 
 /**
  * a class that caches the global state of the system; included is
@@ -29,9 +30,8 @@ protected:
     virtual void post_construct () {}
 
     void handle_refresh (const dsdc_getstate_res_t &r);
-    void refresh_cb (ptr<bool> df, ptr<dsdc_getstate_res_t> r, clnt_stat err);
-    void refresh (ptr<bool> df);
-    void schedule_refresh ();
+    void refresh (evv_t::ptr ev = NULL, CLOSURE);
+    void refresh_loop (CLOSURE);
 
     void refresh_lock_server ();
     void change_lock_server_to (aclnt_wrap_t *nl);
@@ -43,6 +43,7 @@ protected:
     dsdc_hash_ring_t _hash_ring;
     ptr<bool> _destroyed;
     aclnt_wrap_t *_lock_server;
+    bool _loop_running;
 };
 
 

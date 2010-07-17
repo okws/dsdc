@@ -43,6 +43,8 @@ slave.o:	slave.C
 slave.lo:	slave.C
 smartcli.o:	smartcli.C
 smartcli.lo:	smartcli.C
+state.o:	state.C
+state.lo:	state.C
 fscache.o:	fscache.C 
 fscache.lo:	fscache.C
 fslru.o:	fslru.h
@@ -65,9 +67,9 @@ rpcclean:
 	@rm -f dsdc_prot.h dsdc_prot.C
 
 tameclean:
-	@rm -f smartcli.C fscache.C fslru.h dsdc_tamed.h
+	@rm -f smartcli.C fscache.C fslru.h dsdc_tamed.h state.C
 
-EXTRA_DIST = .cvsignore smartcli.T fscache.T fslru.Th dsdc_tamed.Th
+EXTRA_DIST = .cvsignore smartcli.T fscache.T fslru.Th dsdc_tamed.Th state.T
 CLEANFILES = core *.core *~ *.rpo
 
 MAINTAINERCLEANFILES = Makefile.in config.guess config.h.in config.sub \

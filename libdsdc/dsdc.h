@@ -115,9 +115,7 @@ public:
     dsdci_master_t (const str &h, int p) : dsdci_srv_t (h,p) {}
 
     void eof_hook ();
-    void schedule_retry ();
-    void retry_cb (ptr<bool> df, bool res);
-    void retry (ptr<bool> df);
+    void retry_loop (CLOSURE);
     str typ () const { return "master"; }
 
     tailq_entry<dsdci_master_t> _lnk;
@@ -320,7 +318,7 @@ public:
     // initialize the smart client; get a callback with a "true" result
     // as soon as one master connection succeeds, or with a "false" result
     // after all connections fail.
-    void init (cbb::ptr cb);
+    void init (evb_t::ptr ev, CLOSURE);
 
     //
     // put/get/remove objects into the ring.
@@ -473,28 +471,14 @@ protected:
     //   required semantics: first master wins, but if all masters
     //   fail, then we're required to say that
     //
-    struct init_t {
-        init_t (cbb c) : _cb (c), _success (false) {}
-        ~init_t () { if (!_success) (*_cb) (false); }
 
-        // assure that _cb can only be triggered once
-        void success ()
-        {
-            if (!_success) {
-                _success = true;
-                (*_cb) (true);
-            }
-        }
-        cbb _cb;
-        bool _success;
-    };
-    void init_cb (ptr<init_t> i, dsdci_master_t *m, bool b);
+    // keep trying to connect to the master if it didn't work at first!
+    // trigger 0 for "OK", 1 for "first to complete" and -1 for "fail"
+    void master_connect (dsdci_master_t *m, evi_t ev, CLOSURE);
 
     // On init, we want to return success to the caller after we have
     // successfully initialized the hash ring.
-    ptr<init_t> poke_after_refresh;
-
-    void last_finished (cbb::ptr cb, bool b);
+    evv_t::ptr _poke_after_refresh;
 
     //
     // end init code

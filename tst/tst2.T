@@ -1,3 +1,4 @@
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 
 #include "dsdc_util.h"
 #include "dsdc.h"
@@ -17,6 +18,12 @@ typedef enum { NONE = 0,
 
 bool tst2_done = false;
 int tst2_cbct = 0; // callback count
+
+static void
+hash_key (const tst_key_t &in, dsdc_key_t *k)
+{
+    sha1_hashxdr (k->base (), in);
+}
 
 static void
 compute_checksum (tst_obj_checked_t *u)
@@ -88,40 +95,50 @@ put_cb (str mapping, int res)
 static void
 put (dsdc_smartcli_t *sc, tst_key_t k, str v, bool safe)
 {
+    ptr<dsdc_put_arg_t> arg = New refcounted<dsdc_put_arg_t> ();
+    hash_key (k, &arg->key);
+
     tst_obj_checked_t obj;
     obj.obj.key = k;
     obj.obj.val = v;
 
     compute_checksum (&obj);
+    if (! xdr2bytes (arg->obj, obj)) {
+        warn << "xdr2bytes failed\n";
+        exit (1);
+    }
 
-    // for debug purposes
-    str tmp = key_to_str (obj.checksum);
-    strbuf mapping ("%d -> %s", k, tmp.cstr ());
+    str tmp1 = key_to_str (arg->key);
+    str tmp2 = key_to_str (obj.checksum);
+    strbuf mapping ("%d (%s) -> %s", k, tmp1.cstr (), tmp2.cstr ());
 
     tst2_cbct++;
-    sc->put3 (k, obj, wrap (put_cb, str (mapping)), safe);
+    sc->put (arg, wrap (put_cb, str (mapping)), safe);
 }
 
 static void
-get_cb (tst_key_t k, dsdc_res_t status, ptr<tst_obj_checked_t> obj)
+get_cb (str k, ptr<dsdc_get_res_t> res)
 {
-    switch (status) {
+    tst_obj_checked_t obj;
+    switch (res->status) {
     case DSDC_NOTFOUND:
-        aout << strbuf ("GET: %d -> <null> (NOT FOUND)\n", k);
+        aout << strbuf ("GET: %s -> <null> (NOT FOUND)\n", k.cstr ());
         break;
     case DSDC_OK:
-        if (!check_obj (obj)) {
-            warn ("** GET: checksum on object failed: %d\n", k);
+        if (!bytes2xdr (obj, *res->obj)) {
+            warn << "** GET: bytes2xdr failed!\n";
+        } else if (!check_obj (&obj)) {
+            warn ("** GET: checksum on object failed: %s\n", k.cstr ());
         } else {
-            aout << strbuf ("GET: %d -> %s\n",
-                            k, key_to_str (obj->checksum).cstr ());
+            aout << strbuf ("GET: %s -> %s\n",
+                            k.cstr (), key_to_str (obj.checksum).cstr ());
         }
         break;
     case DSDC_RPC_ERROR:
-        warn << "** GET: RPC error\n";
+        warn << "** GET: RPC error: " << *res->err << "\n";
         break;
     default:
-        warn << "** GET: DSDC error " << status << "\n";
+        warn << "** GET: DSDC error " << res->status << "\n";
     }
     cb_done ();
 }
@@ -129,7 +146,10 @@ get_cb (tst_key_t k, dsdc_res_t status, ptr<tst_obj_checked_t> obj)
 static void
 get (dsdc_smartcli_t *sc, tst_key_t k, bool safe)
 {
-    sc->Xtmpl get3<tst_key_t, tst_obj_checked_t> (k, wrap (get_cb, k), safe);
+    ptr<dsdc_key_t> outkey = New refcounted<dsdc_key_t> ();
+    hash_key (k, outkey);
+    strbuf key_str ("%d (%s)", k, key_to_str (*outkey).cstr ());
+    sc->get (outkey,  wrap (get_cb, strbuf (key_str)), safe);
 }
 
 static void
@@ -214,33 +234,46 @@ srdline (dsdc_smartcli_t *sc)
         ain->readline (wrap (&rdline, sc));
 }
 
-static void
-main2 (dsdc_smartcli_t *sc, bool b)
-{
-    if (!b)
-        fatal << "all master connections failed\n";
-    srdline (sc);
-}
+//-----------------------------------------------------------------------
 
-int
-main (int argc, char *argv[])
+tamed static void
+main2 (int argc, char **argv)
 {
+    tvars {
+        dsdc_smartcli_t *sc;
+        bool b;
+        int i;
+    }
+    
     tst2_done = false;
     tst2_cbct = 0;
 
-    setprogname (argv[0]);
+    sc = New dsdc_smartcli_t ();
 
-    dsdc_smartcli_t *sc = New dsdc_smartcli_t ();
-
-    for (int i = 1; i < argc; i++) {
+    for (i = 1; i < argc; i++) {
         str host = "localhost";
         int port = dsdc_port;
         if (!parse_hn (argv[i], &host, &port))
             usage ();
         sc->add_master (host, port);
     }
-    sc->init (wrap (main2, sc));
+
+    twait { sc->init (mkevent (b)); }
+
+    if (!b)
+        fatal << "all master connections failed\n";
+
+    srdline (sc);
+}
+
+//-----------------------------------------------------------------------
+
+int
+main (int argc, char *argv[])
+{
+    setprogname (argv[0]);
+    main2 (argc, argv);
     amain ();
 }
 
-
+//-----------------------------------------------------------------------

@@ -1,3 +1,4 @@
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 
 #include "dsdc_util.h"
 #include "dsdc.h"
@@ -215,33 +216,45 @@ srdline (dsdc_smartcli_t *sc)
         ain->readline (wrap (&rdline, sc));
 }
 
-static void
-main2 (dsdc_smartcli_t *sc, bool b)
-{
-    if (!b)
-        fatal << "all master connections failed\n";
-    srdline (sc);
-}
+//-----------------------------------------------------------------------
 
-int
-main (int argc, char *argv[])
+tamed static void 
+main2 (int argc, char **argv)
 {
+    tvars {
+        dsdc_smartcli_t *sc;
+        bool b;
+        int i;
+    }
+
     tst2_done = false;
     tst2_cbct = 0;
 
     setprogname (argv[0]);
 
-    dsdc_smartcli_t *sc = New dsdc_smartcli_t ();
+    sc = New dsdc_smartcli_t ();
 
-    for (int i = 1; i < argc; i++) {
+    for (i = 1; i < argc; i++) {
         str host = "localhost";
         int port = dsdc_port;
         if (!parse_hn (argv[i], &host, &port))
             usage ();
         sc->add_master (host, port);
     }
-    sc->init (wrap (main2, sc));
+    twait { sc->init (mkevent (b)); }
+    if (!b)
+        fatal << "all master connections failed\n";
+    srdline (sc);
+}
+
+//-----------------------------------------------------------------------
+
+int
+main (int argc, char *argv[])
+{
+    setprogname (argv[0]);
+    main2 (argc, argv);
     amain ();
 }
 
-
+//-----------------------------------------------------------------------
