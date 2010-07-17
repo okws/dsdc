@@ -6,8 +6,8 @@
 #define _DSDC_SMARTCLI_H_
 
 // when we hit a major version it should go to 100000
-#define DSDC_VERSION_STR "0.6.0"
-#define DSDC_VERSION    6000
+#define DSDC_VERSION_STR "0.8.0"
+#define DSDC_VERSION    8000
 
 #include "async.h"
 #include "arpc.h"
@@ -35,11 +35,10 @@ typedef dsdc::annotation::base_t annotation_t;
 class dsdci_srv_t : public aclnt_wrap_t {
 public:
     dsdci_srv_t (const str &h, int p) ;
-    virtual ~dsdci_srv_t () { *_destroyed = true; }
+    virtual ~dsdci_srv_t ();
 
     const str &key () const { return _key; }
-    void connect (cbb cb);
-    void connect_cb (cbb cb, ptr<bool> df, int f);
+    void connect (cbb cb, CLOSURE);
 
     void hit_eof (ptr<bool> df); // call this when there is an EOF
 
@@ -74,8 +73,7 @@ public:
      *
      * @param cb callback to call with the resulting ptr<aclnt>, or NULL on err
      */
-    void get_aclnt (aclnt_cb_t cb);
-    void get_aclnt_cb (aclnt_cb_t cb, ptr<bool> df, bool b);
+    void get_aclnt (aclnt_cb_t cb, CLOSURE);
     bool is_dead () ;
 
     /**
@@ -83,6 +81,14 @@ public:
      */
     const str &remote_peer_id () const { return _key; }
 
+    typedef enum { CONN_NONE,
+                   CONN_FAST,
+                   CONN_SLOW } conn_state_t;
+
+protected:
+    void trigger_waiters();
+
+public:
     const str _key;
 private:
     const str _hostname;
@@ -93,6 +99,8 @@ private:
     ptr<aclnt> _cli;
 protected:
     ptr<bool> _destroyed;
+    conn_state_t _conn_state;
+    vec<evv_t> _waiters;
 };
 
 

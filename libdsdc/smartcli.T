@@ -1,5 +1,4 @@
-
-// -*-c++-*-
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 /* $Id$ */
 
 #include "dsdc.h"
@@ -7,11 +6,18 @@
 
 dsdci_srv_t::dsdci_srv_t (const str &h, int p)
         : _key (strbuf ("%s:%d", h.cstr (), p)),
-        _hostname (h),
-        _port (p),
-        _fd (-1),
-        _destroyed (New refcounted<bool> (false))
-{ }
+          _hostname (h),
+          _port (p),
+          _fd (-1),
+          _destroyed (New refcounted<bool> (false)),
+          _conn_state (CONN_NONE)
+{}
+
+dsdci_srv_t::~dsdci_srv_t ()
+{
+    *_destroyed = true;
+    trigger_waiters();
+}
 
 void
 dsdci_srv_t::hit_eof (ptr<bool> df)
@@ -272,56 +278,125 @@ dsdc_smartcli_t::rpc_call (ptr<aclnt> cli,
     }
 }
 
-void
-dsdci_srv_t::connect_cb (cbb cb, ptr<bool> df, int f)
+//-----------------------------------------------------------------------
+
+tamed void
+dsdci_srv_t::connect (cbb cb)
 {
-    bool ret = true;
-    if (*df) {
-        ret = false;
-    } else if ((_fd = f) < 0) {
-        if (show_debug (DSDC_DBG_LOW)) {
-            warn << "connection to " << typ () << " failed: " << key () << "\n";
-        }
-        ret = false;
+    tvars { 
+        bool ret (true);
+        int f;
+        ptr<bool> df;
+    }
+    
+    df = _destroyed;
+
+    if (!is_dead ()) { 
+        ret = true;
     } else {
-        if (show_debug (DSDC_DBG_MED)) {
-            warn << "connection to " << typ () << " succeeded: " << key () << "\n";
+        twait { tcpconnect (_hostname, _port, mkevent (f)); }
+
+        if (*df) {
+            ret = false;
+        } else if ((_fd = f) < 0) {
+            if (show_debug (DSDC_DBG_LOW)) {
+                warn << "connection to " << typ () << " failed: " 
+                     << key () << "\n";
+            }
+            ret = false;
+        } else {
+            if (show_debug (DSDC_DBG_MED)) {
+                warn << "connection to " << typ () << " succeeded: " 
+                     << key () << "\n";
+            }
+            assert ((_x = axprt_stream::alloc (_fd, dsdc_packet_sz)));
+            _cli = aclnt::alloc (_x, dsdc_prog_1);
+            _cli->seteofcb (wrap (this, &dsdci_srv_t::hit_eof, _destroyed));
         }
-        assert ((_x = axprt_stream::alloc (_fd, dsdc_packet_sz)));
-        _cli = aclnt::alloc (_x, dsdc_prog_1);
-        _cli->seteofcb (wrap (this, &dsdci_srv_t::hit_eof, _destroyed));
     }
     (*cb) (ret);
 }
 
+//-----------------------------------------------------------------------
+
 void
-dsdci_srv_t::connect (cbb cb)
+dsdci_srv_t::trigger_waiters ()
 {
-    if (!is_dead ()) {
-        (*cb) (true);
-        return;
+    while (!_waiters.size ()) {
+        evv_t e = _waiters.pop_back ();
+        e->trigger ();
     }
-    tcpconnect (_hostname, _port, wrap (this, &dsdci_srv_t::connect_cb,
-                                        cb, _destroyed));
 }
 
-void
-dsdci_srv_t::get_aclnt_cb (aclnt_cb_t cb, ptr<bool> df, bool b)
-{
-    if (*df)
-        (*cb) (NULL);
-    else
-        (*cb) (_cli);
-}
+//-----------------------------------------------------------------------
 
-void
+tamed void
 dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
 {
-    if (!is_dead () && _cli) {
-        (*cb) (_cli);
-        return;
+    tvars {
+        ptr<bool> df;
+        ptr<aclnt> ret;
+        bool triggered (true);
+        rendezvous_t<bool> rv (__FILE__, __LINE__);
+        timecb_t *tcb (NULL);
+        bool ok;
+        bool timeout;
     }
-    connect (wrap (this, &dsdci_srv_t::get_aclnt_cb, cb, _destroyed));
+
+    df = _destroyed;
+  
+    if (!is_dead () && _cli) { /* noop, see below */ }
+
+    else if (_conn_state == CONN_NONE) {
+
+        // Only one "thread" should try to connect at a time!
+        // Before the timeout, we're in "connection fast" mode, meaning
+        // that others might want to wait for us.
+        _conn_state = CONN_FAST;
+
+        // Connect, but keep in mind that connecting 
+        connect (mkevent (rv, false, ok));
+        tcb = delaycb (dsdci_connect_timeout_ms / 1000, 
+                       dsdci_connect_timeout_ms * 1000000, 
+                       mkevent (rv, true));
+
+        twait (rv, timeout);
+
+        // We didn't connect in time, that means we're in slow state
+        if (!*df && timeout) { _conn_state = CONN_SLOW; }
+
+        // tell the other guys right away, regardless of whether it
+        // worked or if if was a timeout.
+        if (!*df) { trigger_waiters (); }
+
+        if (timeout) {
+            (*cb) (NULL);
+            triggered = true;
+
+
+            // Now wait for the connection to complete, which can take
+            // as long as it needs to, but we need not worry that anyone
+            // is waiting for it.
+            twait (rv, ok);
+
+        } else {
+            timecb_remove (tcb);
+            rv.cancel ();
+        }
+
+        if (!*df) { _conn_state = CONN_NONE; }
+
+    } else if (_conn_state == CONN_FAST) {
+
+        // Only wait for a connection to finish if it's before the timeout;
+        // Otherwise, assume it's a lost cause and bail out.
+        twait { _waiters.push_back (mkevent ()); }
+    }
+
+    if (!triggered) {
+        if (!*df && !is_dead ()) { ret = _cli; }
+        (*cb) (ret); 
+    }
 }
 
 void

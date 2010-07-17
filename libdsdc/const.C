@@ -17,3 +17,6 @@ u_int dsdcs_port_attempts = 100;       // number of ports to try
 
 u_int dsdcl_default_timeout = 10;      // by def, hold locks for 10 seconds
 u_int dsdc_rpc_timeout = 3;            // in seconds before calling off an RPC
+
+time_t dsdci_connect_timeout_ms = 1000; // wait for a connect for 1s
+
