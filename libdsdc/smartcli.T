@@ -337,7 +337,7 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
     tvars {
         ptr<bool> df;
         ptr<aclnt> ret;
-        bool triggered (true);
+        bool triggered (false);
         rendezvous_t<bool> rv (__FILE__, __LINE__);
         timecb_t *tcb (NULL);
         bool ok;
@@ -398,6 +398,10 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
         // Otherwise, assume it's a lost cause and bail out.
         twait { _waiters.push_back (mkevent ()); }
     }
+
+    // If this node was deleted, there are several cases in which
+    // the rendezvous isn't appropriately waited on.
+    if (*df) { rv.cancel (); }
 
     if (!triggered) {
         if (!*df && !is_dead ()) { ret = _cli; }

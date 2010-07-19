@@ -47,6 +47,17 @@ dsdc_system_state_cache_t::refresh_lock_server ()
 //-----------------------------------------------------------------------
 
 void
+dsdc_system_state_cache_t::clear_all ()
+{
+    if (_system_state.slaves.size ()) {
+        dsdc_getstate_res_t res (true);
+        handle_refresh (res);
+    }
+}
+
+//-----------------------------------------------------------------------
+
+void
 dsdc_system_state_cache_t::handle_refresh (const dsdc_getstate_res_t &res)
 {
     if (res.needupdate) {
@@ -71,7 +82,6 @@ void
 dsdc_system_state_cache_t::construct_tree ()
 {
     _hash_ring.deleteall_correct ();
-    //_hash_ring.deleteall();
     for (u_int i = 0; i < _system_state.slaves.size (); i++) {
         const dsdcx_slave_t &sl = _system_state.slaves[i];
         aclnt_wrap_t *w = new_wrap (sl.hostname, sl.port);
@@ -98,7 +108,6 @@ dsdc_system_state_cache_t::~dsdc_system_state_cache_t ()
 {
     *_destroyed = true;
     _hash_ring.deleteall_correct ();
-    //_hash_ring.deleteall ();
 }
 
 //-----------------------------------------------------------------------
@@ -136,6 +145,7 @@ dsdc_system_state_cache_t::refresh (evv_t::ptr ev)
     df = _destroyed;
     if (!(c = get_primary ())) {
         warn << "Cannot find any masters that are alive!\n";
+        clear_all ();
     } else {
         twait { 
             RPC::dsdc_prog_1::dsdc_getstate

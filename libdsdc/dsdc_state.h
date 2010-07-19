@@ -36,6 +36,7 @@ protected:
     void refresh_lock_server ();
     void change_lock_server_to (aclnt_wrap_t *nl);
     str fingerprint (str *in) const;
+    void clear_all ();
 
     dsdcx_state_t  _system_state;
     dsdc_key_t _system_state_hash;

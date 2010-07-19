@@ -2,7 +2,7 @@
 #include "dsdc_const.h"
 #include "dsdc_prot.h"
 
-int dsdcs_getstate_interval = 60;      // every minute
+int dsdcs_getstate_interval = 5;       // every 5s
 int dsdc_heartbeat_interval = 4;       // every 2 seconds
 int dsdc_missed_beats_to_death = 10;   // miss 10 beats->death
 int dsdc_port = DSDC_DEFAULT_PORT;     // same as RPC progno!
