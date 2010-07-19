@@ -10,6 +10,7 @@
 #include "ihash.h"
 #include "async.h"
 #include "arpc.h"
+#include "tame.h"
 
 typedef callback<void, ptr<aclnt> >::ref aclnt_cb_t;
 
@@ -17,7 +18,7 @@ class aclnt_wrap_t {
 public:
     virtual ~aclnt_wrap_t () {}
     virtual ptr<aclnt> get_aclnt () { return NULL; }
-    virtual void get_aclnt (aclnt_cb_t cb) { (*cb) (get_aclnt ()); }
+    virtual void get_aclnt (aclnt_cb_t cb, CLOSURE) { (*cb) (get_aclnt ()); }
     virtual bool is_dead () = 0;
     virtual const str & remote_peer_id () const = 0;
 };

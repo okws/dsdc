@@ -323,7 +323,7 @@ dsdci_srv_t::connect (cbb cb)
 void
 dsdci_srv_t::trigger_waiters ()
 {
-    while (!_waiters.size ()) {
+    while (_waiters.size ()) {
         evv_t e = _waiters.pop_back ();
         e->trigger ();
     }
