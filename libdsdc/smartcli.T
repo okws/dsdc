@@ -607,8 +607,10 @@ dsdci_master_t::retry_loop ()
                 warn << "Retrying remote master: " << key () << "\n";
 
             twait { connect (mkevent (ok)); }
-            if (ok && show_debug (DSDC_DBG_LOW)) {
-                warn << "Retry succeeded: " << key () << "\n";
+            if (ok) {
+                if (show_debug (DSDC_DBG_LOW)) {
+                    warn << "Retry succeeded: " << key () << "\n";
+                }
             }
         }
         if (!ok) { 

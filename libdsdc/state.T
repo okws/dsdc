@@ -97,7 +97,7 @@ dsdc_system_state_cache_t::dsdc_system_state_cache_t ()
         : _n_updates_since_clean (0),
           _destroyed (New refcounted<bool> (false)),
           _lock_server (NULL),
-          _loop_running (false) 
+          _loop_running (false)
 {
     memset (_system_state_hash.base (), 0, _system_state_hash.size ());
 }
@@ -145,7 +145,9 @@ dsdc_system_state_cache_t::refresh (evv_t::ptr ev)
     df = _destroyed;
     if (!(c = get_primary ())) {
         warn << "Cannot find any masters that are alive!\n";
-        clear_all ();
+        if (clean_on_all_masters_dead ()) {
+            clear_all ();
+        }
     } else {
         twait { 
             RPC::dsdc_prog_1::dsdc_getstate

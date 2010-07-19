@@ -28,6 +28,7 @@ protected:
 
     virtual void pre_construct () {}
     virtual void post_construct () {}
+    virtual bool clean_on_all_masters_dead () const = 0;
 
     void handle_refresh (const dsdc_getstate_res_t &r);
     void refresh (evv_t::ptr ev = NULL, CLOSURE);

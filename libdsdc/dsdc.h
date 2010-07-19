@@ -320,6 +320,12 @@ public:
     // after all connections fail.
     void init (evb_t::ptr ev, CLOSURE);
 
+    // If all masters are dead, we shouldn't keep the stale version
+    // of the ring around.  NOTE that slaves do somethind else -- they
+    // do keep around the old cached state, so that way they don't all
+    // dump their data!
+    bool clean_on_all_masters_dead () const { return true; }
+
     //
     // put/get/remove objects into the ring.
     //

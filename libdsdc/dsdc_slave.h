@@ -186,6 +186,7 @@ public:
     const dsdc_keyset_t *get_keys () const { return &_keys; }
     void get_keys (dsdc_keyset_t *k) const { *k = _keys; }
     void get_xdr_repr (dsdcx_slave_t *x) ;
+    bool clean_on_all_masters_dead () const { return false; }
 
     void dispatch (svccb *sbp);
     void handle_get (svccb *sbp);
