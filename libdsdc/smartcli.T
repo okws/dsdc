@@ -342,6 +342,7 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
         timecb_t *tcb (NULL);
         bool ok;
         bool timeout;
+        bool do_cancel (false);
     }
 
     df = _destroyed;
@@ -386,8 +387,7 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
             twait (rv, ok);
 
         } else {
-            timecb_remove (tcb);
-            rv.cancel ();
+            do_cancel = true;
         }
 
         if (!*df) { _conn_state = CONN_NONE; }
@@ -400,8 +400,13 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
     }
 
     // If this node was deleted, there are several cases in which
-    // the rendezvous isn't appropriately waited on.
-    if (*df) { rv.cancel (); }
+    // the rendezvous isn't appropriately waited on. Also, in the case
+    // of explicit cancel, remove the timer gracefully, so it doesn't
+    // fire later and poke a dead rendezvous...
+    if (*df || do_cancel) { 
+        if (tcb) timecb_remove (tcb);
+        rv.cancel (); 
+    }
 
     if (!triggered) {
         if (!*df && !is_dead ()) { ret = _cli; }
