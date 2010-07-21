@@ -51,3 +51,10 @@ if test "${enable_pthread+set}" = "set" ; then
       DEBUG="$DEBUG -pthread"           
 fi      
 ])
+dnl
+dnl Version Hack
+dnl
+AC_DEFUN([DSDC_SET_VERSION],
+[
+AC_DEFINE_UNQUOTED(DSDC_VERSION_STR, "$VERSION", DSDC Library Version)
+])

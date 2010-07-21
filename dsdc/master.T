@@ -103,13 +103,6 @@ dsdcm_slave_t::dsdcm_slave_t (ptr<dsdcm_client_t> c, ptr<axprt> x)
     if (show_debug (DSDC_DBG_HI)) {
         warn ("New dsdcm_slave_t @ %p\n", this);
     }
-}
-
-//-----------------------------------------------------------------------
-
-void
-dsdcm_slave_t::init ()
-{
     _client->get_master ()->insert_slave (this);
 }
 
@@ -119,21 +112,22 @@ ptr<dsdcm_slave_t>
 dsdcm_slave_t::alloc (ptr<dsdcm_client_t> c, ptr<axprt> x)
 {
     ptr<dsdcm_slave_t> s = New refcounted<dsdcm_slave_t> (c, x);
-    s->init ();
     return s;
 }
 
 //-----------------------------------------------------------------------
 
 dsdcm_lock_server_t::dsdcm_lock_server_t (ptr<dsdcm_client_t> c, ptr<axprt> x)
-    : dsdcm_slave_base_t (c, x) {}
+    : dsdcm_slave_base_t (c, x)
+{
+    _client->get_master ()->insert_lock_server (this);
+}
 
 //-----------------------------------------------------------------------
 
-void
-dsdcm_lock_server_t::init ()
+dsdcm_lock_server_t::~dsdcm_lock_server_t ()
 {
-    _client->get_master ()->insert_lock_server (this);
+    _client->get_master ()->remove_lock_server (this);
 }
 
 //-----------------------------------------------------------------------
@@ -142,7 +136,6 @@ ptr<dsdcm_lock_server_t>
 dsdcm_lock_server_t::alloc (ptr<dsdcm_client_t> c, ptr<axprt> x)
 {
     ptr<dsdcm_lock_server_t> s = New refcounted<dsdcm_lock_server_t> (c, x);
-    s->init ();
     return s;
 }
 
@@ -183,13 +176,6 @@ void
 dsdc_master_t::remove_lock_server (dsdcm_lock_server_t *ls)
 { 
     _lock_servers.remove (ls); 
-}
-
-//-----------------------------------------------------------------------
-
-dsdcm_lock_server_t::~dsdcm_lock_server_t ()
-{
-    _client->get_master ()->remove_lock_server (this);
 }
 
 //-----------------------------------------------------------------------
@@ -330,6 +316,25 @@ dsdc_master_t::compute_system_state ()
 
 //-----------------------------------------------------------------------
 
+static str
+svccb_to_ip (svccb *sbp)
+{
+    int fd = sbp->getsrv ()->xprt ()->getreadfd ();
+    struct sockaddr_in sin;
+    socklen_t sinlen = sizeof (sin);
+    str ret;
+
+    if (getpeername (fd, (struct sockaddr *)&sin, &sinlen) != 0) {
+        warn ("getpeername failed: %m\n");
+    } else {
+        const char *ip = inet_ntoa (sin.sin_addr);
+        ret = ip;
+    }
+    return ret;
+}
+
+//-----------------------------------------------------------------------
+
 void
 dsdcm_client_t::handle_register (svccb *sbp)
 {
@@ -343,6 +348,15 @@ dsdcm_client_t::handle_register (svccb *sbp)
     } else {
         _slave = dsdcm_slave_t::alloc (mkref (this), _x);
     }
+
+    // Safer to use the IP that the kernel is giving us, and not the 
+    // random hostname that the node supplied. This solves especially
+    // bad behavior when the DNS mappings change midstream.
+    str ip = svccb_to_ip (sbp);
+    if (ip) { 
+        arg->slave.hostname = ip;
+    }
+
     _slave->init (arg->slave);
 
     sbp->replyref (dsdc_res_t (DSDC_OK));
@@ -370,10 +384,16 @@ void
 dsdcm_client_t::release ()
 {
     _master->remove_client (this);
+
+    // This code here should cause the object pointed to by _slave
+    // to be released.  The first call will clear all references to the
+    // slave in the dsdc_ring, and the second call will clear our 
+    // reference to it.  Usually those are the only things holding it up.
     if (_slave) {
         _slave->release ();
         _slave = NULL;
     }
+
     refcount_dec ();
 }
 

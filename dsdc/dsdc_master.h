@@ -125,7 +125,6 @@ public:
     ihash_entry<dsdcm_slave_t> _hlnk;
 protected:
     dsdcm_slave_t (ptr<dsdcm_client_t> c, ptr<axprt> x);
-    void init ();
 };
 
 template<> struct keyfn<dsdcm_slave_t, str>
@@ -147,7 +146,6 @@ public:
     tailq_entry<dsdcm_lock_server_t> _lnk;
 protected:
     dsdcm_lock_server_t (ptr<dsdcm_client_t> c, ptr<axprt> x);
-    void init ();
 };
 
 //

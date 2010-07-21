@@ -93,7 +93,7 @@ usage (bool err = true)
     << "  it runs automatically in lockserver, master, or slave mode, "
     << "respectively.\n"
     << "\n"
-    << "dsdc version " << VERSION << "; built "
+    << "dsdc version " << DSDC_VERSION_STR << "; built "
     << __DATE__ << " " << __TIME__ << "\n"
     << "\n";
 
