@@ -372,6 +372,7 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
         if (!*df) { trigger_waiters (); }
 
         if (timeout) {
+            tcb = NULL;
             (*cb) (NULL);
             triggered = true;
 
