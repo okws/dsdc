@@ -102,8 +102,15 @@ fi
 
 DSDC_MODULE
 
+dnl
+dnl Do the layout version and use the short version for install
+dnl
+SFS_LAYOUT_VERSION
+SHORTVERSION=`echo ${layoutversion} | awk -F. '{ print $1 "." $2 }' `
+AC_SUBST(SHORTVERSION)
+
 dsdcexecdir='${dsdctopdir}'
-dsdctopdir='${module_prefix}/${module_name}/${VERSION}/${sfstag}'
+dsdctopdir='${module_prefix}/${module_name}/${SHORTVERSION}/${sfstag}'
 dsdclibdir='${dsdctopdir}/lib'
 dsdcincludedir='${dsdctopdir}/include'
 

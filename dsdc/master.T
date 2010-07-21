@@ -36,6 +36,11 @@ dsdc_master_t::new_connection ()
     if (nfd >= 0) {
         strbuf hn ("%s:%d", inet_ntoa (sin.sin_addr), sin.sin_port);
         warn << "accepting connection from " << hn << "\n";
+
+        // Note that we have this client, and just let it do its own
+        // thing. alloc() will call refcount_inc(), meaning this thing
+        // will stay around **at least** until dsdcm_client_t::release()
+        // is called on an EOF.
         dsdcm_client_t::alloc (this, nfd, hn);
 
     } else if (errno != EAGAIN)
