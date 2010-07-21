@@ -23,8 +23,8 @@ protected:
     void construct_tree ();
     virtual void clean_cache () {}
     virtual ptr<aclnt> get_primary () = 0;
-    virtual aclnt_wrap_t *new_wrap (const str &h, int p) = 0;
-    virtual aclnt_wrap_t *new_lockserver_wrap (const str &h, int p) = 0;
+    virtual ptr<aclnt_wrap_t> new_wrap (const str &h, int p) = 0;
+    virtual ptr<aclnt_wrap_t> new_lockserver_wrap (const str &h, int p) = 0;
 
     virtual void pre_construct () {}
     virtual void post_construct () {}

@@ -14,7 +14,7 @@
 
 typedef callback<void, ptr<aclnt> >::ref aclnt_cb_t;
 
-class aclnt_wrap_t {
+class aclnt_wrap_t : public virtual refcount {
 public:
     virtual ~aclnt_wrap_t () {}
     virtual ptr<aclnt> get_aclnt () { return NULL; }
@@ -27,18 +27,18 @@ public:
 // multiple nodes.
 class dsdc_ring_node_t {
 public:
-    dsdc_ring_node_t (aclnt_wrap_t *w, const dsdc_key_t &k);
+    dsdc_ring_node_t (ptr<aclnt_wrap_t> w, const dsdc_key_t &k);
     ~dsdc_ring_node_t () { }
 
     // public fields for insert into itree
     dsdc_key_t _key;                         // the key for this node
     itree_entry<dsdc_ring_node_t> _lnk;      // for implementing itree
 
-    aclnt_wrap_t * get_aclnt_wrap () { return _aclnt_wrap; }
-    const aclnt_wrap_t * get_aclnt_wrap () const { return _aclnt_wrap; }
+    ptr<aclnt_wrap_t> get_aclnt_wrap () { return _aclnt_wrap; }
+    ptr<const aclnt_wrap_t> get_aclnt_wrap () const { return _aclnt_wrap; }
 
 private:
-    aclnt_wrap_t *_aclnt_wrap;
+    ptr<aclnt_wrap_t> _aclnt_wrap;
 };
 
 //

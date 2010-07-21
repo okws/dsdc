@@ -18,3 +18,4 @@ extern u_int dsdcs_port_attempts;
 extern u_int dsdcl_default_timeout;
 
 extern time_t dsdci_connect_timeout_ms;
+extern time_t dsdcm_timer_interval;

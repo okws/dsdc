@@ -1,4 +1,4 @@
-// -*-c++-*-
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 /* $Id$ */
 
 #ifndef _DSDC_MASTER_H
@@ -32,10 +32,11 @@ class dsdcm_slave_base_t;
 // one of these objects is allocated for each extern client served;
 // i.e., there is one per incoming TCP connection. when the
 // external client goes away, so, too, does this thing.
-class dsdcm_client_t {
+class dsdcm_client_t : public virtual refcount {
 public:
-    dsdcm_client_t (dsdc_master_t *m, int _fd, const str &h);
-    ~dsdcm_client_t () ;
+    static ptr<dsdcm_client_t> alloc (dsdc_master_t *m, int _fd, const str &h);
+    ~dsdcm_client_t () {}
+    void release ();
 
     void dispatch (svccb *b);          // handle a request
     list_entry<dsdcm_client_t> _lnk;   // for insert into a list of clients
@@ -46,13 +47,14 @@ public:
     void unregister_slave () { _slave = NULL; }
 
 protected:
-
+    dsdcm_client_t (dsdc_master_t *m, int _fd, const str &h);
+    void init ();
     void handle_heartbeat (svccb *b);
     void handle_register (svccb *b);
 
     // if this client has registered as a slave, then this pointer field
     // will be set.  we set up bidirectional pointers here.
-    dsdcm_slave_base_t *_slave;
+    ptr<dsdcm_slave_base_t> _slave;
 
     dsdc_master_t *_master; // master objet
     int _fd;                // the client's fd
@@ -69,8 +71,9 @@ protected:
  */
 class dsdcm_slave_base_t : public aclnt_wrap_t {
 public:
-    dsdcm_slave_base_t (dsdcm_client_t *c, ptr<axprt> x);
-    virtual ~dsdcm_slave_base_t () { _client->unregister_slave (); }
+    dsdcm_slave_base_t (ptr<dsdcm_client_t> c, ptr<axprt> x);
+    virtual ~dsdcm_slave_base_t () {}
+    void release ();
     void init (const dsdcx_slave_t &keys);
     void get_xdr_repr (dsdcx_slave_t *o) { *o = _xdr_repr; }
     const str &remote_peer_id () const { return _client->remote_peer_id (); }
@@ -78,6 +81,8 @@ public:
     void handle_heartbeat () { _last_heartbeat = sfs_get_timenow (); }
 
     bool is_dead ();                    // if no heartbeat, assume dead
+
+    // Instead of calling delete, call this guy...
 
     /**
      * insert all of this slave's node into the master hash ring.
@@ -101,7 +106,7 @@ public:
 
 protected:
     dsdcx_slave_t _xdr_repr;           // XDR representation of us
-    dsdcm_client_t *_client;           // associated client object
+    ptr<dsdcm_client_t> _client;       // associated client object
     ptr<aclnt> _clnt_to_slave;         // RPC client for talking to slave
     vec<dsdc_ring_node_t *> _nodes;    // this slave's nodes in the ring
     time_t _last_heartbeat;            // last reported heartbeat
@@ -112,12 +117,15 @@ protected:
  */
 class dsdcm_slave_t : public dsdcm_slave_base_t {
 public:
-    dsdcm_slave_t (dsdcm_client_t *c, ptr<axprt> x);
-    ~dsdcm_slave_t () ;
+    static ptr<dsdcm_slave_t> alloc (ptr<dsdcm_client_t> c, ptr<axprt> x);
+    ~dsdcm_slave_t ();
     void remove_node (dsdc_master_t *m, dsdc_ring_node_t *n);
     void insert_node (dsdc_master_t *m, dsdc_ring_node_t *n);
     list_entry<dsdcm_slave_t> _lnk;
     ihash_entry<dsdcm_slave_t> _hlnk;
+protected:
+    dsdcm_slave_t (ptr<dsdcm_client_t> c, ptr<axprt> x);
+    void init ();
 };
 
 template<> struct keyfn<dsdcm_slave_t, str>
@@ -132,11 +140,14 @@ template<> struct keyfn<dsdcm_slave_t, str>
  */
 class dsdcm_lock_server_t : public dsdcm_slave_base_t {
 public:
-    dsdcm_lock_server_t (dsdcm_client_t *c, ptr<axprt> x);
-    ~dsdcm_lock_server_t () ;
+    static ptr<dsdcm_lock_server_t> alloc (ptr<dsdcm_client_t> c, ptr<axprt> x);
+    ~dsdcm_lock_server_t ();
     void remove_node (dsdc_master_t *m, dsdc_ring_node_t *n);
     void insert_node (dsdc_master_t *m, dsdc_ring_node_t *n);
     tailq_entry<dsdcm_lock_server_t> _lnk;
+protected:
+    dsdcm_lock_server_t (ptr<dsdcm_client_t> c, ptr<axprt> x);
+    void init ();
 };
 
 //
@@ -148,7 +159,7 @@ public:
 class dsdc_master_t : public dsdc_app_t {
 public:
     dsdc_master_t (int p = -1) :
-            _port (p > 0 ? p : dsdc_port), _lfd (-1), _n_slaves (0), _tmr (NULL) {}
+            _port (p > 0 ? p : dsdc_port), _lfd (-1), _n_slaves (0) {}
     virtual ~dsdc_master_t () {}
 
     bool init ();                      // launch this master
@@ -164,14 +175,11 @@ public:
     void remove_client (dsdcm_client_t *cli)
     { _clients.remove (cli); }
 
-    void insert_slave (dsdcm_slave_t *sl)
-    { _slaves.insert_head (sl); _n_slaves ++; _slave_hash.insert (sl); }
-    void remove_slave (dsdcm_slave_t *sl)
-    { _slaves.remove (sl); _n_slaves --; _slave_hash.remove (sl); }
+    void insert_slave (dsdcm_slave_t *sl);
+    void remove_slave (dsdcm_slave_t *sl);
 
     void insert_lock_server (dsdcm_lock_server_t *ls);
-    void remove_lock_server (dsdcm_lock_server_t *ls)
-    { _lock_servers.remove (ls); }
+    void remove_lock_server (dsdcm_lock_server_t *ls);
     void insert_lock_node (dsdc_ring_node_t *node) {}
     void remove_lock_node (dsdc_ring_node_t *node) {}
 
@@ -197,7 +205,7 @@ public:
 
     dsdcm_lock_server_t *lock_server () { return _lock_servers.first; }
 
-    void watchdog_timer ();
+    void watchdog_timer_loop (CLOSURE);
 
     str startup_msg () const
     {
@@ -237,8 +245,6 @@ private:
 
     // only the first is active, the rest are backups.
     tailq<dsdcm_lock_server_t, &dsdcm_lock_server_t::_lnk> _lock_servers;
-
-    timecb_t *_tmr;
 };
 
 #endif /* _DSDC_MASTER_H */

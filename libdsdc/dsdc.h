@@ -6,8 +6,8 @@
 #define _DSDC_SMARTCLI_H_
 
 // when we hit a major version it should go to 100000
-#define DSDC_VERSION_STR "0.8.0"
-#define DSDC_VERSION    8000
+#define DSDC_VERSION_STR "0.9.0"
+#define DSDC_VERSION    9000
 
 #include "async.h"
 #include "arpc.h"
@@ -32,13 +32,16 @@ typedef dsdc::annotation::base_t annotation_t;
  * this class is a base class for any hostname/port pair that
  * we will maintain for the smart client to connect to
  */
-class dsdci_srv_t : public aclnt_wrap_t {
+class dsdci_srv_t : public aclnt_wrap_t, public virtual refcount {
 public:
     dsdci_srv_t (const str &h, int p) ;
     virtual ~dsdci_srv_t ();
 
     const str &key () const { return _key; }
     void connect (cbb cb, CLOSURE);
+
+    void hold () { refcount_inc (); }
+    void release () { _orphaned = true; refcount_dec (); }
 
     void hit_eof (ptr<bool> df); // call this when there is an EOF
 
@@ -101,6 +104,7 @@ protected:
     ptr<bool> _destroyed;
     conn_state_t _conn_state;
     vec<evv_t> _waiters;
+    bool _orphaned;
 };
 
 
@@ -424,8 +428,8 @@ protected:
 
     // fulfill the virtual interface of dsdc_system_cache_t
     ptr<aclnt> get_primary ();
-    aclnt_wrap_t *new_wrap (const str &h, int p);
-    aclnt_wrap_t *new_lockserver_wrap (const str &h, int p);
+    ptr<aclnt_wrap_t> new_wrap (const str &h, int p);
+    ptr<aclnt_wrap_t> new_lockserver_wrap (const str &h, int p);
 
     void pre_construct ();
     void post_construct ();

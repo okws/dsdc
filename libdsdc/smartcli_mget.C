@@ -6,15 +6,15 @@
 struct mget_state_t;
 
 struct mget_batch_t {
-    mget_batch_t (const str &s, aclnt_wrap_t *w, ptr<mget_state_t> h)
-            : node (s), aclw (w), hold (h) {}
+  mget_batch_t (const str &s, ptr<aclnt_wrap_t> w, ptr<mget_state_t> h)
+    : node (s), aclw (w), hold (h) {}
 
     void mget ();
     void mget_cb1 (ptr<aclnt> c);
     void mget_cb2 (dsdc_res_t res, clnt_stat err);
 
     str node;
-    aclnt_wrap_t *aclw;
+  ptr<aclnt_wrap_t> aclw;
 
     dsdc_mget_arg_t arg;    // argument to send to slave
     vec<u_int> positions;   // corresponding positions list
@@ -136,7 +136,7 @@ mget_state_t::load_batches (const dsdc_hash_ring_t &r)
         if (!n) {
             (*res)[i].res.set_status (DSDC_NONODE);
         } else {
-            aclnt_wrap_t *w = n->get_aclnt_wrap ();
+	  ptr<aclnt_wrap_t> w = n->get_aclnt_wrap ();
             mget_batch_t *batch;
             str id = w->remote_peer_id ();
             if (!(batch = batches[id])) {

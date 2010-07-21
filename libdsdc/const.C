@@ -3,8 +3,9 @@
 #include "dsdc_prot.h"
 
 int dsdcs_getstate_interval = 5;       // every 5s
-int dsdc_heartbeat_interval = 4;       // every 2 seconds
+int dsdc_heartbeat_interval = 2;       // every 2 seconds
 int dsdc_missed_beats_to_death = 10;   // miss 10 beats->death
+time_t dsdcm_timer_interval = 1;       // check all slaves every 1 second
 int dsdc_port = DSDC_DEFAULT_PORT;     // same as RPC progno!
 int dsdc_slave_port = 41000;           // slaves also need a port to listen on
 int dsdc_retry_wait_time = 10;         // time to wait before retrying

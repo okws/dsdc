@@ -28,15 +28,13 @@ dsdc_system_state_cache_t::change_lock_server_to (aclnt_wrap_t *nl)
 void
 dsdc_system_state_cache_t::refresh_lock_server ()
 {
-    aclnt_wrap_t *nl = NULL;
+    ptr<aclnt_wrap_t> nl;
     if (_system_state.lock_server) {
         if ((nl = new_lockserver_wrap (_system_state.lock_server->hostname,
                                        _system_state.lock_server->port))) {
             if (!_lock_server ||
                 nl->remote_peer_id () != _lock_server->remote_peer_id ())
                 change_lock_server_to (nl);
-            else
-                delete nl;
         }
     } else if (_lock_server) {
         // the lock server went down
@@ -82,10 +80,10 @@ void
 dsdc_system_state_cache_t::construct_tree ()
 {
     _hash_ring.deleteall_correct ();
-    for (u_int i = 0; i < _system_state.slaves.size (); i++) {
+    for (size_t i = 0; i < _system_state.slaves.size (); i++) {
         const dsdcx_slave_t &sl = _system_state.slaves[i];
-        aclnt_wrap_t *w = new_wrap (sl.hostname, sl.port);
-        for (u_int j = 0; j < sl.keys.size (); j++) {
+        ptr<aclnt_wrap_t> w = new_wrap (sl.hostname, sl.port);
+        for (size_t j = 0; j < sl.keys.size (); j++) {
             _hash_ring.insert (New dsdc_ring_node_t (w, sl.keys[j]));
         }
     }

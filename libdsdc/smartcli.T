@@ -4,20 +4,26 @@
 #include "dsdc.h"
 #include "dsdc_const.h"
 
+//-----------------------------------------------------------------------
+
 dsdci_srv_t::dsdci_srv_t (const str &h, int p)
         : _key (strbuf ("%s:%d", h.cstr (), p)),
           _hostname (h),
           _port (p),
           _fd (-1),
           _destroyed (New refcounted<bool> (false)),
-          _conn_state (CONN_NONE)
+          _conn_state (CONN_NONE),
+          _orphaned (false)
 {}
+
+//-----------------------------------------------------------------------
 
 dsdci_srv_t::~dsdci_srv_t ()
 {
     *_destroyed = true;
-    trigger_waiters();
 }
+
+//-----------------------------------------------------------------------
 
 void
 dsdci_srv_t::hit_eof (ptr<bool> df)
@@ -35,11 +41,15 @@ dsdci_srv_t::hit_eof (ptr<bool> df)
     eof_hook ();
 }
 
+//-----------------------------------------------------------------------
+
 void
 dsdci_master_t::eof_hook ()
 {
     retry_loop ();
 }
+
+//-----------------------------------------------------------------------
 
 bool
 dsdc_smartcli_t::add_master (const str &m)
@@ -51,26 +61,45 @@ dsdc_smartcli_t::add_master (const str &m)
     return add_master (hostname, port);
 }
 
+//-----------------------------------------------------------------------
+
 bool
 dsdc_smartcli_t::add_master (const str &hostname, int port)
 {
-    dsdci_master_t *m = New dsdci_master_t (hostname, port);
+    ptr<dsdci_master_t> m = New refcounted<dsdci_master_t> (hostname, port);
+    bool ret;
     if (_masters_hash[m->key ()]) {
         warn << "duplicate master ignored: " << m->key () << "\n";
-        delete m;
-        return false;
+        ret = false;
+    } else {
+        _masters_hash.insert (m);
+        _masters.insert_tail (m);
+        m->hold ();
+        ret = true;
     }
-
-    _masters_hash.insert (m);
-    _masters.insert_tail (m);
-    return true;
+    return ret;
 }
+
+//-----------------------------------------------------------------------
 
 dsdc_smartcli_t::~dsdc_smartcli_t ()
 {
-    _masters_hash.deleteall ();
-    _slaves_hash.deleteall ();
+    _masters_hash.clear ();
+    dsdci_master_t *m;
+    while ((m = _masters.first)) {
+        _masters.remove (m);
+        m->release ();
+    }
+        
+    _slaves_hash.clear ();
+    dsdci_slave_t *s;
+    while ((s = _slaves.first)) {
+        _slaves.remove (s);
+        s->release ();
+    }
 }
+
+//-----------------------------------------------------------------------
 
 ptr<aclnt>
 dsdc_smartcli_t::get_primary ()
@@ -96,6 +125,8 @@ dsdc_smartcli_t::get_primary ()
     return NULL;
 }
 
+//-----------------------------------------------------------------------
+
 bool
 dsdci_srv_t::is_dead ()
 {
@@ -109,29 +140,38 @@ dsdci_srv_t::is_dead ()
     return false;
 }
 
+//-----------------------------------------------------------------------
+
 void
 dsdc_smartcli_t::pre_construct ()
 {
     _slaves_hash_tmp.clear ();
 }
 
-aclnt_wrap_t *
+//-----------------------------------------------------------------------
+
+ptr<aclnt_wrap_t>
 dsdc_smartcli_t::new_lockserver_wrap (const str &h, int p)
 {
-    return New dsdci_slave_t (h, p);
+    return New refcounted<dsdci_slave_t> (h, p);
 }
 
-aclnt_wrap_t *
+//-----------------------------------------------------------------------
+
+ptr<aclnt_wrap_t>
 dsdc_smartcli_t::new_wrap (const str &h, int p)
 {
-    dsdci_slave_t *s = New dsdci_slave_t (h, p);
-    dsdci_slave_t *ret = NULL;
-    if ((ret = _slaves_hash[s->key ()])) {
+    ptr<dsdci_slave_t> s = New refcounted<dsdci_slave_t> (h, p);
+    ptr<dsdci_slave_t> ret = NULL;
+    dsdci_slave_t *slave_p;
+    if ((slave_p = _slaves_hash[s->key ()])) {
         // already there; no need to jostle the tree at all
-        delete s;
+        ret = mkref (slave_p);
+        s = NULL;
     } else {
         _slaves_hash.insert (s);
         _slaves.insert_head (s);
+        s->hold (); // whenever inserting, incref!
         ret = s;
     }
 
@@ -143,6 +183,8 @@ dsdc_smartcli_t::new_wrap (const str &h, int p)
 
     return ret;
 }
+
+//-----------------------------------------------------------------------
 
 void
 dsdc_smartcli_t::post_construct ()
@@ -156,7 +198,7 @@ dsdc_smartcli_t::post_construct ()
             }
             _slaves.remove (s);
             _slaves_hash.remove (s);
-            delete s;
+            s->hold (); // when removing, delete by refcount dec'ing
         }
     }
 
@@ -170,6 +212,8 @@ dsdc_smartcli_t::post_construct ()
     }
 }
 
+//-----------------------------------------------------------------------
+
 str
 dsdc_smartcli_t::which_slave (const dsdc_key_t &k)
 {
@@ -181,6 +225,8 @@ dsdc_smartcli_t::which_slave (const dsdc_key_t &k)
     }
     return res;
 }
+
+//-----------------------------------------------------------------------
 
 tamed void
 dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
@@ -237,11 +283,15 @@ dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
     (*cb) (res);
 }
 
+//-----------------------------------------------------------------------
+
 void
 dsdc_smartcli_t::put (ptr<dsdc_put3_arg_t> arg, cbi::ptr cb, bool safe)
 {
     change_cache<dsdc_put3_arg_t> (arg->key, arg, int (DSDC_PUT3), cb, safe);
 }
+
+//-----------------------------------------------------------------------
 
 void
 dsdc_smartcli_t::put (ptr<dsdc_put4_arg_t> arg, cbi::ptr cb, bool safe)
@@ -249,11 +299,15 @@ dsdc_smartcli_t::put (ptr<dsdc_put4_arg_t> arg, cbi::ptr cb, bool safe)
     change_cache<dsdc_put4_arg_t> (arg->key, arg, int (DSDC_PUT4), cb, safe);
 }
 
+//-----------------------------------------------------------------------
+
 void
 dsdc_smartcli_t::put (ptr<dsdc_put_arg_t> arg, cbi::ptr cb, bool safe)
 {
     change_cache<dsdc_put_arg_t> (arg->key, arg, int (DSDC_PUT), cb, safe);
 }
+
+//-----------------------------------------------------------------------
 
 void
 dsdc_smartcli_t::remove (ptr<dsdc_key_t> key, cbi::ptr cb, bool safe)
@@ -261,11 +315,15 @@ dsdc_smartcli_t::remove (ptr<dsdc_key_t> key, cbi::ptr cb, bool safe)
     change_cache<dsdc_key_t> (*key, key, int (DSDC_REMOVE), cb, safe);
 }
 
+//-----------------------------------------------------------------------
+
 void
 dsdc_smartcli_t::remove (ptr<dsdc_remove3_arg_t> arg, cbi::ptr cb, bool safe)
 {
     change_cache (arg->key, arg, int (DSDC_REMOVE3), cb, safe);
 }
+
+//-----------------------------------------------------------------------
 
 void
 dsdc_smartcli_t::rpc_call (ptr<aclnt> cli,
@@ -331,6 +389,12 @@ dsdci_srv_t::trigger_waiters ()
 
 //-----------------------------------------------------------------------
 
+//
+// MK 2010/07/21
+//
+// Consider this rewrite: have the dsdci_srv_t client be refcounted,
+// and we can hold onto it.  This *df nonsense is really hairy.
+//
 tamed void
 dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
 {
@@ -343,8 +407,10 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
         bool ok;
         bool timeout;
         bool do_cancel (false);
+        ptr<dsdci_srv_t> hold;
     }
 
+    hold = mkref (this);
     df = _destroyed;
   
     if (!is_dead () && _cli) { /* noop, see below */ }
@@ -356,7 +422,7 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
         // that others might want to wait for us.
         _conn_state = CONN_FAST;
 
-        // Connect, but keep in mind that connecting 
+        // Connect, but keep in mind that connecting might take forever.
         connect (mkevent (rv, false, ok));
         tcb = delaycb (dsdci_connect_timeout_ms / 1000, 
                        dsdci_connect_timeout_ms * 1000000, 
@@ -365,18 +431,18 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
         twait (rv, timeout);
 
         // We didn't connect in time, that means we're in slow state
-        if (!*df && timeout) { _conn_state = CONN_SLOW; }
+        if (timeout) { _conn_state = CONN_SLOW; }
 
         // tell the other guys right away, regardless of whether it
         // worked or if if was a timeout.
-        if (!*df) { trigger_waiters (); }
+        trigger_waiters ();
 
         if (timeout) {
             tcb = NULL;
             (*cb) (NULL);
             triggered = true;
 
-            if (!*df && show_debug (DSDC_DBG_LOW)) {
+            if (show_debug (DSDC_DBG_LOW)) {
                 warn << "Connection to " << typ () << " "
                      << key () << " did not complete in time! "
                      << "Will continue connection in the background\n";
@@ -391,7 +457,7 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
             do_cancel = true;
         }
 
-        if (!*df) { _conn_state = CONN_NONE; }
+        _conn_state = CONN_NONE;
 
     } else if (_conn_state == CONN_FAST) {
 
@@ -404,13 +470,13 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
     // the rendezvous isn't appropriately waited on. Also, in the case
     // of explicit cancel, remove the timer gracefully, so it doesn't
     // fire later and poke a dead rendezvous...
-    if (*df || do_cancel) { 
+    if (do_cancel) { 
         if (tcb) timecb_remove (tcb);
         rv.cancel (); 
     }
 
     if (!triggered) {
-        if (!*df && !is_dead ()) { ret = _cli; }
+        if (!is_dead ()) { ret = _cli; }
         (*cb) (ret); 
     }
 }
@@ -518,6 +584,8 @@ acquire_cb_2 (dsdc_lock_acquire_res_cb_t cb,
     (*cb) (res);
 }
 
+//-----------------------------------------------------------------------
+
 void
 dsdc_smartcli_t::acquire_cb_1 (ptr<dsdc_lock_acquire_arg_t> arg,
                                dsdc_lock_acquire_res_cb_t cb,
@@ -528,9 +596,12 @@ dsdc_smartcli_t::acquire_cb_1 (ptr<dsdc_lock_acquire_arg_t> arg,
     } else {
         ptr<dsdc_lock_acquire_res_t> res =
             New refcounted<dsdc_lock_acquire_res_t> ();
-        rpc_call (cli, DSDC_LOCK_ACQUIRE, arg, res, wrap (acquire_cb_2, cb, res));
+        rpc_call (cli, DSDC_LOCK_ACQUIRE, arg, res, 
+                  wrap (acquire_cb_2, cb, res));
     }
 }
+
+//-----------------------------------------------------------------------
 
 tamed void
 dsdc_smartcli_t::lock_release (ptr<dsdc_lock_release_arg_t> arg,
@@ -601,10 +672,12 @@ dsdci_master_t::retry_loop ()
         ptr<bool> df;
         bool first (true);
         bool ok (false);
+        ptr<dsdci_master_t> hold;
     }
+    hold = mkref (this);
 
     df = _destroyed;
-    while (!*df && !ok) {
+    while (!*df && !ok && !_orphaned) {
 
         if (first) { first = false; }
         else { 
