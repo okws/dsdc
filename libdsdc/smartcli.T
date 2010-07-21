@@ -198,7 +198,7 @@ dsdc_smartcli_t::post_construct ()
             }
             _slaves.remove (s);
             _slaves_hash.remove (s);
-            s->hold (); // when removing, delete by refcount dec'ing
+            s->release (); // when removing, delete by refcount dec'ing
         }
     }
 
