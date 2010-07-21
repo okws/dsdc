@@ -113,9 +113,10 @@ AC_SUBST(SHORTVERSION)
 
 dsdcexecdir='${dsdctopdir}'
 dsdctopdir='${module_prefix}/${module_name}/${SHORTVERSION}/${sfstag}'
+dsdclinkto='${module_prefix}/${module_name}/${SHORTVERSION}'
+dsdclinkfrom='${module_prefix}/${module_name}/current'
 dsdclibdir='${dsdctopdir}/lib'
 dsdcincludedir='${dsdctopdir}/include'
-
 
 OKWS_MODULE
 OKJAILDIR
@@ -158,6 +159,8 @@ AC_SUBST(dsdclibdir)
 AC_SUBST(dsdcexecbindir)
 AC_SUBST(dsdcexecdir)
 AC_SUBST(dsdcincludedir)
+AC_SUBST(dsdclinkto)
+AC_SUBST(dsdclinkfrom)
 
 AC_OUTPUT(libdsdc/Makefile dsdc/Makefile tst/Makefile Makefile)
 

@@ -17,6 +17,15 @@ MAINTAINERCLEANFILES = 				\
 BUILT_SOURCES = config.h
 DISTCLEANFILES = config.h stamp-auto-h autom4te*.cache
 
+install-exec-local:
+	-src=$(dsdclinkto); dst=$(dsdclinkfrom); \
+	rm -f $$dst; \
+	if test "`dirname $$src`" = "`dirname $$dst`"; then \
+		ln -s "`basename $$src`" $$dst; \
+	else \
+		ln -s $$src $$dst; \
+	fi
+
 #uninstall-local:
 #	-rm -f $(DESTDIR)$(pkglibdir) $(DESTDIR)$(pkgincludedir)
 #	-rmdir $(DESTDIR)$(okwslibdir) $(DESTDIR)$(owksincludedir) \
