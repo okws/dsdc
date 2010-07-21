@@ -6,8 +6,8 @@
 #define _DSDC_SMARTCLI_H_
 
 // when we hit a major version it should go to 100000
-#define DSDC_VERSION_STR "0.9.0"
-#define DSDC_VERSION    9000
+#define DSDC_VERSION_STR "0.9.1"
+#define DSDC_VERSION    9001
 
 #include "async.h"
 #include "arpc.h"

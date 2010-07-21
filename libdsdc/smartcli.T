@@ -389,12 +389,6 @@ dsdci_srv_t::trigger_waiters ()
 
 //-----------------------------------------------------------------------
 
-//
-// MK 2010/07/21
-//
-// Consider this rewrite: have the dsdci_srv_t client be refcounted,
-// and we can hold onto it.  This *df nonsense is really hairy.
-//
 tamed void
 dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
 {
@@ -406,7 +400,6 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
         timecb_t *tcb (NULL);
         bool ok;
         bool timeout;
-        bool do_cancel (false);
         ptr<dsdci_srv_t> hold;
     }
 
@@ -454,7 +447,10 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
             twait (rv, ok);
 
         } else {
-            do_cancel = true;
+           
+            // In this case, the dangling timer ought to be removed.
+            if (tcb) timecb_remove (tcb);
+            rv.cancel (); 
         }
 
         _conn_state = CONN_NONE;
@@ -464,15 +460,6 @@ dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
         // Only wait for a connection to finish if it's before the timeout;
         // Otherwise, assume it's a lost cause and bail out.
         twait { _waiters.push_back (mkevent ()); }
-    }
-
-    // If this node was deleted, there are several cases in which
-    // the rendezvous isn't appropriately waited on. Also, in the case
-    // of explicit cancel, remove the timer gracefully, so it doesn't
-    // fire later and poke a dead rendezvous...
-    if (do_cancel) { 
-        if (tcb) timecb_remove (tcb);
-        rv.cancel (); 
     }
 
     if (!triggered) {
