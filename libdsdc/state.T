@@ -111,10 +111,11 @@ dsdc_system_state_cache_t::~dsdc_system_state_cache_t ()
 //-----------------------------------------------------------------------
 
 tamed void
-dsdc_system_state_cache_t::refresh_loop ()
+dsdc_system_state_cache_t::refresh_loop (bool try_first)
 {
     tvars {
         ptr<bool> df;
+        bool first (true);
     }
     df = _destroyed;
 
@@ -122,7 +123,10 @@ dsdc_system_state_cache_t::refresh_loop ()
         _loop_running = true; 
 
         while (!*df) {
-            twait { refresh (mkevent ()); } 
+            if (!first || try_first) {
+                twait { refresh (mkevent ()); } 
+            }
+            first = false;
             twait { delaycb (dsdcs_getstate_interval, 0, mkevent ()); }
         }
     }

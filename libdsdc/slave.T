@@ -685,7 +685,11 @@ dsdc_slave_t::init ()
         return false;
 
     genkeys ();
-    refresh_loop ();
+
+    // Wait a few seconds before refreshing the ring, so that way
+    // the connections have a chance to fire up.  Please excuse
+    // this hack, it's kind of gross.
+    refresh_loop (false);
     return true;
 }
 

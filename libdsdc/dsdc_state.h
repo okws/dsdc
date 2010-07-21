@@ -32,7 +32,7 @@ protected:
 
     void handle_refresh (const dsdc_getstate_res_t &r);
     void refresh (evv_t::ptr ev = NULL, CLOSURE);
-    void refresh_loop (CLOSURE);
+    void refresh_loop (bool try_first, CLOSURE);
 
     void refresh_lock_server ();
     void change_lock_server_to (aclnt_wrap_t *nl);

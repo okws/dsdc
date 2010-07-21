@@ -512,7 +512,7 @@ dsdc_smartcli_t::master_connect (dsdci_master_t *m, evi_t ev)
         // event will be fired when the first refresh is completed...
         twait { 
             _poke_after_refresh = mkevent ();
-            refresh_loop ();
+            refresh_loop (true);
         }
 
     } else {
@@ -561,7 +561,7 @@ dsdc_smartcli_t::init (evb_t::ptr ev)
     // if all connects failed, then still start the refresh timer anyways,
     // even though it will definitely fail at first.
     if (!success && (_opts & DSDC_RETRY_ON_STARTUP))
-        refresh_loop ();
+        refresh_loop (true);
 
     if (ev) ev->trigger (false);
 }
