@@ -6,6 +6,10 @@
 #include "dsdc_prot.h"
 #include "list.h"
 #include "dsdc.h"
+#include <sys/statvfs.h>
+
+typedef struct statvfs statvfs_typ_t;
+typedef struct stat stat_typ_t;
 
 #pragma once
 
@@ -42,6 +46,7 @@ namespace aiod2 {
     } write_opts_t;
 
     //------------------------------------------------------------
+
     
     class mgr_t : public virtual refcount {
     public:
@@ -54,8 +59,8 @@ namespace aiod2 {
                        evi_t ev, CLOSURE);
         void remove (str f, evi_t ev, CLOSURE);
         void mkdir (str s, int mode, evi_t cb, CLOSURE);
-        void statvfs (str d, struct statvfs *buf, evi_t ev, CLOSURE);
-        void stat (str f, struct stat *sb, evi_t ev, CLOSURE);
+        void statvfs (str d, statvfs_typ_t *buf, evi_t ev, CLOSURE);
+        void stat (str f, stat_typ_t *sb, evi_t ev, CLOSURE);
         void set_ready (ptr<client_t> c);
     private:
         void get_ready (event<int, ptr<client_t>, ptr<aclnt> >::ref ev, 

@@ -183,6 +183,176 @@ mgr_t::file2str (str fn, evis_t ev)
 //-----------------------------------------------------------------------
 
 tamed void
+mgr_t::remove (str f, evi_t ev)
+{
+    tvars {
+        holdvar ptr<mgr_t> hold (mkref (_self));
+        aiod_file_t arg;
+        ptr<client_t> cli;
+        ptr<aclnt> acli;
+        clnt_stat err;
+        int rc (0);
+    }
+
+    twait { get_ready (mkevent (rc, cli, acli)); }
+    if (acli) {
+        arg = f;
+        twait { 
+            RPC::aiod_prog_2::
+                aiod2_remove (acli, arg, &rc, mkevent (err));
+        }
+        if (err) {
+            warn << "aiod2 RPC error: " << err << "\n";
+            rc = ENETDOWN;
+        }
+    }
+    set_ready (cli);
+    ev->trigger (rc);
+}
+
+//-----------------------------------------------------------------------
+
+tamed void
+mgr_t::mkdir (str f, int mode, evi_t ev)
+{
+    tvars {
+        holdvar ptr<mgr_t> hold (mkref (_self));
+        aiod_mkdir_arg_t arg;
+        ptr<client_t> cli;
+        ptr<aclnt> acli;
+        clnt_stat err;
+        int rc (0);
+    }
+
+    twait { get_ready (mkevent (rc, cli, acli)); }
+    if (acli) {
+        arg.file = f;
+        arg.mode = mode;
+
+        twait { 
+            RPC::aiod_prog_2::
+                aiod2_mkdir (acli, arg, &rc, mkevent (err));
+        }
+        if (err) {
+            warn << "aiod2 RPC error: " << err << "\n";
+            rc = ENETDOWN;
+        }
+    }
+    set_ready (cli);
+    ev->trigger (rc);
+}
+
+//-----------------------------------------------------------------------
+
+tamed void
+mgr_t::stat (str d, stat_typ_t *out, evi_t ev)
+{
+    tvars {
+        holdvar ptr<mgr_t> hold (mkref (_self));
+        aiod_file_t arg;
+        ptr<client_t> cli;
+        ptr<aclnt> acli;
+        clnt_stat err;
+        int rc (0);
+        aiod_stat_res_t res;
+    }
+
+    twait { get_ready (mkevent (rc, cli, acli)); }
+    if (acli) {
+        arg = d;
+
+        twait { 
+            RPC::aiod_prog_2::aiod2_stat (acli, arg, &res, mkevent (err));
+        }
+        if (err) {
+            warn << "aiod2 RPC error: " << err << "\n";
+            rc = ENETDOWN;
+        } else if (res.code) {
+            rc = res.code; 
+        } else {
+           
+#define A(field) \
+            out->st_##field = res.stat->aiod_st_##field
+            
+            A(dev);
+            A(ino);
+            A(mode);
+            A(nlink);
+            A(uid);
+            A(gid);
+            A(rdev);
+            A(size);
+            A(blksize);
+            A(blocks);
+            A(atime);
+            A(mtime);
+            A(ctime);
+#undef A
+            rc = 0;
+
+        }
+    }
+    set_ready (cli);
+    ev->trigger (rc);
+}
+
+//-----------------------------------------------------------------------
+
+tamed void
+mgr_t::statvfs (str d, statvfs_typ_t *out, evi_t ev)
+{
+    tvars {
+        holdvar ptr<mgr_t> hold (mkref (_self));
+        aiod_file_t arg;
+        ptr<client_t> cli;
+        ptr<aclnt> acli;
+        clnt_stat err;
+        int rc (0);
+        aiod_statvfs_res_t res;
+    }
+
+    twait { get_ready (mkevent (rc, cli, acli)); }
+    if (acli) {
+        arg = d;
+
+        twait { 
+            RPC::aiod_prog_2::
+                aiod2_statvfs (acli, arg, &res, mkevent (err));
+        }
+        if (err) {
+            warn << "aiod2 RPC error: " << err << "\n";
+            rc = ENETDOWN;
+        } else if (res.code) {
+            rc = res.code; 
+        } else {
+           
+#define A(field) \
+            out->f_##field = res.stat->aiod_f_##field
+
+            A(bsize);
+            A(bsize);
+            A(frsize);
+            A(blocks);
+            A(bfree);
+            A(bavail);
+            A(files);
+            A(ffree);
+            A(favail);
+            A(fsid);
+            A(flag);
+            A(namemax);
+#undef A
+            rc = 0;
+
+        }
+    }
+    set_ready (cli);
+    ev->trigger (rc);
+}
+
+//-----------------------------------------------------------------------
+
+tamed void
 mgr_t::str2file (str f, str d, int flags, int mode, write_opts_t opts,
                  evi_t ev)
 {
