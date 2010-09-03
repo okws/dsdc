@@ -357,6 +357,76 @@ struct dsdc_lock_release_arg_t {
 	unsigned hyper lockid;    // provide the lock-ID to catch bugs
 };
 
+/* ------------------------------------------------------------- */
+/* aiod2 data */
+
+typedef string aiod_file_t<>;
+
+struct aiod_str_to_file_arg_t {
+    aiod_file_t file;
+    opaque data<>;
+    int mode;
+};
+
+union aiod_file_to_str_res_t switch (int code) {
+case 0:
+     opaque data<>;
+default:
+     void;
+};
+
+struct aiod_mkdir_arg_t {
+    aiod_file_t file;
+    int mode;
+};
+
+struct aiod_statvfs_t {
+    unsigned hyper f_bsize;    /* file system block size */
+    unsigned hyper f_frsize;   /* fragment size */
+    unsigned hyper f_blocks;   /* size of fs in f_frsize units */
+    unsigned hyper f_bfree;    /* # free blocks */
+    unsigned hyper f_bavail;   /* # free blocks for non-root */
+    unsigned hyper f_files;    /* # inodes */
+    unsigned hyper f_ffree;    /* # free inodes */
+    unsigned hyper f_favail;   /* # free inodes for non-root */
+    unsigned hyper f_fsid;     /* file system ID */
+    unsigned hyper f_flag;     /* mount flags */
+    unsigned hyper f_namemax;  /* maximum filename length */
+};
+
+struct aiod_stat_t {
+    unsigned hyper aiod_st_dev;     /* ID of device containing file */
+    unsigned hyper aiod_st_ino;     /* inode number */
+    unsigned hyper aiod_st_mode;    /* protection */
+    unsigned hyper aiod_st_nlink;   /* number of hard links */
+    unsigned hyper aiod_st_uid;     /* user ID of owner */
+    unsigned hyper aiod_st_gid;     /* group ID of owner */
+    unsigned hyper aiod_st_rdev;    /* device ID (if special file) */
+    unsigned hyper aiod_st_size;    /* total size, in bytes */
+    unsigned hyper aiod_st_blksize; /* blocksize for file system I/O */
+    unsigned hyper aiod_st_blocks;  /* number of 512B blocks allocated */
+    unsigned hyper aiod_st_atime;   /* time of last access */
+    unsigned hyper aiod_st_mtime;   /* time of last modification */
+    unsigned hyper aiod_st_ctime;   /* time of last status change */
+};
+
+union aiod_stat_res_t switch (int code) {
+case 0:
+    aiod_stat_t stat;
+default:
+    void;
+};
+
+union aiod_statvfs_res_t switch (int code) {
+case 0:
+    aiod_statvfs_t stat;
+default:
+    void;
+};
+
+/* ------------------------------------------------------------- */
+
+
 namespace RPC {
 
 program DSDC_PROG
@@ -502,6 +572,35 @@ program DSDC_PROG
 	} = 1;
 } = 30002;
 
+
+program AIOD_PROG {
+
+	version AIOD_VERS {
+
+		void
+		AIOD2_NULL(void) = 0;
+
+		int
+		AIOD2_STR_TO_FILE(aiod_str_to_file_arg_t) = 1;		
+
+		aiod_file_to_str_res_t
+		AIOD2_FILE_TO_STR(aiod_file_t) = 2;
+
+		int
+		AIOD2_REMOVE(aiod_file_t) = 3;
+
+		int
+		AIOD2_MKDIR(aiod_mkdir_arg_t) = 4;
+
+		aiod_statvfs_res_t
+		AIOD2_STATVFS(aiod_file_t) = 5;
+
+		aiod_stat_res_t
+		AIOD2_STAT(aiod_file_t) = 6;
+	} = 2;
+
+} = 30003;
+
 };
 
 /*
@@ -521,3 +620,4 @@ struct fscache_file_t {
 	checksum_t checksum;
 	fscache_file_data_t data;
 };
+
