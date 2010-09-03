@@ -2,6 +2,8 @@
 
 #include "aiod2_client.h"
 
+extern char ** environ;
+
 namespace aiod2 {
 #if 0
 }
@@ -377,9 +379,9 @@ mgr_t::str2file (str f, str d, int flags, int mode, write_opts_t opts,
 
         arg.flags = flags;
         arg.mode = mode;
-        arg.sync = (opts & AIOD2_WRITE_SYNC);
-        arg.canfail = (opts & AIOD2_WRITE_CANFAIL);
-        arg.atomic = (opts & AIOD2_WRITE_ATOMIC);
+        arg.sync = (opts & WO_SYNC);
+        arg.canfail = (opts & WO_CANFAIL);
+        arg.atomic = (opts & WO_ATOMIC);
 
         twait { 
             RPC::aiod_prog_2::
@@ -433,7 +435,7 @@ client_t::launch ()
 
     p = prog_path ();
     args.push_back (p);
-    m_x = axprt_unix_spawnv (p, args, dsdc_packet_sz);
+    m_x = axprt_unix_spawnv (p, args, dsdc_packet_sz, NULL, environ);
     if (m_x) {
         m_cli = aclnt::alloc (m_x, aiod_prog_2);
         m_cli->seteofcb (wrap (mkref (this), &client_t::eofcb));

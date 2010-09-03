@@ -40,9 +40,10 @@ namespace aiod2 {
     //------------------------------------------------------------
 
     typedef enum {
-        AIOD2_WRITE_SYNC = 0x1,
-        AIOD2_WRITE_CANFAIL = 0x2,
-        AIOD2_WRITE_ATOMIC = 0x4
+        WO_NONE = 0x0,
+        WO_SYNC = 0x1,
+        WO_CANFAIL = 0x2,
+        WO_ATOMIC = 0x4
     } write_opts_t;
 
     //------------------------------------------------------------

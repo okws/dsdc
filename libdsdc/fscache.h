@@ -109,7 +109,8 @@ namespace fscache {
         // and the second call is made.
         virtual void str2file (str f, str s, int mode, evi_t cb)
         { str2file_T (f, s, mode, cb); }
-        virtual void str2file_inner (str f, str s, int md, bool cf, evi_t cb) {}
+        virtual void str2file_inner (str f, str s, int md, bool cf, evi_t cb)
+        { assert (false); }
 
 
         virtual void remove (str f, evi_t ev) = 0;
@@ -269,8 +270,8 @@ namespace fscache {
         ~aiod2_backend_t ();
 
         void file2str (str fn, evis_t cb) { file2str_T (fn, cb); }
-        void str2file_inner (str f, str s, int m, evi_t cb)
-        { str2file_inner_T (f, s, m, cb); }
+        void str2file_inner (str f, str s, int m, bool c, evi_t cb)
+        { str2file_inner_T (f, s, m, c, cb); }
 
         void remove (str f, evi_t cb) { remove_T (f, cb); }
         void mkdir (str f, int mode, evi_t ev) { mkdir_T (f, mode, ev); }
@@ -281,7 +282,8 @@ namespace fscache {
 
     private:
         void file2str_T (str fn, evis_t cb, CLOSURE);
-        void str2file_inner_T (str f, str s, int mode, evi_t cb, CLOSURE);
+        void str2file_inner_T (str f, str s, int mode, bool c, 
+                               evi_t cb, CLOSURE);
         void remove_T (str f, evi_t cb, CLOSURE);
         void mkdir_T (str f, int mode, evi_t ev, CLOSURE);
         void statvfs_T (str d, struct statvfs *buf, evi_t ev, CLOSURE);

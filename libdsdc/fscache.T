@@ -671,15 +671,16 @@ namespace fscache {
     //-----------------------------------------------------------------------
 
     tamed void
-    aiod2_backend_t::str2file_inner_T (str f, str d, int mode, evi_t ev)
+    aiod2_backend_t::str2file_inner_T (str f, str d, int mode, bool c, evi_t ev)
     {
         tvars {
             int rc;
+            aiod2::write_opts_t wo (aiod2::WO_NONE);
+            int wf;
         }
-        twait {
-            _aiod->str2file (f, d, O_CREAT | O_WRONLY, mode, 
-                             aiod2::AIOD2_WRITE_CANFAIL, mkevent (rc));
-        }
+        if (c) { wo = aiod2::WO_CANFAIL; }
+        wf = O_CREAT | O_WRONLY;
+        twait { _aiod->str2file (f, d, wf, mode, wo, mkevent (rc)); }
         ev->trigger (rc);
     }
 
