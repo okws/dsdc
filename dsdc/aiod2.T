@@ -34,7 +34,41 @@ private:
 void 
 aiod_t::handle_str_to_file (svccb *sbp)
 {
+    RPC::aiod_prog_2::aiod2_str_to_file_srv_t<svccb> srv (sbp);
+    const aiod_str_to_file_arg_t *arg = srv.getarg ();
+    int rc = 0;
+    const char *fnc = arg->file.cstr ();
 
+    int fd = open (fnc, arg->flags, arg->mode);
+    if (fd >= 0) {
+        size_t bsz = 8196;
+        const char *bp = arg->data.base ();
+        const char *endp = arg->data.size () + bp;
+
+        while (bp < endp && rc >= 0) {
+            size_t len = min<size_t> (bsz, endp - bp);
+            rc = write (fd, bp, len);
+            if (rc < 0) {
+                warn ("aiod2: write failed on file %s: %m\n", fnc);
+            } else if (rc == 0) {
+                warn ("aiod2: unexpected 0-length write on file %s\n", fnc);
+                rc = EINVAL;
+            } else {
+                bp += rc;
+                rc = 0;
+            }
+        }
+
+        if (arg->sync) { fsync (fd); }
+        close (fd);
+
+    } else {
+        if (!arg->canfail) {
+            warn ("aiod2: open on file '%s' failed: %m\n", fnc);
+        }
+        rc = errno;
+    }
+    srv.reply (rc);
 }
 
 //-----------------------------------------------------------------------
@@ -42,6 +76,18 @@ aiod_t::handle_str_to_file (svccb *sbp)
 void 
 aiod_t::handle_file_to_str (svccb *sbp)
 {
+    RPC::aiod_prog_2::aiod2_file_to_str_srv_t<svccb> srv (sbp);
+    const aiod_file_t *arg = srv.getarg ();
+    aiod_file_to_str_res_t res;
+    str s = file2str (*arg);
+    if (s) {
+        res.set_code (0);
+        res.data->setsize (s.len ());
+        memcpy (res.data->base (), s.cstr (), s.len ());
+    } else {
+        res.set_code (errno);
+    }
+    srv.reply (res);
 }
 
 //-----------------------------------------------------------------------
@@ -49,6 +95,10 @@ aiod_t::handle_file_to_str (svccb *sbp)
 void 
 aiod_t::handle_remove (svccb *sbp)
 {
+    RPC::aiod_prog_2::aiod2_remove_srv_t<svccb> srv (sbp);
+    const aiod_file_t *arg = srv.getarg ();
+    int rc = unlink (arg->cstr ());
+    srv.reply (rc);
 }
 
 //-----------------------------------------------------------------------
@@ -56,6 +106,10 @@ aiod_t::handle_remove (svccb *sbp)
 void 
 aiod_t::handle_mkdir (svccb *sbp)
 {
+    RPC::aiod_prog_2::aiod2_mkdir_srv_t<svccb> srv (sbp);
+    const aiod_mkdir_arg_t *arg = srv.getarg ();
+    int rc = mkdir (arg->file.cstr (), arg->mode);
+    srv.reply (rc);
 }
 
 //-----------------------------------------------------------------------

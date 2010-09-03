@@ -365,7 +365,11 @@ typedef string aiod_file_t<>;
 struct aiod_str_to_file_arg_t {
     aiod_file_t file;
     opaque data<>;
+    int flags;
     int mode;
+    bool sync;
+    bool canfail;
+    bool atomic;                   /* make a temp, then move atomically.. */
 };
 
 union aiod_file_to_str_res_t switch (int code) {
