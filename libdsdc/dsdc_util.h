@@ -1,9 +1,10 @@
-// -*-c++-*-
-/* $Id$ */
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 
-#ifndef _DSDC_DSDC_H
-#define _DSDC_DSDC_H
+#pragma once
 
+#include "async.h"
+#include "arpc.h"
+#include "tame.h"
 #include "dsdc_prot.h"
 
 //
@@ -81,4 +82,3 @@ bool show_debug (int lev);
 str key_to_str (const dsdc_key_t &k);
 bool parse_hn (const str &in, str *host, int *port);
 
-#endif /* _DSDC_DSDC_H */

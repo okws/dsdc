@@ -665,7 +665,7 @@ namespace fscache {
             str s;
         }
         twait { _aiod->file2str (fn, mkevent (rc, s)); }
-        ev->trigger (rc, s);
+        ev->trigger (0 - rc, s);
     }
 
     //-----------------------------------------------------------------------
@@ -681,7 +681,7 @@ namespace fscache {
         if (c) { wo = aiod2::WO_CANFAIL; }
         wf = O_CREAT | O_WRONLY;
         twait { _aiod->str2file (f, d, wf, mode, wo, mkevent (rc)); }
-        ev->trigger (rc);
+        ev->trigger (0 - rc);
     }
 
     //-----------------------------------------------------------------------
@@ -693,7 +693,7 @@ namespace fscache {
             int rc;
         }
         twait { _aiod->remove (f, mkevent (rc)); }
-        ev->trigger (rc);
+        ev->trigger (0 - rc);
     }
 
     //-----------------------------------------------------------------------
@@ -705,7 +705,7 @@ namespace fscache {
             int rc;
         }
         twait { _aiod->mkdir (f, mode, mkevent (rc)); }
-        ev->trigger (rc);
+        ev->trigger (0 - rc);
     }
 
     //-----------------------------------------------------------------------
@@ -717,7 +717,7 @@ namespace fscache {
             int rc;
         }
         twait { _aiod->statvfs (d, buf, mkevent (rc)); }
-        ev->trigger (rc);
+        ev->trigger (0 - rc);
     }
 
     //-----------------------------------------------------------------------
@@ -729,7 +729,7 @@ namespace fscache {
             int rc;
         }
         twait { _aiod->stat (d, buf, mkevent (rc)); }
-        ev->trigger (rc);
+        ev->trigger (0 - rc);
     }
 
     //=======================================================================

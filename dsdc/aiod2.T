@@ -98,7 +98,7 @@ aiod_t::handle_remove (svccb *sbp)
     RPC::aiod_prog_2::aiod2_remove_srv_t<svccb> srv (sbp);
     const aiod_file_t *arg = srv.getarg ();
     int rc = unlink (arg->cstr ());
-    srv.reply (rc);
+    srv.reply (rc == 0 ? rc : errno);
 }
 
 //-----------------------------------------------------------------------
@@ -109,7 +109,7 @@ aiod_t::handle_mkdir (svccb *sbp)
     RPC::aiod_prog_2::aiod2_mkdir_srv_t<svccb> srv (sbp);
     const aiod_mkdir_arg_t *arg = srv.getarg ();
     int rc = mkdir (arg->file.cstr (), arg->mode);
-    srv.reply (rc);
+    srv.reply (rc == 0 ? rc : errno);
 }
 
 //-----------------------------------------------------------------------
