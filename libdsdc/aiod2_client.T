@@ -9,7 +9,11 @@ namespace aiod2 {
 
 //-----------------------------------------------------------------------
 
-mgr_t::mgr_t () {}
+mgr_t::mgr_t (size_t n) : m_n_procs (n) {}
+
+//-----------------------------------------------------------------------
+
+mgr_t::~mgr_t () { kill (); }
 
 //-----------------------------------------------------------------------
 
@@ -49,25 +53,23 @@ client_t::get_aclnt (event<ptr<aclnt> >::ref ev)
 
 //-----------------------------------------------------------------------
 
-tamed void
-mgr_t::init (size_t n_procs, evb_t ev)
+bool
+mgr_t::init ()
 {
-    tvars {
-        size_t i;
-        ptr<client_t> c;
-        bool ok;
-    }
-    for (i = 0; ok && i < n_procs; i++) {
+    size_t i;
+    ptr<client_t> c;
+    bool ok (true);
+
+    for (i = 0; ok && i < m_n_procs; i++) {
         c = New refcounted<client_t> (this);
-        twait { c->launch (mkevent (ok)); }
-        if (!ok) {
+        if (!(ok = c->launch ())) {
             warn ("aiod2 error: failed to launch client\n");
         } else {
             m_clients.push_back (c);
             set_ready (c);
         }
     }
-    ev->trigger (ok);
+    return ok;
 }
 
 //-----------------------------------------------------------------------
@@ -135,9 +137,11 @@ mgr_t::get_ready (event<int, ptr<client_t>, ptr<aclnt> >::ref ev)
 void
 mgr_t::kill ()
 {
-    m_killed = true;
-    for (size_t i = 0; i < m_clients.size (); i++) {
-        m_clients[i]->kill ();
+    if (!m_killed) { 
+        m_killed = true;
+        for (size_t i = 0; i < m_clients.size (); i++) {
+            m_clients[i]->kill ();
+        }
     }
 }
 
@@ -411,7 +415,7 @@ client_t::relaunch ()
     }
 
     while (!ok && !m_killed) {
-        twait { launch (mkevent (ok)); }
+        ok = launch ();
         if (!ok && !m_killed) {
             twait { delaycb (3, 0, mkevent ()); }
         }
@@ -420,14 +424,13 @@ client_t::relaunch ()
 
 //-----------------------------------------------------------------------
 
-tamed void
-client_t::launch (evb_t ev)
+bool
+client_t::launch ()
 {
-    tvars {
-        str p;
-        vec<str> args;
-        bool ok (true);
-    }
+    str p;
+    vec<str> args;
+    bool ok (true);
+
     p = prog_path ();
     args.push_back (p);
     m_x = axprt_unix_spawnv (p, args, dsdc_packet_sz);
@@ -437,11 +440,8 @@ client_t::launch (evb_t ev)
     } else {
         ok = false;
     }
-    ev->trigger (ok);
+    return ok;
 }
-
-//-----------------------------------------------------------------------
-
 
 //-----------------------------------------------------------------------
 

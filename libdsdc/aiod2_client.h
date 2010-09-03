@@ -23,7 +23,7 @@ namespace aiod2 {
     public:
         client_t (mgr_t *m);
         ~client_t () {}
-        void launch (evb_t ev, CLOSURE);
+        bool launch ();
         void get_aclnt (event<ptr<aclnt> >::ref ev, CLOSURE);
         static str prog_path ();
         void eofcb ();
@@ -50,10 +50,10 @@ namespace aiod2 {
     
     class mgr_t : public virtual refcount {
     public:
-        mgr_t ();
+        mgr_t (size_t n);
         ~mgr_t ();
         void kill ();
-        void init (size_t n_procs, evb_t ev, CLOSURE);
+        bool init ();
         void file2str (str fn, evis_t cb, CLOSURE);
         void str2file (str f, str s, int flags, int mode, write_opts_t opts,
                        evi_t ev, CLOSURE);
@@ -70,6 +70,7 @@ namespace aiod2 {
         vec<ptr<client_t> > m_ready;
         vec<evv_t::ptr> m_waiters;
         bool m_killed;
+        size_t m_n_procs;
     };
     //------------------------------------------------------------
     

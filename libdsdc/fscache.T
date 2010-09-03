@@ -18,7 +18,7 @@ namespace fscache {
     //-----------------------------------------------------------------------
 
     cfg_t::cfg_t (bool fake_jail)
-            : _backend (BACKEND_AIOD),
+            : _backend (BACKEND_AIOD2),
               _n_levels (3),
               _n_dig (1),
               _root ("/disk/fscache"),
@@ -128,6 +128,9 @@ namespace fscache {
             break;
         case BACKEND_AIOD:
             _backend = New refcounted<aiod_backend_t> (c);
+            break;
+        case BACKEND_AIOD2:
+            _backend = New refcounted<aiod2_backend_t> (c);
             break;
         case BACKEND_SIMPLE_FAST:
             _backend = New refcounted<simple_fast_backend_t> ();
@@ -636,7 +639,100 @@ namespace fscache {
         ev->trigger (0 - rc);
     }
 
+    //=======================================================================
+
+    aiod2_backend_t::aiod2_backend_t (const cfg_t *c) 
+        : _cfg (c)
+    {
+        _aiod = New refcounted<aiod2::mgr_t> (c->n_aiods ());
+    }
+
     //-----------------------------------------------------------------------
+
+    aiod2_backend_t::~aiod2_backend_t () { _aiod->kill (); }
+
+    //-----------------------------------------------------------------------
+
+    bool aiod2_backend_t::init () { return _aiod->init (); }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    aiod2_backend_t::file2str_T (str fn, evis_t ev) 
+    {
+        tvars {
+            int rc;
+            str s;
+        }
+        twait { _aiod->file2str (fn, mkevent (rc, s)); }
+        ev->trigger (rc, s);
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    aiod2_backend_t::str2file_inner_T (str f, str d, int mode, evi_t ev)
+    {
+        tvars {
+            int rc;
+        }
+        twait {
+            _aiod->str2file (f, d, O_CREAT | O_WRONLY, mode, 
+                             aiod2::AIOD2_WRITE_CANFAIL, mkevent (rc));
+        }
+        ev->trigger (rc);
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    aiod2_backend_t::remove_T (str f, evi_t ev)
+    {
+        tvars {
+            int rc;
+        }
+        twait { _aiod->remove (f, mkevent (rc)); }
+        ev->trigger (rc);
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    aiod2_backend_t::mkdir_T (str f, int mode, evi_t ev)
+    {
+        tvars {
+            int rc;
+        }
+        twait { _aiod->mkdir (f, mode, mkevent (rc)); }
+        ev->trigger (rc);
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    aiod2_backend_t::statvfs_T (str d, struct statvfs *buf, evi_t ev)
+    {
+        tvars {
+            int rc;
+        }
+        twait { _aiod->statvfs (d, buf, mkevent (rc)); }
+        ev->trigger (rc);
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    aiod2_backend_t::stat_T (str d, struct stat *buf, evi_t ev)
+    {
+        tvars {
+            int rc;
+        }
+        twait { _aiod->stat (d, buf, mkevent (rc)); }
+        ev->trigger (rc);
+    }
+
+    //=======================================================================
+
     
     int 
     simple_backend_t::s_mkdir (str d, int mode)
@@ -742,13 +838,14 @@ namespace fscache {
     class backend_tab_t : public dynamic_enum_t {
     public:
         backend_tab_t ()
-                : dynamic_enum_t (int (BACKEND_AIOD), true, "backends")
+            : dynamic_enum_t (int (BACKEND_AIOD2), true, "backends")
         {
             pair_t tab[] = { { "aiod", int (BACKEND_AIOD) },
                              { "simple", int (BACKEND_SIMPLE) },
                              { "simplefast", int (BACKEND_SIMPLE_FAST) },
                              { "thread", int (BACKEND_THREADS) },
                              { "hybrid", int (BACKEND_HYBRID) },
+                             { "aiod2", int (BACKEND_AIOD2) },
                              { NULL, 0 }
             };
             init (tab, true);
@@ -792,6 +889,7 @@ namespace fscache {
         case BACKEND_SIMPLE_FAST: ret = "simple-fast"; break;
         case BACKEND_THREADS: ret = "threads"; break;
         case BACKEND_HYBRID: ret = "hybrid"; break;
+        case BACKEND_AIOD2: ret = "aiod2"; break;
         default: break;
         }
         return ret;

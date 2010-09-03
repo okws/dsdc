@@ -9,6 +9,7 @@
 #include "crypt.h"
 #include "tame_lock.h"
 #include "dsdc_const.h"
+#include "aiod2_client.h"
 
 namespace fscache {
 
@@ -20,7 +21,8 @@ namespace fscache {
         BACKEND_SIMPLE_FAST = 2,
         BACKEND_THREADS = 3,
         BACKEND_HYBRID = 4,
-        BACKEND_ERROR = 5
+        BACKEND_AIOD2 = 5,
+        BACKEND_ERROR = 6
     } backend_typ_t;
 
     //-----------------------------------------------------------------------
@@ -257,6 +259,36 @@ namespace fscache {
         tame::lock_t _lock;
         evv_t::ptr _waiter_ev;
         ptr<bool> _alive;
+    };
+
+    //-----------------------------------------------------------------------
+
+    class aiod2_backend_t : public backend_t {
+    public:
+        aiod2_backend_t (const cfg_t *c);
+        ~aiod2_backend_t ();
+
+        void file2str (str fn, evis_t cb) { file2str_T (fn, cb); }
+        void str2file_inner (str f, str s, int m, evi_t cb)
+        { str2file_inner_T (f, s, m, cb); }
+
+        void remove (str f, evi_t cb) { remove_T (f, cb); }
+        void mkdir (str f, int mode, evi_t ev) { mkdir_T (f, mode, ev); }
+        void statvfs (str d, struct statvfs *buf, evi_t ev)
+        { statvfs_T (d, buf, ev); }
+        void stat (str f, struct stat *sb, evi_t ev) { stat_T (f, sb, ev); }
+        bool init ();
+
+    private:
+        void file2str_T (str fn, evis_t cb, CLOSURE);
+        void str2file_inner_T (str f, str s, int mode, evi_t cb, CLOSURE);
+        void remove_T (str f, evi_t cb, CLOSURE);
+        void mkdir_T (str f, int mode, evi_t ev, CLOSURE);
+        void statvfs_T (str d, struct statvfs *buf, evi_t ev, CLOSURE);
+        void stat_T (str d, struct stat *buf, evi_t ev, CLOSURE);
+
+        const cfg_t *_cfg;
+        ptr<aiod2::mgr_t> _aiod;
     };
 
     //-----------------------------------------------------------------------
