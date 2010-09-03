@@ -65,16 +65,19 @@ main2 (fscache::cfg_t *cfg, str name, u_int32_t key, str fn, int opts)
         warn << "data mismatch; files differ.\n";
     }
 
-    twait { fsc.remove (id, mkevent (rc)); }
-    if (rc != 0) {
-        warn <<  "Failed removed command, error code: " << rc << "\n";
-        exit (1);
-    }
+    if (!(opts & OPT_NO_DELETE)) {
 
-    twait { fsc.load (id, mkevent (rc, t2, fdat2)); }
-    if (rc != -ENOENT) {
-        warn << "Load after remove didn't fail as expected; rc=" << rc << "\n";
-        exit (1);
+        twait { fsc.remove (id, mkevent (rc)); }
+        if (rc != 0) {
+            warn <<  "Failed removed command, error code: " << rc << "\n";
+            exit (1);
+        }
+        twait { fsc.load (id, mkevent (rc, t2, fdat2)); }
+        if (rc != -ENOENT) {
+            warn << "Load after remove didn't fail as expected; rc=" 
+                 << rc << "\n";
+            exit (1);
+        }
     }
     exit (0);
 }
