@@ -381,17 +381,17 @@ struct aiod_mkdir_arg_t {
 };
 
 struct aiod_statvfs_t {
-    unsigned hyper f_bsize;    /* file system block size */
-    unsigned hyper f_frsize;   /* fragment size */
-    unsigned hyper f_blocks;   /* size of fs in f_frsize units */
-    unsigned hyper f_bfree;    /* # free blocks */
-    unsigned hyper f_bavail;   /* # free blocks for non-root */
-    unsigned hyper f_files;    /* # inodes */
-    unsigned hyper f_ffree;    /* # free inodes */
-    unsigned hyper f_favail;   /* # free inodes for non-root */
-    unsigned hyper f_fsid;     /* file system ID */
-    unsigned hyper f_flag;     /* mount flags */
-    unsigned hyper f_namemax;  /* maximum filename length */
+    unsigned hyper aiod_f_bsize;    /* file system block size */
+    unsigned hyper aiod_f_frsize;   /* fragment size */
+    unsigned hyper aiod_f_blocks;   /* size of fs in f_frsize units */
+    unsigned hyper aiod_f_bfree;    /* # free blocks */
+    unsigned hyper aiod_f_bavail;   /* # free blocks for non-root */
+    unsigned hyper aiod_f_files;    /* # inodes */
+    unsigned hyper aiod_f_ffree;    /* # free inodes */
+    unsigned hyper aiod_f_favail;   /* # free inodes for non-root */
+    unsigned hyper aiod_f_fsid;     /* file system ID */
+    unsigned hyper aiod_f_flag;     /* mount flags */
+    unsigned hyper aiod_f_namemax;  /* maximum filename length */
 };
 
 struct aiod_stat_t {

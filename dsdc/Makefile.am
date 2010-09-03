@@ -3,9 +3,10 @@
 $(PROGRAMS): $(LDEPS)
 
 noinst_HEADERS = dsdc_master.h 
-dsdcexecbin_PROGRAMS = dsdc dsdc-admin
+dsdcexecbin_PROGRAMS = dsdc dsdc-admin aiod2
 dsdc_SOURCES = master.C main.C
 dsdc_admin_SOURCES = admin.C output.C
+aiod2_SOURCES = aiod2.C
 #dsdcbin_PROGRAMS = dsdc_master dsdc_slave dsdc_lmgr
 #dsdc_master_SOURCES = master.C main.C
 #dsdc_slave_SOURCES = master.C main.C
@@ -20,6 +21,7 @@ master.o:	master.C
 master.lo:	master.C
 admin.o:	admin.C
 admin.lo:	admin.C
+aiod2.lo:	aiod2.C
 
 install-exec-hook:
 	ln -f $(dsdcexecbindir)/dsdc$(EXEEXT) \

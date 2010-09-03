@@ -465,6 +465,7 @@ namespace fscache {
                     for (pos = 0; pos < sz && rc == 0 && !eof; pos += rsz) {
                         twait { fh->read (pos, buf, mkevent (b2, rsz, rc)); }
                         if (rc != 0) {
+                            errno = rc;
                             warn ("Read error on file (%s): %m\n", fn.cstr ());
                         } else if (rsz < 0) {
                             warn ("Got unexpected failed read on file: %s\n",
