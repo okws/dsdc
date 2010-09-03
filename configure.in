@@ -4,12 +4,12 @@ dnl Process this file with autoconf to produce a configure script.
 dnl
 
 AC_INIT(config.h.in)
-AM_INIT_AUTOMAKE(dsdc, 0.9.2)
+AM_INIT_AUTOMAKE(dsdc, 0.10.0)
 AM_CONFIG_HEADER(config.h)
 
 DSDC_SET_VERSION
 
-SFS_INIT_LDVERSION(10)
+SFS_INIT_LDVERSION(11)
 
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -148,6 +148,17 @@ if test -z "$sfstag" -o "$dsdc_systembin" = "yes" ; then
 else
    dsdcexecbindir='${dsdctopdir}/bin'
 fi
+
+# We need to keep evaluating this thing to get all of the '$'s out
+# Can't just do it once, since there are nested guys...
+D="${dsdcexecbindir}"
+last_D=""
+while test "$last_D" != "$D"; do
+      last_D=$D
+      eval "D=$D"
+done
+
+AC_DEFINE_UNQUOTED(DSDC_EXEC_BINDIR, "$D", DSDC Executable bin dir)
 
 ETAGS_ARGS='-C /dev/null'
 

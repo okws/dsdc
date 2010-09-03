@@ -8,6 +8,7 @@
 #include "aiod.h"
 #include "crypt.h"
 #include "tame_lock.h"
+#include "dsdc_const.h"
 
 namespace fscache {
 
@@ -74,7 +75,6 @@ namespace fscache {
     //-----------------------------------------------------------------------
 
     typedef callback<void, int,time_t,str>::ref cbits_t;
-    typedef event<int,str>::ref evis_t;
     typedef event<size_t>::ref ev_sz_t;
 
     //-----------------------------------------------------------------------

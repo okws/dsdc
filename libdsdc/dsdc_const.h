@@ -1,4 +1,8 @@
+
 #include "async.h"
+#include "tame.h"
+
+#pragma once
 
 extern int dsdc_heartbeat_interval;
 extern int dsdcs_getstate_interval;
@@ -19,3 +23,5 @@ extern u_int dsdcl_default_timeout;
 
 extern time_t dsdci_connect_timeout_ms;
 extern time_t dsdcm_timer_interval;
+
+typedef event<int,str>::ref evis_t;
