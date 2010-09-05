@@ -675,10 +675,12 @@ namespace fscache {
     {
         tvars {
             int rc;
-            aiod2::write_opts_t wo (aiod2::WO_NONE);
+            aiod2::write_opts_t wo (aiod2::WO_ATOMIC);
             int wf;
         }
-        if (c) { wo = aiod2::WO_CANFAIL; }
+        if (c) { 
+            wo = aiod2::write_opts_t (int (wo) | int (aiod2::WO_CANFAIL)); 
+        }
         wf = O_CREAT | O_WRONLY;
         twait { _aiod->str2file (f, d, wf, mode, wo, mkevent (rc)); }
         ev->trigger (0 - rc);

@@ -31,42 +31,67 @@ private:
 
 //-----------------------------------------------------------------------
 
+static int
+write_to_file (int fd, const char *fnc, const rpc_bytes<RPC_INFINITY> &buf)
+{
+    int rc = 0;
+    size_t bsz = 8196;
+    const char *bp = buf.base ();
+    const char *endp = buf.size () + bp;
+    
+    while (bp < endp && rc >= 0) {
+        size_t len = min<size_t> (bsz, endp - bp);
+        rc = write (fd, bp, len);
+        if (rc < 0) {
+            warn ("aiod2: write failed on file %s: %m\n", fnc);
+        } else if (rc == 0) {
+            warn ("aiod2: unexpected 0-length write on file %s\n", fnc);
+            rc = EINVAL;
+        } else {
+            bp += rc;
+            rc = 0;
+        }
+    }
+    return rc;
+}
+
+//-----------------------------------------------------------------------
+
 void 
 aiod_t::handle_str_to_file (svccb *sbp)
 {
     RPC::aiod_prog_2::aiod2_str_to_file_srv_t<svccb> srv (sbp);
     const aiod_str_to_file_arg_t *arg = srv.getarg ();
     int rc = 0;
-    const char *fnc = arg->file.cstr ();
+    str fn = arg->file;
+    str fn_orig = fn;
+    int flags = arg->flags;
 
-    int fd = open (fnc, arg->flags, arg->mode);
-    if (fd >= 0) {
-        size_t bsz = 8196;
-        const char *bp = arg->data.base ();
-        const char *endp = arg->data.size () + bp;
+    if (arg->atomic) {
+        flags = O_WRONLY | O_CREAT | O_EXCL;
+        strbuf b ("%s~%d", fn.cstr (), rand ());
+        fn = b;
+    }
+    const char *fnc = fn;
 
-        while (bp < endp && rc >= 0) {
-            size_t len = min<size_t> (bsz, endp - bp);
-            rc = write (fd, bp, len);
-            if (rc < 0) {
-                warn ("aiod2: write failed on file %s: %m\n", fnc);
-            } else if (rc == 0) {
-                warn ("aiod2: unexpected 0-length write on file %s\n", fnc);
-                rc = EINVAL;
-            } else {
-                bp += rc;
-                rc = 0;
-            }
-        }
-
-        if (arg->sync) { fsync (fd); }
-        close (fd);
-
-    } else {
+    int fd = open (fnc, flags, arg->mode);
+    if (fd < 0) {
         if (!arg->canfail) {
             warn ("aiod2: open on file '%s' failed: %m\n", fnc);
         }
         rc = errno;
+    } else { 
+        rc = write_to_file (fd, fnc, arg->data);
+        if (rc == 0 && arg->sync) { fsync (fd); }
+        close (fd);
+    }
+
+    if (arg->atomic && rc == 0) {
+        rc = rename (fn.cstr (), fn_orig.cstr ());
+        if (rc) {
+            warn ("aiod2: rename(%s,%s) failed\n", fn.cstr (), fn_orig.cstr ());
+            rc = errno;
+        }
     }
     srv.reply (rc);
 }
@@ -273,6 +298,10 @@ int
 main (int argc, char *argv[])
 {
     setprogname (argv[0]);
+    srand (getpid () ^ time (NULL));
     main_T(argc, argv);
     amain();
 }
+
+//-----------------------------------------------------------------------
+
