@@ -392,6 +392,7 @@ main (int argc, char *argv[])
 
     cfg._n_levels = 2;
     cfg._n_aiods = 1;
+    cfg._max_packet_size = 0x100000;
 
     while ((ch = getopt (argc, argv, "tsdr:n:N:vc:m:hw:")) != -1) {
         switch (ch) {

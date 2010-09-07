@@ -52,6 +52,7 @@ namespace fscache {
         void set_fake_jail (bool b) { _fake_jail = b; }
         void set_skip_sha (bool b) { _skip_sha = b; }
         bool skip_sha () const { return _skip_sha; }
+        size_t max_packet_size () const { return _max_packet_size; }
 
         u_int64_t debug_level () const { return _debug; }
         void set_debug_options (const char *in);
@@ -72,6 +73,7 @@ namespace fscache {
         bool _skip_sha;
         u_int64_t _debug;
         time_t _rollover_time;
+        size_t _max_packet_size;
     };
 
     //-----------------------------------------------------------------------

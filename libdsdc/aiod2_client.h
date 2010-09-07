@@ -51,7 +51,7 @@ namespace aiod2 {
     
     class mgr_t : public virtual refcount {
     public:
-        mgr_t (size_t n);
+        mgr_t (size_t n, size_t ps);
         ~mgr_t ();
         void kill ();
         bool init ();
@@ -63,6 +63,7 @@ namespace aiod2 {
         void statvfs (str d, statvfs_typ_t *buf, evi_t ev, CLOSURE);
         void stat (str f, stat_typ_t *sb, evi_t ev, CLOSURE);
         void set_ready (ptr<client_t> c);
+        size_t packet_size () const { return m_packet_size; }
     private:
         void get_ready (event<int, ptr<client_t>, ptr<aclnt> >::ref ev, 
                         CLOSURE);
@@ -72,6 +73,7 @@ namespace aiod2 {
         vec<evv_t::ptr> m_waiters;
         bool m_killed;
         size_t m_n_procs;
+        size_t m_packet_size;
     };
     //------------------------------------------------------------
     

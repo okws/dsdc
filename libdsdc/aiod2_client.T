@@ -11,7 +11,7 @@ namespace aiod2 {
 
 //-----------------------------------------------------------------------
 
-mgr_t::mgr_t (size_t n) : m_n_procs (n) {}
+mgr_t::mgr_t (size_t n, size_t ps) : m_n_procs (n), m_packet_size (ps) {}
 
 //-----------------------------------------------------------------------
 
@@ -432,10 +432,13 @@ client_t::launch ()
     str p;
     vec<str> args;
     bool ok (true);
+    size_t ps = m_mgr->packet_size ();
 
     p = prog_path ();
     args.push_back (p);
-    m_x = axprt_unix_spawnv (p, args, dsdc_packet_sz, NULL, environ);
+    args.push_back ("-s");
+    args.push_back (strbuf ("%zu", ps));
+    m_x = axprt_unix_spawnv (p, args, ps, NULL, environ);
     if (m_x) {
         m_cli = aclnt::alloc (m_x, aiod_prog_2);
         m_cli->seteofcb (wrap (mkref (this), &client_t::eofcb));

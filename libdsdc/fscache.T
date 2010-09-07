@@ -30,7 +30,8 @@ namespace fscache {
               _fake_jail (fake_jail),
               _skip_sha (false),
               _debug (0),
-              _rollover_time (120)
+              _rollover_time (120),
+              _max_packet_size (dsdc_packet_sz)
     {}
 
     //-----------------------------------------------------------------------
@@ -644,7 +645,9 @@ namespace fscache {
     aiod2_backend_t::aiod2_backend_t (const cfg_t *c) 
         : _cfg (c)
     {
-        _aiod = New refcounted<aiod2::mgr_t> (c->n_aiods ());
+        size_t na = c->n_aiods ();
+        size_t ps = c->max_packet_size ();
+        _aiod = New refcounted<aiod2::mgr_t> (na, ps);
     }
 
     //-----------------------------------------------------------------------

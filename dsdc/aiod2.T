@@ -6,12 +6,13 @@
 #include "dsdc_prot.h"
 #include <sys/statvfs.h>
 #include "dsdc_const.h"
+#include "parseopt.h"
 
 //=======================================================================
 
 struct aiod_t {
 public:
-    aiod_t () {}
+    aiod_t () : m_packet_size (dsdc_packet_sz) {}
     int configure (int argc, char **argv);
     void init (evi_t ev, CLOSURE);
     void run (evi_t ev, CLOSURE);
@@ -27,6 +28,7 @@ private:
     evv_t::ptr m_eof_ev;
     ptr<axprt_unix> m_x;
     ptr<asrv> m_srv;
+    size_t m_packet_size;
 };
 
 //-----------------------------------------------------------------------
@@ -240,7 +242,7 @@ aiod_t::dispatch (svccb *sbp)
 tamed void
 aiod_t::init (evi_t ev)
 {
-    m_x = axprt_unix::alloc (0, dsdc_packet_sz);
+    m_x = axprt_unix::alloc (0, m_packet_size);
     m_srv = asrv::alloc (m_x, aiod_prog_2, wrap (this, &aiod_t::dispatch));
     ev->trigger (0);
 }
@@ -261,8 +263,17 @@ aiod_t::configure (int argc, char **argv)
 {
     int ch;
     int rc = 0;
-    while ((ch = getopt (argc, argv, "r:")) != -1) {
+    size_t sz;
+    while ((ch = getopt (argc, argv, "s:")) != -1) {
         switch (ch) {
+        case 's':
+            if (!convertint (optarg, &sz)) {
+                warn ("cannot convert '%s' to a packet size\n", optarg);
+                rc = -1;
+            } else {
+                m_packet_size = sz;
+            }
+            break;
         default:
             warn ("Unrecognized option: %c\n", ch);
             rc = -1;
