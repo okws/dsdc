@@ -11,7 +11,10 @@ namespace aiod2 {
 
 //-----------------------------------------------------------------------
 
-mgr_t::mgr_t (size_t n, size_t ps) : m_n_procs (n), m_packet_size (ps) {}
+mgr_t::mgr_t (size_t n, size_t ps) 
+  : m_killed (false),
+    m_n_procs (n), 
+    m_packet_size (ps) {}
 
 //-----------------------------------------------------------------------
 
@@ -86,7 +89,7 @@ mgr_t::get_ready_client (event<ptr<client_t> >::ref ev)
     while (!m_ready.size () && !m_killed) {
         twait { m_waiters.push_back (mkevent ()); }
     }
-    if (!m_killed) {
+    if (m_ready.size ()) {
         cli = m_ready.pop_back ();
     }
     ev->trigger (cli);
