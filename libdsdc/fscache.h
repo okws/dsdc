@@ -8,6 +8,7 @@
 #include "aiod.h"
 #include "crypt.h"
 #include "tame_lock.h"
+#include "tame_nlock.h"
 #include "dsdc_const.h"
 #include "aiod2_client.h"
 
@@ -61,8 +62,8 @@ namespace fscache {
         bool debug (u_int64_t u) const { return (u & _debug) == u; }
         void set_debug_flag (u_int64_t f) { _debug |= f; }
         time_t rollover_time () const { return _rollover_time; }
-        time_t cache_timeout () const { return _cache_timeout; }
-        size_t cache_flush_parallelism () const { return _cfp; }
+        time_t write_delay () const { return _write_delay; }
+        size_t write_delay_parallelism () const { return _wdp; }
 
         backend_typ_t _backend;
         int _n_levels, _n_dig;
@@ -75,8 +76,8 @@ namespace fscache {
         bool _skip_sha;
         u_int64_t _debug;
         time_t _rollover_time;
-        time_t _cache_timeout;
-        size_t _cfp; // cache flush parallelism
+        time_t _write_delay;
+        size_t _wdp; // write delay parallelism
         size_t _max_packet_size;
     };
 
@@ -167,16 +168,25 @@ namespace fscache {
 
     //-----------------------------------------------------------------------
 
-    class caching_engine_t : public engine_t {
+    class write_delay_engine_t : public engine_t {
     public:
-        caching_engine_t (const cfg_t *c);
-        ~caching_engine_t ();
+        write_delay_engine_t (const cfg_t *c);
+        ~write_delay_engine_t ();
 
-        virtual void load (file_id_t id, cbits_t cb) { load_T (id, cb); }
-        virtual void store (file_id_t id, time_t tm, str data, evi_t ev);
-        virtual void remove (file_id_t id, evi_t ev) { remove_T (id, ev); }
+        typedef tame::lock_handle_t<str> lock_handle_t;
+        typedef event<ptr<lock_handle_t> >::ref lock_ev_t;
+        
+        virtual void load (file_id_t id, cbits_t cb) 
+        { write_delay_engine_t::load_T (id, cb); }
+        virtual void store (file_id_t id, time_t tm, str data, evi_t ev)
+        { write_delay_engine_t::store_T (id, tm, data, ev); }
+        virtual void remove (file_id_t id, evi_t ev) 
+        { write_delay_engine_t::remove_T (id, ev); }
+
         virtual bool init ();
         virtual void shutdown (evv_t ev) { shutdown_T (ev); }
+        bool use_cache () const { return _cfg->write_delay (); }
+        void lock (file_id_t fid, lock_ev_t ev, CLOSURE);
 
         struct node_t {
             node_t (file_id_t fid, time_t t, str d);
@@ -191,14 +201,17 @@ namespace fscache {
         };
 
     private:
+        void insert (file_id_t fid, time_t t, str d);
         void flush_loop (CLOSURE);
         void load_T (file_id_t id, cbits_t cb, CLOSURE);
+        void store_T (file_id_t id, time_t tm, str data, evi_t ev, CLOSURE);
         void remove_T (file_id_t id, evi_t ev, CLOSURE);
         void shutdown_T (evv_t ev, CLOSURE);
 
         ihash<str, node_t, &node_t::m_filename, &node_t::m_hlink> m_tab;
         tailq<node_t, &node_t::m_qlink> m_queue;
         evv_t::ptr m_shutdown_ev, m_poke_ev;
+        tame::lock_table_t<str> m_locks;
     };
 
     //-----------------------------------------------------------------------

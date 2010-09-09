@@ -31,8 +31,8 @@ namespace fscache {
               _skip_sha (false),
               _debug (0),
               _rollover_time (120),
-              _cache_timeout (60),
-              _cfp (5),
+              _write_delay (60),
+              _wdp (5),
               _max_packet_size (dsdc_packet_sz)
     {}
 
@@ -903,10 +903,10 @@ namespace fscache {
         return ret;
     }
 
-    //=================================== caching_engine_t ==================
+    //============================= write_delay_engine_t ==================
 
     tamed void
-    caching_engine_t::node_t::store (engine_t *e, evv_t ev)
+    write_delay_engine_t::node_t::store (engine_t *e, evv_t ev)
     {
         tvars {
             int rc;
@@ -918,7 +918,7 @@ namespace fscache {
         if (rc) { 
             errno = rc;
             str fn = e->filename (m_fid);
-            warn ("caching_engine_t: failed to write file %s: %m\n", 
+            warn ("write_delay_engine_t: failed to write file %s: %m\n", 
                   fn.cstr ());
         }
         ev->trigger();
@@ -927,49 +927,97 @@ namespace fscache {
 
     //-----------------------------------------------------------------------
 
-    void
-    caching_engine_t::store (file_id_t id, time_t tm, str data, evi_t ev)
+    tamed void
+    write_delay_engine_t::lock (file_id_t fid, 
+                                write_delay_engine_t::lock_ev_t ev)
     {
-        node_t *n = m_tab[id.name ()];
-        if (n) {
-            n->m_data = data;
-            n->m_file_time = tm;
-        } else {
-            n = New node_t (id, tm, data);
-            m_tab.insert (n);
-            m_queue.insert_tail (n);
+        tvars {
+            ptr<write_delay_engine_t::lock_handle_t> lh;
         }
-        ev->trigger (0);
+        if (use_cache ()) {
+            twait { 
+                m_locks.acquire (&lh, fid.name (), tame::lock_t::EXCLUSIVE, 
+                                 mkevent ()); 
+            }
+        }
+        ev->trigger (lh);
     }
 
     //-----------------------------------------------------------------------
 
     tamed void
-    caching_engine_t::load_T (file_id_t id, cbits_t cb)
+    write_delay_engine_t::store_T (file_id_t id, time_t tm, str data, evi_t ev)
     {
         tvars {
-            caching_engine_t::node_t *n;
+            write_delay_engine_t::node_t *n;
+            ptr<write_delay_engine_t::lock_handle_t> lh;
+            int rc;
+        }
+
+        twait { lock (id, mkevent (lh)); }
+
+        if ((n = m_tab[id.name ()])) {
+            n->m_data = data;
+            n->m_file_time = tm;
+        } else if (use_cache ()) {
+            insert (id, tm, data);
+        } else {
+            twait { engine_t::store (id, tm, data, mkevent (rc)); }
+        }
+        
+        lh = NULL;
+        ev->trigger (rc);
+    }
+
+    //-----------------------------------------------------------------------
+
+    void
+    write_delay_engine_t::insert (file_id_t fid, time_t t, str d)
+    {
+        assert (!m_tab[fid.name ()]);
+        node_t *n = New node_t (fid, t, d);
+        m_tab.insert (n);
+        m_queue.insert_tail (n);
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    write_delay_engine_t::load_T (file_id_t id, cbits_t cb)
+    {
+        tvars {
+            write_delay_engine_t::node_t *n;
             int rc;
             time_t tm;
             str data;
+            ptr<write_delay_engine_t::lock_handle_t> lh;
         }
+
+        twait { lock (id, mkevent (lh)); }
+
         if ((n = m_tab[id.name ()])) {
             rc = 0;
             tm = n->m_file_time;
             data = n->m_data;
         } else {
             twait { engine_t::load (id, mkevent (rc, tm, data)); }
+            if (use_cache ()) {
+                insert (id, tm, data);
+            }
         }
+
+        lh = NULL;
+
         (*cb) (rc, tm, data);
     }
 
     //-----------------------------------------------------------------------
 
     tamed void
-    caching_engine_t::remove_T (file_id_t id, evi_t ev)
+    write_delay_engine_t::remove_T (file_id_t id, evi_t ev)
     {
         tvars {
-            caching_engine_t::node_t *n;
+            write_delay_engine_t::node_t *n;
             int rc;
         }
         if ((n = m_tab[id.name ()])) {
@@ -983,19 +1031,23 @@ namespace fscache {
 
     //-----------------------------------------------------------------------
 
-    caching_engine_t::caching_engine_t (const cfg_t *c) : engine_t (c) {}
-    caching_engine_t::~caching_engine_t () {}
+    write_delay_engine_t::write_delay_engine_t (const cfg_t *c) 
+        : engine_t (c) {}
 
     //-----------------------------------------------------------------------
 
-    caching_engine_t::node_t::node_t (file_id_t id, time_t t, str d)
+    write_delay_engine_t::~write_delay_engine_t () {}
+
+    //-----------------------------------------------------------------------
+
+    write_delay_engine_t::node_t::node_t (file_id_t id, time_t t, str d)
         : m_fid (id), m_filename (id.name ()), m_file_time (t),
           m_data (d), m_store_time (sfs_get_timenow ()) {}
 
     //-----------------------------------------------------------------------
 
     bool 
-    caching_engine_t::init ()
+    write_delay_engine_t::init ()
     {
         bool ret = engine_t::init ();
         flush_loop ();
@@ -1005,7 +1057,7 @@ namespace fscache {
     //-----------------------------------------------------------------------
 
     tamed void
-    caching_engine_t::shutdown_T (evv_t ev)
+    write_delay_engine_t::shutdown_T (evv_t ev)
     {
         m_poke_ev->trigger ();
         m_shutdown_ev = ev;
@@ -1014,10 +1066,10 @@ namespace fscache {
     //-----------------------------------------------------------------------
 
     tamed void
-    caching_engine_t::flush_loop ()
+    write_delay_engine_t::flush_loop ()
     {
         tvars {
-            caching_engine_t::node_t *n;
+            write_delay_engine_t::node_t *n;
             time_t now;
             time_t diff;
             size_t n_out (0);
@@ -1036,8 +1088,8 @@ namespace fscache {
 
             now = sfs_get_timenow ();
             diff = n ? now - n->m_store_time : 0;
-            timeout = m_shutdown_ev ? 0 : _cfg->cache_timeout ();
-            window_has_room = (n_out < _cfg->cache_flush_parallelism ());
+            timeout = m_shutdown_ev ? 0 : _cfg->write_delay ();
+            window_has_room = (n_out < _cfg->write_delay_parallelism());
 
             if (window_has_room && n && diff >= timeout) {
                 
