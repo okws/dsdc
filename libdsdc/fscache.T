@@ -951,7 +951,7 @@ namespace fscache {
         tvars {
             write_delay_engine_t::node_t *n;
             ptr<write_delay_engine_t::lock_handle_t> lh;
-            int rc;
+            int rc (0);
         }
 
         twait { lock (id, mkevent (lh)); }
