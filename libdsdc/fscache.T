@@ -31,6 +31,8 @@ namespace fscache {
               _skip_sha (false),
               _debug (0),
               _rollover_time (120),
+              _cache_timeout (60),
+              _cfp (5),
               _max_packet_size (dsdc_packet_sz)
     {}
 
@@ -195,7 +197,7 @@ namespace fscache {
     //-----------------------------------------------------------------------
 
     tamed void
-    engine_t::load (file_id_t id, cbits_t cb)
+    engine_t::load_T (file_id_t id, cbits_t cb)
     {
         tvars {
             str fn;
@@ -246,7 +248,7 @@ namespace fscache {
     //-----------------------------------------------------------------------
 
     tamed void
-    engine_t::store (file_id_t id, time_t tm, str data, evi_t ev)
+    engine_t::store_T (file_id_t id, time_t tm, str data, evi_t ev)
     {
         tvars {
             str fn;
@@ -279,7 +281,7 @@ namespace fscache {
     //-----------------------------------------------------------------------
 
     tamed void
-    engine_t::remove (file_id_t id, evi_t ev)
+    engine_t::remove_T (file_id_t id, evi_t ev)
     {
         tvars {
             str fn;
@@ -901,5 +903,173 @@ namespace fscache {
         return ret;
     }
 
+    //=================================== caching_engine_t ==================
+
+    tamed void
+    caching_engine_t::node_t::store (engine_t *e, evv_t ev)
+    {
+        tvars {
+            int rc;
+        }
+        twait { 
+            e->engine_t::store (m_fid, m_file_time, m_data, mkevent (rc)); 
+        }
+
+        if (rc) { 
+            errno = rc;
+            str fn = e->filename (m_fid);
+            warn ("caching_engine_t: failed to write file %s: %m\n", 
+                  fn.cstr ());
+        }
+        ev->trigger();
+        delete this;
+    }
+
     //-----------------------------------------------------------------------
+
+    void
+    caching_engine_t::store (file_id_t id, time_t tm, str data, evi_t ev)
+    {
+        node_t *n = m_tab[id.name ()];
+        if (n) {
+            n->m_data = data;
+            n->m_file_time = tm;
+        } else {
+            n = New node_t (id, tm, data);
+            m_tab.insert (n);
+            m_queue.insert_tail (n);
+        }
+        ev->trigger (0);
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    caching_engine_t::load_T (file_id_t id, cbits_t cb)
+    {
+        tvars {
+            caching_engine_t::node_t *n;
+            int rc;
+            time_t tm;
+            str data;
+        }
+        if ((n = m_tab[id.name ()])) {
+            rc = 0;
+            tm = n->m_file_time;
+            data = n->m_data;
+        } else {
+            twait { engine_t::load (id, mkevent (rc, tm, data)); }
+        }
+        (*cb) (rc, tm, data);
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    caching_engine_t::remove_T (file_id_t id, evi_t ev)
+    {
+        tvars {
+            caching_engine_t::node_t *n;
+            int rc;
+        }
+        if ((n = m_tab[id.name ()])) {
+            m_tab.remove (n);
+            m_queue.remove (n);
+            delete n;
+        }
+        twait { engine_t::remove (id, mkevent (rc)); }
+        ev->trigger (rc);
+    }
+
+    //-----------------------------------------------------------------------
+
+    caching_engine_t::caching_engine_t (const cfg_t *c) : engine_t (c) {}
+    caching_engine_t::~caching_engine_t () {}
+
+    //-----------------------------------------------------------------------
+
+    caching_engine_t::node_t::node_t (file_id_t id, time_t t, str d)
+        : m_fid (id), m_filename (id.name ()), m_file_time (t),
+          m_data (d), m_store_time (sfs_get_timenow ()) {}
+
+    //-----------------------------------------------------------------------
+
+    bool 
+    caching_engine_t::init ()
+    {
+        bool ret = engine_t::init ();
+        flush_loop ();
+        return ret;
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    caching_engine_t::shutdown_T (evv_t ev)
+    {
+        m_poke_ev->trigger ();
+        m_shutdown_ev = ev;
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
+    caching_engine_t::flush_loop ()
+    {
+        tvars {
+            caching_engine_t::node_t *n;
+            time_t now;
+            time_t diff;
+            size_t n_out (0);
+            rendezvous_t<bool> rv (__FILE__, __LINE__);
+            bool window_has_room;
+            bool reaped;
+            ptr<bool> ap;
+            time_t timeout;
+        }
+
+        ap = _alive;
+
+        m_poke_ev = mkevent (rv, false);
+
+        while ((n = m_queue.first) || n_out || !m_shutdown_ev) {
+
+            now = sfs_get_timenow ();
+            diff = n ? now - n->m_store_time : 0;
+            timeout = m_shutdown_ev ? 0 : _cfg->cache_timeout ();
+            window_has_room = (n_out < _cfg->cache_flush_parallelism ());
+
+            if (window_has_room && n && diff >= timeout) {
+                
+                m_queue.remove (n);
+                m_tab.remove (n);
+                n_out++;
+
+                // Will call delete(n) after it's done!
+                n->store (this, mkevent (rv, true));
+
+            } else {
+
+                if (window_has_room && timeout) {
+                    assert (diff < timeout);
+                    timeout -= diff;
+                    delaycb (timeout, 0, mkevent (rv, false));
+                }
+
+                twait (rv, reaped);
+                if (reaped) {
+                    assert (n_out > 0);
+                    n_out --;
+                }
+            }
+        }
+        rv.cancel ();
+        m_shutdown_ev->trigger ();
+    }
+
+    //-----------------------------------------------------------------------
+
+
+
+    //=======================================================================
 };
