@@ -51,47 +51,6 @@ struct uber_key_t {
     unsigned int load_type;
 };
 
-%#define MATCHD_NULL_QUESTION_ID	0
-
-/*
- * Matchd question.  This matches the qanswers table in our database.
- */
-struct matchd_qanswer_row_t {
-	int questionid;
-	unsigned int data;      /**< bits: 0-1 answer, 2-5 answer mask,
-				  6-8 importance */
-};
-
-typedef matchd_qanswer_row_t matchd_qanswer_rows_t<>;
-
-/*
- * This structure is passed to the DSDC backend for computing matches.
- * it contains the questions for the user doing the comparison and the
- * userids on the backend server to compare against.
- */
-struct matchd_frontd_dcdc_arg_t {
-	matchd_qanswer_rows_t user_questions;
-	u_int64_t userids<>;
-};
-
-/*
- * This is the per-user match result.
- */
-struct matchd_frontd_match_datum_t {
-	u_int64_t userid;	/**< user id */
-	bool match_found;	/**< is median/deviation valid? */
-	int mpercent;		/**< match percentage. */
-	int fpercent;		/**< friend percentage. */
-	int epercent;		/**< enemy percentage. */
-};
-
-/*
- * structure containing per-user match results.
- */
-struct match_frontd_match_results_t {
-    int cache_misses;
-	matchd_frontd_match_datum_t results<>;
-};
 
 #endif /* !DSDC_NO_CUPID */
 
@@ -560,18 +519,6 @@ program DSDC_PROG
 	 dsdc_res_t
 	 DSDC_PUT4(dsdc_put4_arg_t) = 21;
 
-	  
-
-#ifndef DSDC_NO_CUPID
-/*
- *-----------------------------------------------------------------------
- * Below are custom RPCs for matching and okcupid-related functions
- * in particular (with procno >= 100...)
- *
- */
-		match_frontd_match_results_t
-                DSDC_COMPUTE_MATCHES(matchd_frontd_dcdc_arg_t) = 100;
-#endif
 
 	} = 1;
 } = 30002;

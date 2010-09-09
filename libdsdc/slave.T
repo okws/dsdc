@@ -10,7 +10,6 @@
 #include "dsdc_const.h"
 #include "dsdc_prot.h"
 #include "dsdc_util.h"
-#include "dsdc_match.h"
 #include "dsdc_stats.h"
 #include "dsdc_stats1.h"
 #include "dsdc_stats2.h"
@@ -276,11 +275,6 @@ dsdc_slave_t::dispatch (svccb *sbp)
     case DSDC_SET_STATS_MODE:
         handle_set_stats_mode (sbp);
         break;
-#ifndef DSDC_NO_CUPID
-    case DSDC_COMPUTE_MATCHES:
-        handle_compute_matches(sbp);
-        break;
-#endif
     case DSDC_GET_STATS_SINGLE:
         handle_get_stats (sbp);
         break;

@@ -185,8 +185,9 @@ namespace fscache {
 
         virtual bool init ();
         virtual void shutdown (evv_t ev) { shutdown_T (ev); }
-        bool use_cache () const { return _cfg->write_delay (); }
+        bool use_cache () const { return _cfg->write_delay () && m_enabled; }
         void lock (file_id_t fid, lock_ev_t ev, CLOSURE);
+        bool set_write_delay (bool s);
 
         struct node_t {
             node_t (file_id_t fid, time_t t, str d);
@@ -212,6 +213,7 @@ namespace fscache {
         tailq<node_t, &node_t::m_qlink> m_queue;
         evv_t::ptr m_shutdown_ev, m_poke_ev;
         tame::lock_table_t<str> m_locks;
+        bool m_enabled;
     };
 
     //-----------------------------------------------------------------------

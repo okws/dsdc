@@ -1032,7 +1032,18 @@ namespace fscache {
     //-----------------------------------------------------------------------
 
     write_delay_engine_t::write_delay_engine_t (const cfg_t *c) 
-        : engine_t (c) {}
+        : engine_t (c),
+          m_enabled (true) {}
+
+    //-----------------------------------------------------------------------
+
+    bool 
+    write_delay_engine_t::set_write_delay (bool b) 
+    { 
+        bool ret = m_enabled;
+        m_enabled = b; 
+        return ret;
+    }
 
     //-----------------------------------------------------------------------
 
@@ -1078,6 +1089,7 @@ namespace fscache {
             bool reaped;
             ptr<bool> ap;
             time_t timeout;
+            bool timeout_set (false);
         }
 
         ap = _alive;
@@ -1102,16 +1114,19 @@ namespace fscache {
 
             } else {
 
-                if (window_has_room && timeout) {
+                if (window_has_room && timeout && !timeout_set) {
                     assert (diff < timeout);
                     timeout -= diff;
                     delaycb (timeout, 0, mkevent (rv, false));
+                    timeout_set = true;
                 }
 
                 twait (rv, reaped);
                 if (reaped) {
                     assert (n_out > 0);
                     n_out --;
+                } else {
+                    timeout_set = false;
                 }
             }
         }
