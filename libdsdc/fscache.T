@@ -953,6 +953,7 @@ namespace fscache {
             ptr<write_delay_engine_t::lock_handle_t> lh;
             int rc (0);
         }
+        assert (data);
 
         twait { lock (id, mkevent (lh)); }
 
@@ -975,6 +976,7 @@ namespace fscache {
     write_delay_engine_t::insert (file_id_t fid, time_t t, str d)
     {
         assert (!m_tab[fid.name ()]);
+        assert (d);
         node_t *n = New node_t (fid, t, d);
         m_tab.insert (n);
         m_queue.insert_tail (n);
@@ -1001,7 +1003,7 @@ namespace fscache {
             data = n->m_data;
         } else {
             twait { engine_t::load (id, mkevent (rc, tm, data)); }
-            if (use_cache ()) {
+            if (rc == 0 && data && use_cache ()) {
                 insert (id, tm, data);
             }
         }
