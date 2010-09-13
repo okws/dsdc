@@ -192,8 +192,10 @@ namespace fscache {
         bool set_write_delay (bool s);
 
         struct node_t {
-            node_t (file_id_t fid, time_t t, str d);
+            node_t (file_id_t fid, time_t t, str d, bool dirty);
             void store (engine_t *e, evv_t ev, CLOSURE);
+            void mark_dirty () { m_dirty = true; }
+            bool is_dirty () const { return m_dirty; }
             file_id_t m_fid;
             str m_filename;
             time_t m_file_time;
@@ -201,10 +203,11 @@ namespace fscache {
             time_t m_store_time;
             tailq_entry<node_t> m_qlink;
             ihash_entry<node_t> m_hlink;
+            bool m_dirty;
         };
 
     private:
-        void insert (file_id_t fid, time_t t, str d);
+        void insert (file_id_t fid, time_t t, str d, bool dirty);
         void flush_loop (CLOSURE);
         void load_T (file_id_t id, cbits_t cb, CLOSURE);
         void store_T (file_id_t id, time_t tm, str data, evi_t ev, CLOSURE);

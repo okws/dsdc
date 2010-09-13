@@ -963,8 +963,9 @@ namespace fscache {
         if ((n = m_tab[id.name ()])) {
             n->m_data = data;
             n->m_file_time = tm;
+            n->mark_dirty ();
         } else if (use_cache ()) {
-            insert (id, tm, data);
+            insert (id, tm, data, true);
         } else {
             twait { engine_t::store (id, tm, data, mkevent (rc)); }
         }
@@ -976,11 +977,11 @@ namespace fscache {
     //-----------------------------------------------------------------------
 
     void
-    write_delay_engine_t::insert (file_id_t fid, time_t t, str d)
+    write_delay_engine_t::insert (file_id_t fid, time_t t, str d, bool dirty)
     {
         assert (!m_tab[fid.name ()]);
         assert (d);
-        node_t *n = New node_t (fid, t, d);
+        node_t *n = New node_t (fid, t, d, dirty);
         m_tab.insert (n);
         m_queue.insert_tail (n);
     }
@@ -1007,7 +1008,7 @@ namespace fscache {
         } else {
             twait { engine_t::load (id, mkevent (rc, tm, data)); }
             if (rc == 0 && data && use_cache ()) {
-                insert (id, tm, data);
+                insert (id, tm, data, false);
             }
         }
 
@@ -1056,9 +1057,14 @@ namespace fscache {
 
     //-----------------------------------------------------------------------
 
-    write_delay_engine_t::node_t::node_t (file_id_t id, time_t t, str d)
-        : m_fid (id), m_filename (id.name ()), m_file_time (t),
-          m_data (d), m_store_time (sfs_get_timenow ()) {}
+    write_delay_engine_t::node_t::node_t (file_id_t id, time_t t, str dat, 
+                                          bool dirty)
+        : m_fid (id), 
+          m_filename (id.name ()), 
+          m_file_time (t),
+          m_data (dat), 
+          m_store_time (sfs_get_timenow ()),
+          m_dirty (dirty) {}
 
     //-----------------------------------------------------------------------
 
@@ -1108,7 +1114,12 @@ namespace fscache {
             timeout = m_shutdown_ev ? 0 : _cfg->write_delay ();
             window_has_room = (n_out < _cfg->write_delay_parallelism());
 
-            if (window_has_room && n && diff >= timeout) {
+            if (n && !n->is_dirty ()) {
+                m_queue.remove (n);
+                m_tab.remove (n);
+                delete n;
+
+            } else if (n && window_has_room && diff >= timeout) {
                 
                 m_queue.remove (n);
                 m_tab.remove (n);
