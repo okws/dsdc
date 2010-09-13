@@ -64,6 +64,7 @@ namespace fscache {
         time_t rollover_time () const { return _rollover_time; }
         time_t write_delay () const { return _write_delay; }
         size_t write_delay_parallelism () const { return _wdp; }
+        bool write_atomic () const { return _write_atomic; }
 
         backend_typ_t _backend;
         int _n_levels, _n_dig;
@@ -79,6 +80,7 @@ namespace fscache {
         time_t _write_delay;
         size_t _wdp; // write delay parallelism
         size_t _max_packet_size;
+        bool _write_atomic;
     };
 
     //-----------------------------------------------------------------------

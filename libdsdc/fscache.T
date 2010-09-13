@@ -33,8 +33,8 @@ namespace fscache {
               _rollover_time (120),
               _write_delay (60),
               _wdp (5),
-              _max_packet_size (dsdc_packet_sz)
-    {}
+              _max_packet_size (dsdc_packet_sz),
+              _write_atomic (true) {}
 
     //-----------------------------------------------------------------------
     
@@ -680,8 +680,11 @@ namespace fscache {
     {
         tvars {
             int rc;
-            aiod2::write_opts_t wo (aiod2::WO_ATOMIC);
+            aiod2::write_opts_t wo (aiod2::WO_NONE);
             int wf;
+        }
+        if (_cfg->write_atomic ()) {
+            wo = aiod2::write_opts_t (int (wo) | int (aiod2::WO_ATOMIC));
         }
         if (c) { 
             wo = aiod2::write_opts_t (int (wo) | int (aiod2::WO_CANFAIL)); 
