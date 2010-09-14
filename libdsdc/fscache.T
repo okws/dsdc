@@ -34,7 +34,8 @@ namespace fscache {
               _write_delay (60),
               _wdp (5),
               _max_packet_size (dsdc_packet_sz),
-              _write_atomic (true) {}
+              _write_atomic (true),
+              _cache_on_load (false) {}
 
     //-----------------------------------------------------------------------
     
@@ -1007,7 +1008,7 @@ namespace fscache {
             data = n->m_data;
         } else {
             twait { engine_t::load (id, mkevent (rc, tm, data)); }
-            if (rc == 0 && data && use_cache ()) {
+            if (rc == 0 && data && use_cache () && _cfg->cache_on_load ()) {
                 insert (id, tm, data, false);
             }
         }
