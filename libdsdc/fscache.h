@@ -123,7 +123,6 @@ namespace fscache {
         virtual void str2file_inner (str f, str s, int md, bool cf, evi_t cb)
         { assert (false); }
 
-
         virtual void remove (str f, evi_t ev) = 0;
         virtual void mkdir (str s, int mode, evi_t cb) = 0;
         virtual void statvfs (str d, struct statvfs *buf, evi_t ev) = 0;
@@ -157,6 +156,10 @@ namespace fscache {
         bool skip_sha () const { return _cfg->skip_sha (); }
 
         void rotate (CLOSURE);
+
+        ptr<backend_t> backend () { return _backend; }
+        ptr<const backend_t> backend () const { return _backend; }
+        const cfg_t *config () const { return _cfg; }
 
     private:
         void load_T (file_id_t id, cbits_t cb, CLOSURE);
