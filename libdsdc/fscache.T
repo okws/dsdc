@@ -7,6 +7,8 @@
 #include "sha1.h"
 #include "dynenum.h"
 #include "parseopt.h"
+#include <dirent.h>
+#include "rxx.h"
 
 #ifndef __STDC_FORMAT_MACROS
 # define __STDC_FORMAT_MACROS
@@ -249,6 +251,26 @@ namespace fscache {
     //-----------------------------------------------------------------------
 
     tamed void
+    engine_t::glob (file_id_t pattern, vec<str> *out, evi_t ev)
+    {
+        tvars {
+            str dummy;
+            int rc;
+        }
+        dummy = filename (pattern);
+        static rxx x ("^(.*?)/([^/]+)$");
+        if (!x.match (dummy)) {
+            warn << "Cannot split glob pattern '" << dummy << "'\n";
+            rc = -EINVAL;
+        } else {
+            twait { _backend->glob (x[1], x[2], out, mkevent (rc)); }
+        }
+        ev->trigger (rc);
+    }
+
+    //-----------------------------------------------------------------------
+
+    tamed void
     engine_t::store_T (file_id_t id, time_t tm, str data, evi_t ev)
     {
         tvars {
@@ -305,6 +327,39 @@ namespace fscache {
         s = id.fullpath (_cfg->n_levels (), _cfg->n_dig ());
         b << s;
         return b;
+    }
+
+    //-----------------------------------------------------------------------
+    
+    void
+    simple_backend_t::glob (str d, str p, vec<str> *out, evi_t ev)
+    {
+        int rc = s_glob (d, p, out);
+        ev->trigger (rc);
+    }
+
+    //-----------------------------------------------------------------------
+
+    int
+    simple_backend_t::s_glob (str d, str p, vec<str> *out)
+    {
+        int ret = 0;
+        DIR *dir = opendir (d.cstr ());
+        rrxx x;
+        if (!dir) {
+            ret = 0 - errno;
+        } else if (!x.compile (p)) {
+            warn << "could not compile pattern '" << p << "'\n";
+            ret = - EINVAL;
+        } else {
+            struct dirent *de;
+            while ((de = readdir (dir))) {
+                str n = de->d_name;
+                if (x.search (n)) { out->push_back (n); }
+            }
+        }
+        if (dir) closedir (dir);
+        return ret;
     }
 
     //-----------------------------------------------------------------------

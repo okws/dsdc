@@ -362,6 +362,39 @@ mgr_t::statvfs (str d, statvfs_typ_t *out, evi_t ev)
 //-----------------------------------------------------------------------
 
 tamed void
+mgr_t::glob (str d, str p, vec<str> *out, evi_t ev)
+{
+    tvars {
+        holdvar ptr<mgr_t> hold (mkref (_self));
+        aiod_glob_arg_t arg;
+        aiod_glob_res_t res;
+        ptr<client_t> cli;
+        ptr<aclnt> acli;
+        clnt_stat err;
+        int rc (0);
+    }
+
+    twait { get_ready (mkevent (rc, cli, acli)); }
+    if (acli) {
+        arg.dir = d;
+        arg.pattern = p;
+        twait { RPC::aiod_prog_2::aiod2_glob (acli, arg, &res, mkevent (err)); }
+        if (err) {
+            warn << "aiod2 RPC error: " << err << "\n";
+            rc = ENETDOWN;
+        } else if (res.code == 0) {
+            for (size_t i = 0; i < res.files->size (); i++) {
+                out->push_back ((*res.files)[i]);
+            }
+        }
+    }
+    ev->trigger (rc);
+}
+
+
+//-----------------------------------------------------------------------
+
+tamed void
 mgr_t::str2file (str f, str d, int flags, int mode, write_opts_t opts,
                  evi_t ev)
 {

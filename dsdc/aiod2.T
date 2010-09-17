@@ -7,6 +7,7 @@
 #include <sys/statvfs.h>
 #include "dsdc_const.h"
 #include "parseopt.h"
+#include "fscache.h"
 
 //=======================================================================
 
@@ -24,6 +25,7 @@ private:
     void handle_mkdir (svccb *sbp);
     void handle_statvfs (svccb *sbp);
     void handle_stat (svccb *sbp);
+    void handle_glob (svccb *sbp);
 
     evv_t::ptr m_eof_ev;
     ptr<axprt_unix> m_x;
@@ -96,6 +98,26 @@ aiod_t::handle_str_to_file (svccb *sbp)
         }
     }
     srv.reply (rc);
+}
+
+//-----------------------------------------------------------------------
+
+void
+aiod_t::handle_glob (svccb *sbp)
+{
+    RPC::aiod_prog_2::aiod2_glob_srv_t<svccb> srv (sbp);
+    const aiod_glob_arg_t *arg = srv.getarg ();
+    aiod_glob_res_t res;
+    vec<str> tmp;
+
+    int rc = fscache::simple_backend_t::s_glob (arg->dir, arg->pattern, &tmp);
+    res.set_code (rc);
+    if (rc == 0) {
+        for (size_t i= 0; i < tmp.size (); i++) {
+            res.files->push_back (tmp[i]);
+        }
+    }
+    srv.reply (res);
 }
 
 //-----------------------------------------------------------------------
@@ -232,6 +254,7 @@ aiod_t::dispatch (svccb *sbp)
     case AIOD2_MKDIR:       handle_mkdir (sbp);         break;
     case AIOD2_STATVFS:     handle_statvfs (sbp);       break;
     case AIOD2_STAT:        handle_stat (sbp);          break;
+    case AIOD2_GLOB:        handle_glob (sbp);          break;
     default:                sbp->reject (PROC_UNAVAIL); break;
     }
 

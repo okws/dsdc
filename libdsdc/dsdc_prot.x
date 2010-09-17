@@ -320,6 +320,7 @@ struct dsdc_lock_release_arg_t {
 /* aiod2 data */
 
 typedef string aiod_file_t<>;
+typedef aiod_file_t aiod_files_t<>;
 
 struct aiod_str_to_file_arg_t {
     aiod_file_t file;
@@ -341,6 +342,18 @@ default:
 struct aiod_mkdir_arg_t {
     aiod_file_t file;
     int mode;
+};
+
+union aiod_glob_res_t switch (int code) {
+case 0:
+     aiod_files_t files;
+default:
+     void;
+};
+
+struct aiod_glob_arg_t {
+     aiod_file_t dir;
+     aiod_file_t pattern;
 };
 
 struct aiod_statvfs_t {
@@ -548,6 +561,9 @@ program AIOD_PROG {
 
 		aiod_stat_res_t
 		AIOD2_STAT(aiod_file_t) = 6;
+
+		aiod_glob_res_t
+		AIOD2_GLOB(aiod_glob_arg_t) = 7;
 	} = 2;
 
 } = 30003;

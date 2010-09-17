@@ -128,6 +128,9 @@ namespace fscache {
         virtual void statvfs (str d, struct statvfs *buf, evi_t ev) = 0;
         virtual bool init () { return true; }
         virtual void stat (str f, struct stat *sb, evi_t ev) {}
+        virtual void glob (str d, str f, vec<str> *out, evi_t ev) 
+        { ev->trigger (-EINVAL); }
+
     protected:
         void mk_parent_dirs (str s, int mode, evi_t ev, CLOSURE);
     private:
@@ -149,6 +152,8 @@ namespace fscache {
         { store_T (id, tm, data, ev); }
         virtual void remove (file_id_t id, evi_t ev)
         { remove_T (id, ev); }
+
+        void glob (file_id_t pattern, vec<str> *out, evi_t ev, CLOSURE);
 
         str filename (file_id_t id) const;
         void statvfs (struct statvfs *buf, evi_t ev, CLOSURE);
@@ -237,6 +242,7 @@ namespace fscache {
         void mkdir (str s, int mode, evi_t ev);
         void statvfs (str d, struct statvfs *buf, evi_t ev);
         void stat (str f, struct stat *sb, evi_t ev);
+        void glob (str d, str p, vec<str> *out, evi_t ev);
 
         static int s_file2str (str fn, str *out);
         static int s_remove (str fn);
@@ -244,6 +250,7 @@ namespace fscache {
         static int s_mkdir (str f, int mode);
         static int s_str2file (str fn, str s, int mode, bool canfail);
         static int s_stat (str fn, struct stat *sb);
+        static int s_glob (str d, str p, vec<str> *out);
     };
 
     //-----------------------------------------------------------------------

@@ -62,6 +62,7 @@ namespace aiod2 {
         void mkdir (str s, int mode, evi_t cb, CLOSURE);
         void statvfs (str d, statvfs_typ_t *buf, evi_t ev, CLOSURE);
         void stat (str f, stat_typ_t *sb, evi_t ev, CLOSURE);
+        void glob (str d, str p, vec<str> *out, evi_t ev, CLOSURE);
         void set_ready (ptr<client_t> c);
         size_t packet_size () const { return m_packet_size; }
     private:
