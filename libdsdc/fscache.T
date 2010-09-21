@@ -775,6 +775,18 @@ namespace fscache {
     }
 
     //-----------------------------------------------------------------------
+    
+    tamed void
+    aiod2_backend_t::glob_T (str d, str f, vec<str> *out, evi_t ev)
+    {
+        tvars {
+            int rc;
+        }
+        twait { _aiod->glob (d, f, out, mkevent (rc)); }
+        ev->trigger (rc);
+    }
+
+    //-----------------------------------------------------------------------
 
     tamed void
     aiod2_backend_t::statvfs_T (str d, struct statvfs *buf, evi_t ev)

@@ -362,6 +362,8 @@ namespace fscache {
         { statvfs_T (d, buf, ev); }
         void stat (str f, struct stat *sb, evi_t ev) { stat_T (f, sb, ev); }
         bool init ();
+        void glob (str d, str f, vec<str> *out, evi_t ev) 
+        { glob_T (d, f, out, ev); }
 
     private:
         void file2str_T (str fn, evis_t cb, CLOSURE);
@@ -371,6 +373,7 @@ namespace fscache {
         void mkdir_T (str f, int mode, evi_t ev, CLOSURE);
         void statvfs_T (str d, struct statvfs *buf, evi_t ev, CLOSURE);
         void stat_T (str d, struct stat *buf, evi_t ev, CLOSURE);
+        void glob_T (str d, str f, vec<str> *out, evi_t ev, CLOSURE);
 
         const cfg_t *_cfg;
         ptr<aiod2::mgr_t> _aiod;
