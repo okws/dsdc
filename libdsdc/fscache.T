@@ -37,7 +37,8 @@ namespace fscache {
               _wdp (5),
               _max_packet_size (dsdc_packet_sz),
               _write_atomic (true),
-              _cache_on_load (false) {}
+              _cache_on_load (false),
+              _do_fsync (false) {}
 
     //-----------------------------------------------------------------------
     
@@ -741,6 +742,9 @@ namespace fscache {
         }
         if (_cfg->write_atomic ()) {
             wo = aiod2::write_opts_t (int (wo) | int (aiod2::WO_ATOMIC));
+        }
+        if (_cfg->do_fsync ()) {
+            wo = aiod2::write_opts_t (int (wo) | int (aiod2::WO_SYNC)); 
         }
         if (c) { 
             wo = aiod2::write_opts_t (int (wo) | int (aiod2::WO_CANFAIL)); 

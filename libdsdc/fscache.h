@@ -53,6 +53,7 @@ namespace fscache {
         void set_fake_jail (bool b) { _fake_jail = b; }
         void set_skip_sha (bool b) { _skip_sha = b; }
         bool skip_sha () const { return _skip_sha; }
+        bool do_fsync () const { return _do_fsync; }
         size_t max_packet_size () const { return _max_packet_size; }
 
         u_int64_t debug_level () const { return _debug; }
@@ -83,6 +84,7 @@ namespace fscache {
         size_t _max_packet_size;
         bool _write_atomic;
         bool _cache_on_load;
+        bool _do_fsync;
     };
 
     //-----------------------------------------------------------------------

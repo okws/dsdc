@@ -86,7 +86,17 @@ aiod_t::handle_str_to_file (svccb *sbp)
         rc = errno;
     } else { 
         rc = write_to_file (fd, fnc, arg->data);
-        if (rc == 0 && arg->sync) { fsync (fd); }
+        if (rc == 0) {
+            if (arg->sync && fsync (fd) != 0) { 
+                warn ("fsync on %s failed: %m\n", fnc); 
+            }
+
+            // IF overwriting the old file, we need to truncate it
+            // in case the new data is not as big as the old.
+            if (!arg->atomic && ftruncate (fd, arg->data.size ()) != 0) {
+                warn ("ftruncate on %s failed: %m\n", fnc); 
+            }
+        }
         close (fd);
     }
 

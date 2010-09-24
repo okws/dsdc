@@ -361,8 +361,8 @@ tester_t::run ()
 static void
 usage ()
 {
-    warn << "usage: " << progname << " [-tsdvH] [-n<levels>] "
-         << "[-N<threads>] [-c<concurrency>] [-w<wait>] <root>\n"
+    warn << "usage: " << progname << " [-tsdvHAS] [-n<levels>] "
+         << "[-N<threads>] [-c<concurrency>] [-w<wait>] [-D<n-dig>] <root>\n"
          << "\n"
          << "  OPTIONS:\n"
          << "     -d   set debug tracing\n"
@@ -372,7 +372,10 @@ usage ()
          << "     -v   verbose\n"
          << "     -m   max-file-size (default: 128k)\n"
          << "     -H   hybrid (simple, then aiod)\n"
-         << "     -w   wait for X seconds before hybrid switch\n";
+         << "     -w   wait for X seconds before hybrid switch\n"
+         << "     -A   turn off atomic writes\n"
+         << "     -S   turn on fsync's\n"
+         << "     -D   specify the number of digits in each dirname\n";
         exit (1);
 }
 
@@ -392,10 +395,23 @@ main (int argc, char *argv[])
 
     cfg._n_levels = 2;
     cfg._n_aiods = 1;
-    cfg._max_packet_size = 0x100000;
+    cfg._max_packet_size = 0x1000000;
+    cfg._write_atomic = true;
 
-    while ((ch = getopt (argc, argv, "tsdr:n:N:vc:m:hw:")) != -1) {
+    while ((ch = getopt (argc, argv, "SAtsdr:n:N:vc:m:hw:D:")) != -1) {
         switch (ch) {
+        case 'D':
+            if (!convertint (optarg, &cfg._n_dig)) {
+                warn << "bad -D argument: " << optarg << "\n";
+                break;
+            }
+            break;
+        case 'S':
+            cfg._do_fsync = true;
+            break;
+        case 'A':
+            cfg._write_atomic = false;
+            break;
         case 's':
             cfg._backend = fscache::BACKEND_SIMPLE_FAST;
             break;
@@ -452,7 +468,7 @@ main (int argc, char *argv[])
     argv += optind;
 
     if (argc != 1) {
-        warn << "no arguments expected; got " << argc << "\n";
+        warn << "1 arguments expected (fs root); got " << argc << "\n";
         usage ();
     }
     cfg._root = argv[0];
