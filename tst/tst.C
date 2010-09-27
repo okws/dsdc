@@ -213,7 +213,7 @@ main (int argc, char *argv[])
 {
     int ch;
     tst_mode_t mode = NONE;
-    tst_key_t key;
+    tst_key_t key = 0;
     str value;
 
     tst_cli_t *cli = NULL;

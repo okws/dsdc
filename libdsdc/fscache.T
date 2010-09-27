@@ -749,7 +749,7 @@ namespace fscache {
         if (c) { 
             wo = aiod2::write_opts_t (int (wo) | int (aiod2::WO_CANFAIL)); 
         }
-        wf = O_CREAT | O_WRONLY;
+        wf = O_CREAT | O_WRONLY | O_TRUNC;
         twait { _aiod->str2file (f, d, wf, mode, wo, mkevent (rc)); }
         ev->trigger (0 - rc);
     }
