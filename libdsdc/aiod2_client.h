@@ -54,7 +54,7 @@ namespace aiod2 {
         mgr_t (size_t n, size_t ps);
         ~mgr_t ();
         void kill ();
-        bool init ();
+        void init (evb_t ev, CLOSURE);
         void file2str (str fn, evis_t cb, CLOSURE);
         void str2file (str f, str s, int flags, int mode, write_opts_t opts,
                        evi_t ev, CLOSURE);

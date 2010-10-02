@@ -159,15 +159,20 @@ namespace fscache {
 
     //-----------------------------------------------------------------------
 
-    bool
-    engine_t::init ()
+    tamed void
+    engine_t::init_T (evb_t ev)
     {
-        bool ret;
-        ret = _backend && _backend->init ();
+        tvars {
+            bool ret;
+        }
+        if (!_backend) { ret = false; }
+        else {
+            twait { _backend->init (mkevent (ret)); }
+        }
         if (ret && _cfg->backend () == BACKEND_HYBRID) {
             rotate ();
         }
-        return ret;
+        ev->trigger (ret);
     }
 
     //-----------------------------------------------------------------------
@@ -715,7 +720,7 @@ namespace fscache {
 
     //-----------------------------------------------------------------------
 
-    bool aiod2_backend_t::init () { return _aiod->init (); }
+    void aiod2_backend_t::init (evb_t ev) { _aiod->init (ev); }
 
     //-----------------------------------------------------------------------
 
@@ -1140,12 +1145,16 @@ namespace fscache {
 
     //-----------------------------------------------------------------------
 
-    bool 
-    write_delay_engine_t::init ()
+    tamed void
+    write_delay_engine_t::init_T (evb_t ev)
     {
-        bool ret = engine_t::init ();
+        tvars {
+            bool ret;
+        }
+        
+        twait { engine_t::init (mkevent (ret)); }
         flush_loop ();
-        return ret;
+        ev->trigger (ret);
     }
 
     //-----------------------------------------------------------------------

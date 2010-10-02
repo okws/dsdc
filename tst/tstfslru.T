@@ -20,9 +20,12 @@ main2 (fscache::cfg_t *cfg)
         ptr<my_str_t> sp, sp2, sp3, sp5, sp6;
         int i, j;
         int rc2, rc3, rc4;
+	bool ok;
     }
 
-    if (!fsc.init ()) {
+    twait { fsc.init (mkevent (ok)); }
+
+    if (!ok) {
       fatal << "failed to initialize the backend FS-engine!\n";
     }
 

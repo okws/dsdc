@@ -58,12 +58,14 @@ client_t::get_aclnt (event<ptr<aclnt> >::ref ev)
 
 //-----------------------------------------------------------------------
 
-bool
-mgr_t::init ()
+tamed void
+mgr_t::init (evb_t ev)
 {
-    size_t i;
-    ptr<client_t> c;
-    bool ok (true);
+    tvars {
+        size_t i;
+        ptr<client_t> c;
+        bool ok (true);
+    }
 
     for (i = 0; ok && i < m_n_procs; i++) {
         c = New refcounted<client_t> (this);
@@ -74,7 +76,7 @@ mgr_t::init ()
             set_ready (c);
         }
     }
-    return ok;
+    ev->trigger (ok);
 }
 
 //-----------------------------------------------------------------------
@@ -478,6 +480,11 @@ client_t::launch ()
     if (m_x) {
         m_cli = aclnt::alloc (m_x, aiod_prog_2);
         m_cli->seteofcb (wrap (mkref (this), &client_t::eofcb));
+        if (m_waiter) {
+            evv_t::ptr ev = m_waiter;
+            m_waiter = NULL;
+            ev->trigger ();
+        }
     } else {
         ok = false;
     }

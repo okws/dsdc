@@ -18,9 +18,12 @@ main2 (fscache::cfg_t *cfg, str name, u_int32_t key, str fn, int opts)
         time_t t, t2;
         int rc;
         str ffn;
+        bool ok;
     }
 
-    if (!fsc.init ()) {
+    twait { fsc.init (mkevent (ok)); }
+
+    if (!ok) {
       warn << "failed to initialize the backend FS-engine!\n";
       exit (1);
     }

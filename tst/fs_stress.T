@@ -328,9 +328,12 @@ tester_t::run ()
         size_t n_out (0);
         ptr<cmd_t> cmd;
         bool eof (false);
+        bool ok;
     }
 
-    if (!_fsc.init ()) {
+    twait { _fsc.init (mkevent (ok)); }
+
+    if (!ok) {
         warn << "failed to initialize fscache engine\n";
         exit (0);
     }

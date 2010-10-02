@@ -254,8 +254,8 @@ namespace fscache {
 
     //-----------------------------------------------------------------------
 
-    bool
-    thread_backend_t::init ()
+    void
+    thread_backend_t::init (evb_t ev)
     {
         bool ret = true;
         _threads.setsize (_n_threads);
@@ -269,7 +269,7 @@ namespace fscache {
         if (ret) {
             fix_threads ();
         }
-        return ret;
+        ev->trigger (ret);
     }
 
     //-----------------------------------------------------------------------

@@ -128,7 +128,7 @@ namespace fscache {
         virtual void remove (str f, evi_t ev) = 0;
         virtual void mkdir (str s, int mode, evi_t cb) = 0;
         virtual void statvfs (str d, struct statvfs *buf, evi_t ev) = 0;
-        virtual bool init () { return true; }
+        virtual void init (evb_t ev) { ev->trigger (true); }
         virtual void stat (str f, struct stat *sb, evi_t ev) {}
         virtual void glob (str d, str f, vec<str> *out, evi_t ev) 
         { ev->trigger (-EINVAL); }
@@ -146,7 +146,7 @@ namespace fscache {
         engine_t (const cfg_t *c);
         virtual ~engine_t ();
 
-        virtual bool init ();
+        virtual void init (evb_t ev) { init_T (ev); }
         virtual void shutdown (evv_t ev) { ev->trigger (); }
 
         virtual void load (file_id_t id, cbits_t cb) { load_T (id, cb); }
@@ -172,6 +172,7 @@ namespace fscache {
         void load_T (file_id_t id, cbits_t cb, CLOSURE);
         void store_T (file_id_t id, time_t tm, str data, evi_t ev, CLOSURE);
         void remove_T (file_id_t id, evi_t ev, CLOSURE);
+        void init_T (evb_t ev, CLOSURE);
 
     protected:
         const cfg_t *_cfg;
@@ -197,7 +198,7 @@ namespace fscache {
         virtual void remove (file_id_t id, evi_t ev) 
         { write_delay_engine_t::remove_T (id, ev); }
 
-        virtual bool init ();
+        virtual void init (evb_t ev) { write_delay_engine_t::init_T (ev); }
         virtual void shutdown (evv_t ev) { shutdown_T (ev); }
         bool use_cache () const { return _cfg->write_delay () && m_enabled; }
         void lock (file_id_t fid, lock_ev_t ev, CLOSURE);
@@ -225,6 +226,7 @@ namespace fscache {
         void store_T (file_id_t id, time_t tm, str data, evi_t ev, CLOSURE);
         void remove_T (file_id_t id, evi_t ev, CLOSURE);
         void shutdown_T (evv_t ev, CLOSURE);
+        void init_T (evb_t ev, CLOSURE);
 
         ihash<str, node_t, &node_t::m_filename, &node_t::m_hlink> m_tab;
         tailq<node_t, &node_t::m_qlink> m_queue;
@@ -279,7 +281,7 @@ namespace fscache {
         void mkdir (str f, int mode, evi_t ev) { mkdir_T (f, mode, ev); }
         void statvfs (str d, struct statvfs *buf, evi_t ev)
         { statvfs_T (d, buf, ev); }
-        bool init ();
+        void init (evb_t ev);
         void stat (str f, struct stat *sb, evi_t ev) { stat_T (f, sb, ev); }
 
         typedef enum {
@@ -363,7 +365,7 @@ namespace fscache {
         void statvfs (str d, struct statvfs *buf, evi_t ev)
         { statvfs_T (d, buf, ev); }
         void stat (str f, struct stat *sb, evi_t ev) { stat_T (f, sb, ev); }
-        bool init ();
+        void init (evb_t ev);
         void glob (str d, str f, vec<str> *out, evi_t ev) 
         { glob_T (d, f, out, ev); }
 
