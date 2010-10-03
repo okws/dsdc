@@ -22,12 +22,12 @@ mgr_t::~mgr_t () { kill (); }
 
 //-----------------------------------------------------------------------
 
-client_t::client_t (mgr_t *m) : m_mgr (m), m_killed (false) {}
+base_client_t::base_client_t (mgr_t *m) : m_mgr (m), m_killed (false) {}
 
 //-----------------------------------------------------------------------
 
 void
-client_t::kill ()
+forked_client_t::kill ()
 {
     if (m_cli) { 
         m_cli->seteofcb (NULL); 
@@ -44,7 +44,7 @@ client_t::kill ()
 //-----------------------------------------------------------------------
 
 tamed void
-client_t::get_aclnt (event<ptr<aclnt> >::ref ev)
+forked_client_t::get_aclnt (event<ptr<aclnt> >::ref ev)
 {
     tvars {
         ptr<aclnt> ret;
@@ -63,13 +63,14 @@ mgr_t::init (evb_t ev)
 {
     tvars {
         size_t i;
-        ptr<client_t> c;
+        ptr<base_client_t> c;
         bool ok (true);
     }
 
     for (i = 0; ok && i < m_n_procs; i++) {
-        c = New refcounted<client_t> (this);
-        if (!(ok = c->launch ())) {
+        c = New refcounted<forked_client_t> (this);
+        twait { c->launch (mkevent (ok)); }
+        if (!ok) {
             warn ("aiod2 error: failed to launch client\n");
         } else {
             m_clients.push_back (c);
@@ -82,10 +83,10 @@ mgr_t::init (evb_t ev)
 //-----------------------------------------------------------------------
 
 tamed void
-mgr_t::get_ready_client (event<ptr<client_t> >::ref ev)
+mgr_t::get_ready_client (event<ptr<base_client_t> >::ref ev)
 {
     tvars {
-        ptr<client_t> cli;
+        ptr<base_client_t> cli;
     }
 
     while (!m_ready.size () && !m_killed) {
@@ -100,7 +101,7 @@ mgr_t::get_ready_client (event<ptr<client_t> >::ref ev)
 //-----------------------------------------------------------------------
 
 void
-mgr_t::set_ready (ptr<client_t> c)
+mgr_t::set_ready (ptr<base_client_t> c)
 {
     if (c) {
         m_ready.push_back (c);
@@ -114,7 +115,7 @@ mgr_t::set_ready (ptr<client_t> c)
 //-----------------------------------------------------------------------
 
 str
-client_t::prog_path ()
+forked_client_t::prog_path ()
 {
     strbuf b;
     b << DSDC_EXEC_BINDIR << "/aiod2";
@@ -124,10 +125,10 @@ client_t::prog_path ()
 //-----------------------------------------------------------------------
 
 tamed void
-mgr_t::get_ready (event<int, ptr<client_t>, ptr<aclnt> >::ref ev)
+mgr_t::get_ready (event<int, ptr<base_client_t>, ptr<aclnt> >::ref ev)
 {
     tvars {
-        ptr<client_t> c;
+        ptr<base_client_t> c;
         ptr<aclnt> ret;
         int rc;
     }
@@ -161,7 +162,7 @@ mgr_t::file2str (str fn, evis_t ev)
         holdvar ptr<mgr_t> hold (mkref (_self));
         aiod_file_to_str_res_t res;
         aiod_file_t arg;
-        ptr<client_t> cli;
+        ptr<base_client_t> cli;
         ptr<aclnt> acli;
         clnt_stat err;
         str dat;
@@ -199,7 +200,7 @@ mgr_t::remove (str f, evi_t ev)
     tvars {
         holdvar ptr<mgr_t> hold (mkref (_self));
         aiod_file_t arg;
-        ptr<client_t> cli;
+        ptr<base_client_t> cli;
         ptr<aclnt> acli;
         clnt_stat err;
         int rc (0);
@@ -229,7 +230,7 @@ mgr_t::mkdir (str f, int mode, evi_t ev)
     tvars {
         holdvar ptr<mgr_t> hold (mkref (_self));
         aiod_mkdir_arg_t arg;
-        ptr<client_t> cli;
+        ptr<base_client_t> cli;
         ptr<aclnt> acli;
         clnt_stat err;
         int rc (0);
@@ -261,7 +262,7 @@ mgr_t::stat (str d, stat_typ_t *out, evi_t ev)
     tvars {
         holdvar ptr<mgr_t> hold (mkref (_self));
         aiod_file_t arg;
-        ptr<client_t> cli;
+        ptr<base_client_t> cli;
         ptr<aclnt> acli;
         clnt_stat err;
         int rc (0);
@@ -315,7 +316,7 @@ mgr_t::statvfs (str d, statvfs_typ_t *out, evi_t ev)
     tvars {
         holdvar ptr<mgr_t> hold (mkref (_self));
         aiod_file_t arg;
-        ptr<client_t> cli;
+        ptr<base_client_t> cli;
         ptr<aclnt> acli;
         clnt_stat err;
         int rc (0);
@@ -370,7 +371,7 @@ mgr_t::glob (str d, str p, vec<str> *out, evi_t ev)
         holdvar ptr<mgr_t> hold (mkref (_self));
         aiod_glob_arg_t arg;
         aiod_glob_res_t res;
-        ptr<client_t> cli;
+        ptr<base_client_t> cli;
         ptr<aclnt> acli;
         clnt_stat err;
         int rc (0);
@@ -403,7 +404,7 @@ mgr_t::str2file (str f, str d, int flags, int mode, write_opts_t opts,
     tvars {
         holdvar ptr<mgr_t> hold (mkref (_self));
         aiod_str_to_file_arg_t arg;
-        ptr<client_t> cli;
+        ptr<base_client_t> cli;
         ptr<aclnt> acli;
         clnt_stat err;
         int rc (0);
@@ -437,7 +438,7 @@ mgr_t::str2file (str f, str d, int flags, int mode, write_opts_t opts,
 //-----------------------------------------------------------------------
 
 void
-client_t::eofcb ()
+forked_client_t::eofcb ()
 {
     warn << "aiod2 error: helper proc crashed\n";
     m_x = NULL;
@@ -448,14 +449,14 @@ client_t::eofcb ()
 //-----------------------------------------------------------------------
 
 tamed void
-client_t::relaunch ()
+base_client_t::relaunch ()
 {
     tvars {
         bool ok (false);
     }
 
     while (!ok && !m_killed) {
-        ok = launch ();
+        twait { launch (mkevent (ok)); }
         if (!ok && !m_killed) {
             twait { delaycb (3, 0, mkevent ()); }
         }
@@ -464,8 +465,8 @@ client_t::relaunch ()
 
 //-----------------------------------------------------------------------
 
-bool
-client_t::launch ()
+void
+forked_client_t::launch (evb_t ev, ptr<closure_t> dummy)
 {
     str p;
     vec<str> args;
@@ -479,7 +480,7 @@ client_t::launch ()
     m_x = axprt_unix_spawnv (p, args, ps, NULL, environ);
     if (m_x) {
         m_cli = aclnt::alloc (m_x, aiod_prog_2);
-        m_cli->seteofcb (wrap (mkref (this), &client_t::eofcb));
+        m_cli->seteofcb (wrap (mkref (this), &forked_client_t::eofcb));
         if (m_waiter) {
             evv_t::ptr ev = m_waiter;
             m_waiter = NULL;
@@ -488,7 +489,7 @@ client_t::launch ()
     } else {
         ok = false;
     }
-    return ok;
+    ev->trigger (ok);
 }
 
 //-----------------------------------------------------------------------

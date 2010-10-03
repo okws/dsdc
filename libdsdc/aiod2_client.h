@@ -19,22 +19,33 @@ namespace aiod2 {
 
     //------------------------------------------------------------
 
-    class client_t : public virtual refcount {
+    class base_client_t : public virtual refcount {
     public:
-        client_t (mgr_t *m);
-        ~client_t () {}
-        bool launch ();
+        base_client_t (mgr_t *m);
+        virtual void launch (evb_t ev, CLOSURE) = 0;
+        virtual void get_aclnt (event<ptr<aclnt> >::ref ev, CLOSURE) = 0;
+        virtual void kill () = 0;
+    protected:
+        void relaunch (CLOSURE);
+        mgr_t *m_mgr;
+        bool m_killed;
+    };
+
+    //------------------------------------------------------------
+
+    class forked_client_t : public base_client_t {
+    public:
+        forked_client_t (mgr_t *m) : base_client_t (m) {}
+        ~forked_client_t () {}
+        void launch (evb_t ev, CLOSURE);
         void get_aclnt (event<ptr<aclnt> >::ref ev, CLOSURE);
         static str prog_path ();
         void eofcb ();
         void kill ();
     private:
-        void relaunch (CLOSURE);
-        mgr_t *m_mgr;
         ptr<axprt_unix> m_x;
         ptr<aclnt> m_cli;
         evv_t::ptr m_waiter;
-        bool m_killed;
     };
 
     //------------------------------------------------------------
@@ -63,14 +74,14 @@ namespace aiod2 {
         void statvfs (str d, statvfs_typ_t *buf, evi_t ev, CLOSURE);
         void stat (str f, stat_typ_t *sb, evi_t ev, CLOSURE);
         void glob (str d, str p, vec<str> *out, evi_t ev, CLOSURE);
-        void set_ready (ptr<client_t> c);
+        void set_ready (ptr<base_client_t> c);
         size_t packet_size () const { return m_packet_size; }
     private:
-        void get_ready (event<int, ptr<client_t>, ptr<aclnt> >::ref ev, 
+        void get_ready (event<int, ptr<base_client_t>, ptr<aclnt> >::ref ev, 
                         CLOSURE);
-        void get_ready_client (event<ptr<client_t> >::ref ev, CLOSURE);
-        vec<ptr<client_t> > m_clients;
-        vec<ptr<client_t> > m_ready;
+        void get_ready_client (event<ptr<base_client_t> >::ref ev, CLOSURE);
+        vec<ptr<base_client_t> > m_clients;
+        vec<ptr<base_client_t> > m_ready;
         vec<evv_t::ptr> m_waiters;
         bool m_killed;
         size_t m_n_procs;
