@@ -13,9 +13,30 @@ typedef struct stat stat_typ_t;
 
 #pragma once
 
+namespace fscache {
+    class cfg_t;
+};
+
 namespace aiod2 {
 
     class mgr_t;
+
+    //-----------------------------------------------------------------------
+
+    struct remote_t {
+        remote_t () {}
+        remote_t (str h, int p) : m_host (h), m_port (p) {}
+        bool parse (str in, int defport = 0);
+        str to_str () { return strbuf ("%s:%d", m_host.cstr (), m_port); }
+        str m_host;
+        int m_port;
+    };
+
+    //-----------------------------------------------------------------------
+
+    struct remotes_t : public vec<remote_t> {
+        bool parse (str in, int defport = 0);
+    };
 
     //------------------------------------------------------------
 
@@ -23,30 +44,41 @@ namespace aiod2 {
     public:
         base_client_t (mgr_t *m);
         virtual void launch (evb_t ev, CLOSURE) = 0;
-        virtual void get_aclnt (event<ptr<aclnt> >::ref ev, CLOSURE) = 0;
-        virtual void kill () = 0;
+        void get_aclnt (event<ptr<aclnt> >::ref ev, CLOSURE);
+        void kill ();
     protected:
         void relaunch (CLOSURE);
+        void launch_client();
+        void trigger_waiter ();
+        void eofcb ();
         mgr_t *m_mgr;
         bool m_killed;
+        evv_t::ptr m_waiter;
+        ptr<aclnt> m_cli;
+        ptr<axprt> m_x;
     };
 
     //------------------------------------------------------------
 
-    class forked_client_t : public base_client_t {
+    class local_client_t : public base_client_t {
     public:
-        forked_client_t (mgr_t *m) : base_client_t (m) {}
-        ~forked_client_t () {}
+        local_client_t (mgr_t *m) : base_client_t (m) {}
+        ~local_client_t () {}
         void launch (evb_t ev, CLOSURE);
-        void get_aclnt (event<ptr<aclnt> >::ref ev, CLOSURE);
         static str prog_path ();
-        void eofcb ();
-        void kill ();
+    protected:
+    };
+
+    //------------------------------------------------------------
+
+    class remote_client_t : public base_client_t {
+    public:
+        remote_client_t (mgr_t *m, remote_t r) 
+            : base_client_t (m), m_remote (r) {}
+        ~remote_client_t () {}
+        void launch (evb_t ev, CLOSURE);
     private:
-        void trigger_waiter ();
-        ptr<axprt_unix> m_x;
-        ptr<aclnt> m_cli;
-        evv_t::ptr m_waiter;
+        remote_t m_remote;
     };
 
     //------------------------------------------------------------
@@ -63,7 +95,7 @@ namespace aiod2 {
     
     class mgr_t : public virtual refcount {
     public:
-        mgr_t (size_t n, size_t ps);
+        mgr_t (const fscache::cfg_t *cfg),
         ~mgr_t ();
         void kill ();
         void init (evb_t ev, CLOSURE);
@@ -77,6 +109,7 @@ namespace aiod2 {
         void glob (str d, str p, vec<str> *out, evi_t ev, CLOSURE);
         void set_ready (ptr<base_client_t> c);
         size_t packet_size () const { return m_packet_size; }
+        ptr<base_client_t> alloc_client (size_t i);
     private:
         void get_ready (event<int, ptr<base_client_t>, ptr<aclnt> >::ref ev, 
                         CLOSURE);
@@ -87,6 +120,8 @@ namespace aiod2 {
         bool m_killed;
         size_t m_n_procs;
         size_t m_packet_size;
+        ptr<remotes_t> m_remotes;
+        const fscache::cfg_t *m_cfg;
     };
     //------------------------------------------------------------
     

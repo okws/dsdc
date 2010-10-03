@@ -1,6 +1,8 @@
 // -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 
+#include "fscache.h"
 #include "aiod2_client.h"
+#include "rxx.h"
 
 extern char ** environ;
 
@@ -8,13 +10,41 @@ namespace aiod2 {
 #if 0
 }
 #endif
+    
+//-----------------------------------------------------------------------
+
+bool
+remote_t::parse (str s, int defport)
+{
+    m_port = defport;
+    return (parse_hn (s, &m_host, &m_port) && m_port);
+}
 
 //-----------------------------------------------------------------------
 
-mgr_t::mgr_t (size_t n, size_t ps) 
+bool
+remotes_t::parse (str in, int defport)
+{
+    static rxx x ("\\s*.\\s*");
+    vec<str> v;
+    split (&v, x, in);
+    bool ret = true;
+    for (size_t i = 0; i < v.size () && ret; i++) {
+        if (!push_back ().parse (v[i], defport)) {
+            ret = false;
+        }
+    }
+    return ret;
+}
+
+//-----------------------------------------------------------------------
+
+mgr_t::mgr_t (const fscache::cfg_t *c)
   : m_killed (false),
-    m_n_procs (n), 
-    m_packet_size (ps) {}
+    m_n_procs (c->n_aiods ()), 
+    m_packet_size (c->max_packet_size ()),
+    m_remotes (c->aiod2_remotes ()),
+    m_cfg (c) {}
 
 //-----------------------------------------------------------------------
 
@@ -27,7 +57,7 @@ base_client_t::base_client_t (mgr_t *m) : m_mgr (m), m_killed (false) {}
 //-----------------------------------------------------------------------
 
 void
-forked_client_t::trigger_waiter ()
+base_client_t::trigger_waiter ()
 {
     if (m_waiter) {
         evv_t::ptr tmp = m_waiter;
@@ -39,11 +69,12 @@ forked_client_t::trigger_waiter ()
 //-----------------------------------------------------------------------
 
 void
-forked_client_t::kill ()
+base_client_t::kill ()
 {
     if (m_cli) { 
         m_cli->seteofcb (NULL); 
         m_cli = NULL;
+        m_x = NULL;
     }
     m_killed = true;
     trigger_waiter ();
@@ -52,7 +83,7 @@ forked_client_t::kill ()
 //-----------------------------------------------------------------------
 
 tamed void
-forked_client_t::get_aclnt (event<ptr<aclnt> >::ref ev)
+base_client_t::get_aclnt (event<ptr<aclnt> >::ref ev)
 {
     tvars {
         ptr<aclnt> ret;
@@ -62,6 +93,22 @@ forked_client_t::get_aclnt (event<ptr<aclnt> >::ref ev)
         twait { m_waiter = mkevent (); }
     }
     ev->trigger (ret);
+}
+
+//-----------------------------------------------------------------------
+
+ptr<base_client_t>
+mgr_t::alloc_client (size_t i)
+{
+    ptr<base_client_t> ret;
+    size_t n;
+    if (m_remotes && (n = m_remotes->size ())) {
+        const remote_t &r = (*m_remotes)[i % n];
+        ret = New refcounted<remote_client_t> (this, r);
+    } else {
+        ret = New refcounted<local_client_t> (this);
+    }
+    return ret;
 }
 
 //-----------------------------------------------------------------------
@@ -76,7 +123,7 @@ mgr_t::init (evb_t ev)
     }
 
     for (i = 0; ok && i < m_n_procs; i++) {
-        c = New refcounted<forked_client_t> (this);
+        c = alloc_client (i);
         twait { c->launch (mkevent (ok)); }
         if (!ok) {
             warn ("aiod2 error: failed to launch client\n");
@@ -123,7 +170,7 @@ mgr_t::set_ready (ptr<base_client_t> c)
 //-----------------------------------------------------------------------
 
 str
-forked_client_t::prog_path ()
+local_client_t::prog_path ()
 {
     strbuf b;
     b << DSDC_EXEC_BINDIR << "/aiod2";
@@ -446,7 +493,7 @@ mgr_t::str2file (str f, str d, int flags, int mode, write_opts_t opts,
 //-----------------------------------------------------------------------
 
 void
-forked_client_t::eofcb ()
+base_client_t::eofcb ()
 {
     warn << "aiod2 error: helper proc crashed\n";
     m_x = NULL;
@@ -474,7 +521,17 @@ base_client_t::relaunch ()
 //-----------------------------------------------------------------------
 
 void
-forked_client_t::launch (evb_t ev, ptr<closure_t> dummy)
+base_client_t::launch_client ()
+{
+    m_cli = aclnt::alloc (m_x, aiod_prog_2);
+    m_cli->seteofcb (wrap (mkref (this), &local_client_t::eofcb));
+    trigger_waiter ();
+}
+
+//-----------------------------------------------------------------------
+
+void
+local_client_t::launch (evb_t ev, ptr<closure_t> dummy)
 {
     str p;
     vec<str> args;
@@ -485,11 +542,8 @@ forked_client_t::launch (evb_t ev, ptr<closure_t> dummy)
     args.push_back (p);
     args.push_back ("-s");
     args.push_back (strbuf ("%zu", ps));
-    m_x = axprt_unix_spawnv (p, args, ps, NULL, environ);
-    if (m_x) {
-        m_cli = aclnt::alloc (m_x, aiod_prog_2);
-        m_cli->seteofcb (wrap (mkref (this), &forked_client_t::eofcb));
-        trigger_waiter ();
+    if ((m_x = axprt_unix_spawnv (p, args, ps, NULL, environ))) {
+        launch_client ();
     } else {
         ok = false;
     }
@@ -498,5 +552,23 @@ forked_client_t::launch (evb_t ev, ptr<closure_t> dummy)
 
 //-----------------------------------------------------------------------
 
+tamed void
+remote_client_t::launch (evb_t ev)
+{
+    tvars {
+        int fd;
+    }
+    twait { tcpconnect (m_remote.m_host, m_remote.m_port, mkevent (fd)); }
+    if (fd > 0) {
+        m_x = axprt_stream::alloc (fd, m_mgr->packet_size ());
+        launch_client ();
+    } else {
+        str s = m_remote.to_str ();
+        warn << "XX connection to host " << s << " failed\n";
+    }
+    ev->trigger (fd >= 0);
+}
+
+//-----------------------------------------------------------------------
 
 };

@@ -16,32 +16,6 @@
 #include <inttypes.h>
 
 namespace fscache {
-    
-    //-----------------------------------------------------------------------
-
-    bool
-    remote_t::parse (str s, int defport)
-    {
-        m_port = defport;
-        return (parse_hn (s, &m_host, &m_port) && m_port);
-    }
-
-    //-----------------------------------------------------------------------
-
-    bool
-    remotes_t::parse (str in, int defport)
-    {
-        static rxx x ("\\s*.\\s*");
-        vec<str> v;
-        split (&v, x, in);
-        bool ret = true;
-        for (size_t i = 0; i < v.size () && ret; i++) {
-            if (!push_back ().parse (v[i], defport)) {
-                ret = false;
-            }
-        }
-        return ret;
-    }
 
     //-----------------------------------------------------------------------
 
@@ -733,12 +707,8 @@ namespace fscache {
     //=======================================================================
 
     aiod2_backend_t::aiod2_backend_t (const cfg_t *c) 
-        : _cfg (c)
-    {
-        size_t na = c->n_aiods ();
-        size_t ps = c->max_packet_size ();
-        _aiod = New refcounted<aiod2::mgr_t> (na, ps);
-    }
+        : _cfg (c),
+          _aiod (New refcounted<aiod2::mgr_t> (c)) {}
 
     //-----------------------------------------------------------------------
 
