@@ -37,6 +37,24 @@ namespace fscache {
         DEBUG_OP_TRACE = 1 << 0
     };
 
+    //-----------------------------------------------------------------------
+
+    struct remote_t {
+        remote_t () {}
+        remote_t (str h, int p) : m_host (h), m_port (p) {}
+        bool parse (str in, int defport = 0);
+        str m_host;
+        int m_port;
+    };
+
+    //-----------------------------------------------------------------------
+
+    struct remotes_t : public vec<remote_t> {
+        bool parse (str in, int defport = 0);
+    };
+
+    //-----------------------------------------------------------------------
+
     class cfg_t {
     public:
         cfg_t (bool fake_jail = false);
@@ -67,6 +85,7 @@ namespace fscache {
         size_t write_delay_parallelism () const { return _wdp; }
         bool write_atomic () const { return _write_atomic; }
         bool cache_on_load () const { return _cache_on_load; }
+        ptr<remotes_t> aiod2_remotes () const { return _aiod2_remotes; }
 
         backend_typ_t _backend;
         int _n_levels, _n_dig;
@@ -85,6 +104,7 @@ namespace fscache {
         bool _write_atomic;
         bool _cache_on_load;
         bool _do_fsync;
+        ptr<remotes_t> _aiod2_remotes;
     };
 
     //-----------------------------------------------------------------------
