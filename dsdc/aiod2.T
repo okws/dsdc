@@ -8,16 +8,29 @@
 #include "dsdc_const.h"
 #include "parseopt.h"
 #include "fscache.h"
+#include "tame_io.h"
 
 //=======================================================================
 
+class aiod_t;
+
+struct client_t {
+public:
+    client_t (ptr<axprt> x, aiod_t *a);
+    void dispatch (svccb *sbp);
+    ptr<asrv> m_srv;
+    aiod_t *m_aiod;
+};
+
+//-----------------------------------------------------------------------
+
 struct aiod_t {
 public:
-    aiod_t () : m_packet_size (dsdc_packet_sz) {}
+    aiod_t () : m_packet_size (dsdc_packet_sz), m_port (-1), m_listen_fd (-1) {}
     int configure (int argc, char **argv);
     void init (evi_t ev, CLOSURE);
     void run (evi_t ev, CLOSURE);
-    void dispatch (svccb *sbp);
+    void dispatch (svccb *sbp, client_t *cli);
 private:
     void handle_str_to_file (svccb *sbp);
     void handle_file_to_str (svccb *sbp);
@@ -26,12 +39,28 @@ private:
     void handle_statvfs (svccb *sbp);
     void handle_stat (svccb *sbp);
     void handle_glob (svccb *sbp);
+    void inet_server (evi_t ev, CLOSURE);
+    void listen_loop (evi_t ev, CLOSURE);
 
     evv_t::ptr m_eof_ev;
-    ptr<axprt_unix> m_x;
-    ptr<asrv> m_srv;
     size_t m_packet_size;
+    int m_port;
+    int m_listen_fd;
 };
+
+//-----------------------------------------------------------------------
+
+client_t::client_t (ptr<axprt> x, aiod_t *a)
+    : m_srv (asrv::alloc (x, aiod_prog_2, wrap (this, &client_t::dispatch))),
+      m_aiod (a) {}
+
+//-----------------------------------------------------------------------
+
+void
+client_t::dispatch (svccb *sbp)
+{
+    m_aiod->dispatch (sbp, this);
+}
 
 //-----------------------------------------------------------------------
 
@@ -243,10 +272,11 @@ aiod_t::handle_stat (svccb *sbp)
 //-----------------------------------------------------------------------
 
 void
-aiod_t::dispatch (svccb *sbp)
+aiod_t::dispatch (svccb *sbp, client_t *cli)
 {
     if (!sbp) {
         if (m_eof_ev) { m_eof_ev->trigger (); }
+        delete cli;
         return;
     }
 
@@ -267,10 +297,61 @@ aiod_t::dispatch (svccb *sbp)
 //-----------------------------------------------------------------------
 
 tamed void
+aiod_t::inet_server (evi_t ev)
+{
+    tvars {
+        int rc (0);
+    }
+    if ((m_listen_fd = inetsocket (SOCK_STREAM, m_port)) < 0) {
+        warn ("failed to bind to port %d: %m\n", m_port);
+        rc = -1;
+    } else {
+        listen (m_listen_fd, 100);
+    }
+    ev->trigger (rc);
+}
+
+//-----------------------------------------------------------------------
+
+tamed void
 aiod_t::init (evi_t ev)
 {
-    m_x = axprt_unix::alloc (0, m_packet_size);
-    m_srv = asrv::alloc (m_x, aiod_prog_2, wrap (this, &aiod_t::dispatch));
+    tvars {
+        int rc (0);
+        ptr<axprt_unix> x;
+    }
+    if (m_port > 0) {
+        twait { inet_server (mkevent (rc)); }
+    } else {
+        x = axprt_unix::alloc (0, m_packet_size);
+        vNew client_t (x, this);
+    } 
+    ev->trigger (0);
+}
+
+//-----------------------------------------------------------------------
+
+tamed void
+aiod_t::listen_loop (evi_t ev)
+{
+    tvars {
+        int fd;
+        ptr<axprt_stream> x;
+        sockaddr_in sin;
+        socklen_t sinlen (sizeof (sin));
+    }
+    while (true) {
+        twait { tame::waitread (m_listen_fd, mkevent ()); }
+        bzero (&sin, sizeof (sin));
+        fd = accept (m_listen_fd, reinterpret_cast<sockaddr *> (&sin),
+                     &sinlen);
+        if (fd < 0) {
+            warn ("accept error: %m\n");
+        } else {
+            x = axprt_stream::alloc (fd, m_packet_size);
+            vNew client_t (x, this);
+        }
+    }
     ev->trigger (0);
 }
 
@@ -279,8 +360,15 @@ aiod_t::init (evi_t ev)
 tamed void
 aiod_t::run (evi_t ev)
 {
-    twait { m_eof_ev = mkevent (); }
-    ev->trigger (0);
+    tvars {
+        int rc (0);
+    }
+    if (m_listen_fd >= 0) {
+        twait { listen_loop (mkevent (rc)); }
+    } else {
+        twait { m_eof_ev = mkevent (); }
+    }
+    ev->trigger (rc);
 }
 
 //-----------------------------------------------------------------------
@@ -291,7 +379,7 @@ aiod_t::configure (int argc, char **argv)
     int ch;
     int rc = 0;
     size_t sz;
-    while ((ch = getopt (argc, argv, "s:")) != -1) {
+    while ((ch = getopt (argc, argv, "s:p:")) != -1) {
         switch (ch) {
         case 's':
             if (!convertint (optarg, &sz)) {
@@ -299,6 +387,11 @@ aiod_t::configure (int argc, char **argv)
                 rc = -1;
             } else {
                 m_packet_size = sz;
+            }
+            break;
+        case 'p':
+            if (!convertint (optarg, &m_port)) {
+                warn ("cannot convert '%s' to a port\n", optarg);
             }
             break;
         default:
