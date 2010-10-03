@@ -43,6 +43,7 @@ namespace aiod2 {
         void eofcb ();
         void kill ();
     private:
+        void trigger_waiter ();
         ptr<axprt_unix> m_x;
         ptr<aclnt> m_cli;
         evv_t::ptr m_waiter;

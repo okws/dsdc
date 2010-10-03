@@ -27,6 +27,18 @@ base_client_t::base_client_t (mgr_t *m) : m_mgr (m), m_killed (false) {}
 //-----------------------------------------------------------------------
 
 void
+forked_client_t::trigger_waiter ()
+{
+    if (m_waiter) {
+        evv_t::ptr tmp = m_waiter;
+        m_waiter = NULL;
+        tmp->trigger ();
+    }
+}
+
+//-----------------------------------------------------------------------
+
+void
 forked_client_t::kill ()
 {
     if (m_cli) { 
@@ -34,11 +46,7 @@ forked_client_t::kill ()
         m_cli = NULL;
     }
     m_killed = true;
-    if (m_waiter) {
-        evv_t::ptr tmp = m_waiter;
-        m_waiter = NULL;
-        tmp->trigger ();
-    }
+    trigger_waiter ();
 }
 
 //-----------------------------------------------------------------------
@@ -481,11 +489,7 @@ forked_client_t::launch (evb_t ev, ptr<closure_t> dummy)
     if (m_x) {
         m_cli = aclnt::alloc (m_x, aiod_prog_2);
         m_cli->seteofcb (wrap (mkref (this), &forked_client_t::eofcb));
-        if (m_waiter) {
-            evv_t::ptr ev = m_waiter;
-            m_waiter = NULL;
-            ev->trigger ();
-        }
+        trigger_waiter ();
     } else {
         ok = false;
     }
