@@ -1179,9 +1179,7 @@ namespace fscache {
     {
         time_t ret = 0;
         const node_t *n;
-        if ((n = m_queue.first)) {
-            ret = sfs_get_timenow () - n->m_store_time;
-        }
+        if ((n = m_queue.first)) { ret = n->m_store_time; }
         return ret;
     }
 
