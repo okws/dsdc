@@ -25,7 +25,7 @@ remote_t::parse (str s, int defport)
 bool
 remotes_t::parse (str in, int defport)
 {
-    static rxx x ("\\s*.\\s*");
+    static rxx x ("\\s*,\\s*");
     vec<str> v;
     split (&v, x, in);
     bool ret = true;
