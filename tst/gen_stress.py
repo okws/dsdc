@@ -18,9 +18,9 @@ class Gen:
 
     def rand_op (self):
         r = random.random ()
-        if r < .5:
+        if r < .8:
             op = self.CREATE
-        elif r < .9:
+        elif r < .95:
             op = self.LOAD
         else:
             op = self.DELETE

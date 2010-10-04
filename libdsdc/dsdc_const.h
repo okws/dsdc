@@ -23,5 +23,6 @@ extern u_int dsdcl_default_timeout;
 
 extern time_t dsdci_connect_timeout_ms;
 extern time_t dsdcm_timer_interval;
+extern int dsdc_aiod2_remote_port;
 
 typedef event<int,str>::ref evis_t;

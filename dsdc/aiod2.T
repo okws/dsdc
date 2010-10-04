@@ -100,12 +100,17 @@ aiod_t::handle_str_to_file (svccb *sbp)
     str fn_orig = fn;
     int flags = arg->flags;
 
+
     if (arg->atomic) {
         flags = O_WRONLY | O_CREAT | O_EXCL;
         strbuf b ("%s~%d", fn.cstr (), rand ());
         fn = b;
+    } else {
+        // ask for truncation in all cases; makes no sense otherwise
+        flags |= O_TRUNC;
     }
     const char *fnc = fn;
+
 
     int fd = open (fnc, flags, arg->mode);
     if (fd < 0) {
@@ -379,8 +384,11 @@ aiod_t::configure (int argc, char **argv)
     int ch;
     int rc = 0;
     size_t sz;
-    while ((ch = getopt (argc, argv, "s:p:")) != -1) {
+    while ((ch = getopt (argc, argv, "s:p:P")) != -1) {
         switch (ch) {
+        case 'P':
+            m_port = dsdc_aiod2_remote_port;
+            break;
         case 's':
             if (!convertint (optarg, &sz)) {
                 warn ("cannot convert '%s' to a packet size\n", optarg);

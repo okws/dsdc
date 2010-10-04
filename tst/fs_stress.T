@@ -401,8 +401,13 @@ main (int argc, char *argv[])
     cfg._max_packet_size = 0x1000000;
     cfg._write_atomic = true;
 
+    str remote_str;
+
     while ((ch = getopt (argc, argv, "SAtsdr:n:N:vc:m:hw:D:")) != -1) {
         switch (ch) {
+        case 'r':
+            remote_str = optarg;
+            break;
         case 'D':
             if (!convertint (optarg, &cfg._n_dig)) {
                 warn << "bad -D argument: " << optarg << "\n";
@@ -464,6 +469,16 @@ main (int argc, char *argv[])
         default:
             usage ();
             break;
+        }
+    }
+
+    if (remote_str) {
+        ptr<aiod2::remotes_t> r = New refcounted<aiod2::remotes_t> ();
+        if (!r->parse (remote_str, dsdc_aiod2_remote_port)) {
+            warn << "bad remote -r argument: " << remote_str << "\n";
+            usage ();
+        } else {
+            cfg._aiod2_remotes = r;
         }
     }
 

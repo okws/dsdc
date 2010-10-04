@@ -21,3 +21,4 @@ u_int dsdc_rpc_timeout = 3;            // in seconds before calling off an RPC
 
 time_t dsdci_connect_timeout_ms = 1000; // wait for a connect for 1s
 
+int dsdc_aiod2_remote_port = 44844;     // aiod2 default remote port

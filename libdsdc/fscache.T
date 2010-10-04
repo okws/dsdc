@@ -1175,12 +1175,9 @@ namespace fscache {
             rendezvous_t<bool> rv (__FILE__, __LINE__);
             bool window_has_room;
             bool reaped;
-            ptr<bool> ap;
             time_t timeout;
             bool timeout_set (false);
         }
-
-        ap = _alive;
 
         m_poke_ev = mkevent (rv, false);
 
