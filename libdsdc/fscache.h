@@ -70,6 +70,7 @@ namespace fscache {
         bool write_atomic () const { return _write_atomic; }
         bool cache_on_load () const { return _cache_on_load; }
         ptr<aiod2::remotes_t> aiod2_remotes () const { return _aiod2_remotes; }
+        bool parse_aiod2_remotes (str s);
 
         backend_typ_t _backend;
         int _n_levels, _n_dig;

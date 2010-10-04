@@ -41,6 +41,16 @@ namespace fscache {
               _do_fsync (false) {}
 
     //-----------------------------------------------------------------------
+
+    bool
+    cfg_t::parse_aiod2_remotes (str s)
+    {
+        return (!s || 
+                (_aiod2_remotes = 
+                 aiod2::remotes_t::alloc (s, dsdc_aiod2_remote_port)));
+    }
+
+    //-----------------------------------------------------------------------
     
     void
     cfg_t::set_debug_options (const char *s)

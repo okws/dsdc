@@ -472,14 +472,9 @@ main (int argc, char *argv[])
         }
     }
 
-    if (remote_str) {
-        ptr<aiod2::remotes_t> r = New refcounted<aiod2::remotes_t> ();
-        if (!r->parse (remote_str, dsdc_aiod2_remote_port)) {
-            warn << "bad remote -r argument: " << remote_str << "\n";
-            usage ();
-        } else {
-            cfg._aiod2_remotes = r;
-        }
+    if (!cfg.parse_aiod2_remotes (remote_str)) {
+        warn << "bad remote -r argument: " << remote_str << "\n";
+        usage ();
     }
 
     argc -= optind;

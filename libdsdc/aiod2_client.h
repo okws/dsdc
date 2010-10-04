@@ -36,6 +36,7 @@ namespace aiod2 {
 
     struct remotes_t : public vec<remote_t> {
         bool parse (str in, int defport = 0);
+        static ptr<remotes_t> alloc (str in, int defport = 0);
     };
 
     //------------------------------------------------------------

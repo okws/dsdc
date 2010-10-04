@@ -22,6 +22,18 @@ remote_t::parse (str s, int defport)
 
 //-----------------------------------------------------------------------
 
+ptr<remotes_t>
+remotes_t::alloc (str in, int defport)
+{
+    ptr<remotes_t> ret = New refcounted<remotes_t> ();
+    if (!ret->parse (in, dsdc_aiod2_remote_port)) {
+        ret = NULL;
+    }
+    return ret;
+}
+
+//-----------------------------------------------------------------------
+
 bool
 remotes_t::parse (str in, int defport)
 {
