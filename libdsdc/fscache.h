@@ -208,6 +208,7 @@ namespace fscache {
         bool use_cache () const { return _cfg->write_delay () && m_enabled; }
         void lock (file_id_t fid, lock_ev_t ev, CLOSURE);
         bool set_write_delay (bool s);
+        time_t oldest_dirty_file () const;
 
         struct node_t {
             node_t (file_id_t fid, time_t t, str d, bool dirty);

@@ -1174,6 +1174,19 @@ namespace fscache {
 
     //-----------------------------------------------------------------------
 
+    time_t 
+    write_delay_engine_t::oldest_dirty_file () const
+    {
+        time_t ret = 0;
+        const node_t *n;
+        if ((n = m_queue.first)) {
+            ret = sfs_get_timenow () - n->m_store_time;
+        }
+        return ret;
+    }
+
+    //-----------------------------------------------------------------------
+
     tamed void
     write_delay_engine_t::flush_loop ()
     {
