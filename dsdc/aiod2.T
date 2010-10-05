@@ -329,7 +329,12 @@ aiod_t::init (evi_t ev)
         twait { inet_server (mkevent (rc)); }
     } else {
         x = axprt_unix::alloc (0, m_packet_size);
-        vNew client_t (x, this);
+        if (x->ateof ()) {
+            warn ("bailing out on socket error\n");
+            rc = -1;
+        } else {
+            vNew client_t (x, this);
+        }
     } 
     ev->trigger (0);
 }
