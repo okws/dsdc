@@ -98,7 +98,7 @@ aiod_t::handle_str_to_file (svccb *sbp)
     int rc = 0;
     str fn = arg->file;
     str fn_orig = fn;
-    int flags = arg->flags;
+    int flags = arg->flags; // XX throw these on the floor!
 
 
     if (arg->atomic) {
@@ -107,7 +107,7 @@ aiod_t::handle_str_to_file (svccb *sbp)
         fn = b;
     } else {
         // ask for truncation in all cases; makes no sense otherwise
-        flags |= O_TRUNC;
+        flags = O_WRONLY | O_CREAT | O_TRUNC;
     }
     const char *fnc = fn;
 
