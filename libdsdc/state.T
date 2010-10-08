@@ -68,10 +68,7 @@ dsdc_system_state_cache_t::handle_refresh (const dsdc_getstate_res_t &res)
         post_construct ();
 
         clean_cache ();
-    } else {
-        if ( ++_n_updates_since_clean > dsdcs_clean_interval )
-            clean_cache ();
-    }
+    } 
 }
 
 //-----------------------------------------------------------------------
