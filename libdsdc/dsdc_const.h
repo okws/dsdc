@@ -6,7 +6,6 @@
 
 extern int dsdc_heartbeat_interval;
 extern int dsdcs_getstate_interval;
-extern u_int dsdcs_clean_interval;
 
 extern int dsdc_missed_beats_to_death;
 extern int dsdc_port;
