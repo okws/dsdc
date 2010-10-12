@@ -104,36 +104,61 @@ dsdc_slave_app_t::get_primary ()
     return NULL;
 }
 
+//-----------------------------------------------------------------------
 
-void
-dsdc_slave_t::clean_cache ()
+tamed void
+dsdc_slave_t::clean_cache_T ()
 {
-    dsdc_cache_obj_t *p, *n;
-    size_t tot = 0;
-    int nobj = 0;
+    tvars {
+        dsdc_cache_obj_t *p;
+        size_t tot (0);
+        int nobj (0);
+        dsdc_ring_node_t *nn;
+        size_t batch_iters (0);
+    }
 
-    if (_opts & SLAVE_NO_CLEAN)
-        return;
+    if (!(_opts & SLAVE_NO_CLEAN) && !_cleaning) {
 
-    for (p = _lru.first; p; p = n) {
-        n = _lru.next (p);
+        _cleaning = true;
 
-        dsdc_ring_node_t *nn = _hash_ring.successor (p->_key);
-        if (!nn || !_khash[nn->_key]) {
+        _lru.slow_reset ();
 
-            if (show_debug (DSDC_DBG_MED)) {
-                warn ("CLEAN: removed object: %s\n",
-                      key_to_str (p->_key).cstr () );
+        while ((p = _lru.slow_next ())) {
+
+            nn = _hash_ring.successor (p->_key);
+            if (!nn || !_khash[nn->_key]) {
+                
+                if (show_debug (DSDC_DBG_MED)) {
+                    warn ("CLEAN: removed object: %s\n",
+                          key_to_str (p->_key).cstr () );
+                }
+                
+                tot += lru_remove_obj (p, true, dsdc::AC_CLEAN);
+                nobj ++;
             }
 
-            tot += lru_remove_obj (p, true, dsdc::AC_CLEAN);
-            nobj ++;
+            if (dsdcs_clean_batch && dsdcs_clean_wait_us &&
+                (batch_iters == dsdcs_clean_batch)) {
+                twait { delaycb (0, dsdcs_clean_wait_us * 1000, mkevent ()); }
+                if (show_debug (DSDC_DBG_MED)) {
+                    warn ("CLEAN: wait %dus (after %zu iterations)\n",
+                          int (dsdcs_clean_wait_us), batch_iters);
+                }
+                batch_iters = 0;
+            } else {
+                batch_iters++;
+            }
         }
+        _n_updates_since_clean = 0;
+        if (show_debug (DSDC_DBG_LOW))
+            warn ("CLEAN: cleaned %d objects (%zu bytes in total)\n", 
+                  nobj, tot);
+
+        _cleaning = false;
     }
-    _n_updates_since_clean = 0;
-    if (show_debug (DSDC_DBG_LOW))
-        warn ("CLEAN: cleaned %d objects (%zu bytes in total)\n", nobj, tot);
 }
+
+//-----------------------------------------------------------------------
 
 tamed void
 dsdcs_master_t::do_register ()
@@ -220,7 +245,7 @@ dsdc_slave_t::handle_get_stats (svccb *sbp)
 
     cl->prepare_sweep ();
 
-    for (dsdc_cache_obj_t *o = _lru.first; o; o = _lru.next (o)) {
+    for (dsdc_cache_obj_t *o = _lru.first (); o; o = _lru.next (o)) {
         o->collect_statistics (false);
     }
     res.set_status (DSDC_OK);
@@ -539,7 +564,7 @@ dsdc_slave_t::lru_remove_obj (dsdc_cache_obj_t *o, bool del,
                               dsdc::action_code_t t)
 {
     if (!o) {
-        o = _lru.first;
+        o = _lru.first ();
 
         // it could be that what's inserted is bigger than the whole cache
         // size allotment.  in this case, we'll bend the rules a little
@@ -726,17 +751,21 @@ dsdc_slave_app_t::startup_msg () const
 void
 dsdc_slave_t::startup_msg_v (strbuf *b) const
 {
-    if (show_debug (DSDC_DBG_LOW))
-        b->fmt ("; nnodes=%d, maxsz=0x%zx", _n_nodes, _maxsz);
+    if (show_debug (DSDC_DBG_LOW)) {
+        b->fmt ("; nnodes=%d, maxsz=0x%zx, clean_batch=%d, clean_wait=%dus", 
+                _n_nodes, _maxsz, int (dsdcs_clean_batch), 
+                int (dsdcs_clean_wait_us));
+    }
 }
 
 
 dsdc_slave_t::dsdc_slave_t (u_int n, size_t s, int p, int o)
-        : dsdc_slave_app_t (p, o),
-        dsdc_system_state_cache_t (),
-        _lrusz (0),
-        _n_nodes (n ? n : dsdc_slave_nnodes),
-        _maxsz (s ? s : dsdc_slave_maxsz) {}
+    : dsdc_slave_app_t (p, o),
+      dsdc_system_state_cache_t (),
+      _lrusz (0),
+      _n_nodes (n ? n : dsdc_slave_nnodes),
+      _maxsz (s ? s : dsdc_slave_maxsz),
+      _cleaning (false) {}
 
 dsdc_slave_app_t::dsdc_slave_app_t (int p, int o)
         : dsdc_app_t (),
@@ -811,7 +840,7 @@ dsdc_slave_t::run_stats2_loop ()
             twait { delaycb (_stats_mode2, 0, mkevent ()); }
 
             {
-                for (dsdc_cache_obj_t *o = _lru.first;
+                for (dsdc_cache_obj_t *o = _lru.first ();
                      o;
                      o = _lru.next (o)) {
                     o->collect_statistics (false);
@@ -829,3 +858,41 @@ dsdc_slave_t::run_stats2_loop ()
 }
 
 //-----------------------------------------------------------------------
+
+void dsdc_lru_t::slow_reset () { _slow_cursor = first (); }
+
+//-----------------------------------------------------------------------
+
+dsdc_cache_obj_t *
+dsdc_lru_t::slow_next ()
+{
+    dsdc_cache_obj_t *ret = _slow_cursor;
+    if (_slow_cursor) { _slow_cursor = next (_slow_cursor); }
+    return ret;
+}
+
+//-----------------------------------------------------------------------
+
+void
+dsdc_lru_t::remove (dsdc_cache_obj_t *o)
+{
+    if (o == _slow_cursor) { _slow_cursor = next (o); }
+    _lru.remove (o);
+}
+
+//-----------------------------------------------------------------------
+
+dsdc_cache_obj_t *dsdc_lru_t::first () { return _lru.first; }
+
+//-----------------------------------------------------------------------
+
+dsdc_cache_obj_t * dsdc_lru_t::next (dsdc_cache_obj_t *o)
+{ return _lru.next (o); }
+
+//-----------------------------------------------------------------------
+
+void dsdc_lru_t::insert_tail (dsdc_cache_obj_t *o)
+{ _lru.insert_tail (o); }
+
+//-----------------------------------------------------------------------
+

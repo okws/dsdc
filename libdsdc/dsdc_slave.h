@@ -174,6 +174,25 @@ public:
     str progname_xtra () const { return "_nlm"; }
 };
 
+class dsdc_lru_t {
+public:
+    dsdc_lru_t () : _slow_cursor (NULL) {}
+    
+    // For a "slow walk" over the LRU, which can be interrupted by 
+    // twaits{}'s, use this slow_next() feature.
+    void slow_reset ();
+    dsdc_cache_obj_t *slow_next ();
+
+    dsdc_cache_obj_t *first ();
+    dsdc_cache_obj_t *next (dsdc_cache_obj_t *o);
+
+    void remove (dsdc_cache_obj_t *o);
+    void insert_tail (dsdc_cache_obj_t *o);
+private:
+    dsdc_cache_obj_t *_slow_cursor;
+    tailq<dsdc_cache_obj_t, &dsdc_cache_obj_t::_qlnk> _lru;
+};
+
 class dsdc_slave_t : public dsdc_slave_app_t ,
             public dsdc_system_state_cache_t {
 public:
@@ -228,11 +247,12 @@ protected:
                            const dsdc_cksum_t *cks = NULL);
     size_t _lrusz;
 
-    void clean_cache ();
+    void clean_cache () { clean_cache_T (); }
 
     dsdc_keyset_t _keys;
     const u_int _n_nodes;
     const size_t _maxsz;
+    bool _cleaning;
 
 
     ihash<dsdc_key_t, dsdc_cache_obj_t, &dsdc_cache_obj_t::_key,
@@ -241,9 +261,10 @@ protected:
 
     bhash<dsdc_key_t, dsdck_hashfn_t, dsdck_equals_t> _khash;
 
-    tailq<dsdc_cache_obj_t, &dsdc_cache_obj_t::_qlnk> _lru;
+    dsdc_lru_t _lru;
 
 private:
+    void clean_cache_T (CLOSURE);
 
 };
 

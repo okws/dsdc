@@ -21,3 +21,6 @@ u_int dsdc_rpc_timeout = 3;            // in seconds before calling off an RPC
 time_t dsdci_connect_timeout_ms = 1000; // wait for a connect for 1s
 
 int dsdc_aiod2_remote_port = 44844;     // aiod2 default remote port
+
+size_t dsdcs_clean_batch = 1000;        // every 1000 objects wait...
+time_t dsdcs_clean_wait_us = 1000;      // 1000 usec

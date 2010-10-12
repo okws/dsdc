@@ -1,4 +1,4 @@
-
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 //
 // $Id$
 //
@@ -28,76 +28,89 @@ usage (bool err = true)
     if (err) warnx << "\n";
 
     warnx << "usage: " << progname << " -M [-d<debug-level>] "
-    << "[-P <packetsz>] [-p <port>]\n"
-    << "       " << progname << " -S [-d<debug-level>] [-RD] "
-    << "[-a <intrvl>] [-P <packetsz>] [-n <n nodes>]\n"
-    << "                 [-s <maxsize> (M|G|k|b)]  [-p<port>] "
-    << "m1:p1 m2:p2 ...\n"
-    << "       " << progname << " -L [-d<debug-level>] [-p<port>] "
-    << "m1:p1 m2:p2 ...\n"
-    << "\n"
-    << "Summary:\n"
-    << "\n"
-    << "  Run dsdc in one of three modes: lock, master, or slave,\n"
-    << "  by specifying one of the -L, -M or -S flags, respectively.\n"
-    << "\n"
-    << "  -L lock server:\n"
-    << "\n"
-    << "     Make this DSDC process run as a lock server, handling\n"
-    << "     distributed requests for locks from clients and smart\n"
-    << "     clients.\n"
-    << "\n"
-    <<"   -M master node:\n"
-    << "\n"
-    << "     Make this DSDC node run as a master node, meaning that it\n"
-    << "     will watch all slaves, and accumulate uptime statistics\n"
-    << "     for the ring, then pass those on to the slaves and to\n"
-    << "     the smart clients.  This information is crucial, since\n"
-    << "     it directs traffic toward the correct nodes.\n"
-    << "\n"
-    << "  -S slave node:\n"
-    << "\n"
-    << "     Make this DSDC node run as a slave node, meaning that it\n"
-    << "     will be storing data.  Supply the names of the masters\n"
-    << "     to connect to as arguments, in <host>:<port> format.\n"
-    << "\n"
-    << "    Sub-options:\n"
-    << "\n"
-    << "     -R  Don't randomize, use deterministic seeds. Everytime\n"
-    << "         a slave node starts up on this machine, with this port\n"
-    << "         it will take the same seeds.  This will minimize the\n"
-    << "         costs of a slave going down then back up.\n"
-    << "     -D  Don't delete data after a ring chagne.  Keep old,\n"
-    << "         potentially stale data around.  Maximizes hit ratios\n"
-    << "         while minimizing consistency.\n"
-    << "     -a <interval>\n"
-    << "         Collect statistics (v2), and dump output to log every\n"
-    << "         <interval> seconds.\n"
-    << "\n"
-    << " Global Options:\n"
-    << "\n"
-    << "     -P <packet-size>   Specify the largest allowable AXPRT "
-    << "packet size.\n"
-    << "     -p <port>          Listen on the given port\n"
-    << "     -d <debug-level>   Specify a debug level for "
-    << "error reporting.\n"
-    << "\n"
-    << "Shortcuts:\n"
-    << "\n"
-    << "   If dsdc is hardlinked to with the hardlinks:\n"
-    << "\n"
-    << "      dsdc_lockserver -> dsdc\n"
-    << "      dsdc_master -> dsdc\n"
-    << "      dsdc_slave -> slave\n"
-    << "\n"
-    << "  it runs automatically in lockserver, master, or slave mode, "
-    << "respectively.\n"
-    << "\n"
-    << "dsdc version " << DSDC_VERSION_STR << "; built "
-    << __DATE__ << " " << __TIME__ << "\n"
-    << "\n";
-
+          << "[-P <packetsz>] [-p <port>]\n"
+          << "       " << progname << " -S [-d<debug-level>] [-RD] "
+          << "[-a <intrvl>] [-P <packetsz>] [-n <n nodes>]\n"
+          << "                 [-s <maxsize> (M|G|k|b)]  [-p<port>] "
+          << "m1:p1 m2:p2 ...\n"
+          << "       " << progname << " -L [-d<debug-level>] [-p<port>] "
+          << "m1:p1 m2:p2 ...\n"
+          << "\n"
+          << "Summary:\n"
+          << "\n"
+          << "  Run dsdc in one of three modes: lock, master, or slave,\n"
+          << "  by specifying one of the -L, -M or -S flags, respectively.\n"
+          << "\n"
+          << "  -L lock server:\n"
+          << "\n"
+          << "     Make this DSDC process run as a lock server, handling\n"
+          << "     distributed requests for locks from clients and smart\n"
+          << "     clients.\n"
+          << "\n"
+          <<"   -M master node:\n"
+          << "\n"
+          << "     Make this DSDC node run as a master node, meaning that it\n"
+          << "     will watch all slaves, and accumulate uptime statistics\n"
+          << "     for the ring, then pass those on to the slaves and to\n"
+          << "     the smart clients.  This information is crucial, since\n"
+          << "     it directs traffic toward the correct nodes.\n"
+          << "\n"
+          << "  -S slave node:\n"
+          << "\n"
+          << "     Make this DSDC node run as a slave node, meaning that it\n"
+          << "     will be storing data.  Supply the names of the masters\n"
+          << "     to connect to as arguments, in <host>:<port> format.\n"
+          << "\n"
+          << "    Sub-options:\n"
+          << "\n"
+          << "     -R  Don't randomize, use deterministic seeds. Everytime\n"
+          << "         a slave node starts up on this machine, with this port\n"
+          << "         it will take the same seeds.  This will minimize the\n"
+          << "         costs of a slave going down then back up.\n"
+          << "     -D  Don't delete data after a ring chagne.  Keep old,\n"
+          << "         potentially stale data around.  Maximizes hit ratios\n"
+          << "         while minimizing consistency.\n"
+          << "     -a <interval>\n"
+          << "         Collect statistics (v2), and dump output to log every\n"
+          << "         <interval> seconds.\n"
+          << "\n"
+          << " Global Options:\n"
+          << "\n"
+          << "     -P <packet-size>   Specify the largest allowable AXPRT "
+          << "packet size.\n"
+          << "     -p <port>          Listen on the given port\n"
+          << "     -d <debug-level>   Specify a debug level for "
+          << "error reporting.\n"
+          << "     -C <batch>:<wait>  When cleaning, batch and wait sizes\n"
+          << "\n"
+          << "Shortcuts:\n"
+          << "\n"
+          << "   If dsdc is hardlinked to with the hardlinks:\n"
+          << "\n"
+          << "      dsdc_lockserver -> dsdc\n"
+          << "      dsdc_master -> dsdc\n"
+          << "      dsdc_slave -> slave\n"
+          << "\n"
+          << "  it runs automatically in lockserver, master, or slave mode, "
+          << "respectively.\n"
+          << "\n"
+          << "dsdc version " << DSDC_VERSION_STR << "; built "
+          << __DATE__ << " " << __TIME__ << "\n"
+          << "\n";
+    
     exit (1);
+}
+
+static bool
+parse_clean_params (const str &in)
+{
+    static rxx x ("(\\d+):(\\d+)");
+    bool ret = true;
+    if (!x.match (in) || !convertint (x[1], &dsdcs_clean_batch) 
+        || !convertint (x[2], &dsdcs_clean_wait_us)) {
+        ret = false;
+    }
+    return ret;
 }
 
 static bool
@@ -162,7 +175,7 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
     int opts = 0;
     int stats_interval = -1;
 
-    while ((ch = getopt (argc, argv, "a:vd:h:LMn:p:P:qRSs:Z:D")) != -1) {
+    while ((ch = getopt (argc, argv, "a:vd:h:LMn:p:P:qRSs:Z:DC:")) != -1) {
         switch (ch) {
         case 'a':
             if (!convertint (optarg, &stats_interval)) {
@@ -242,6 +255,12 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
         case 's':
             if (!parse_memsize (optarg, 'm', &maxsz)) {
                 warn << "invalid memory size given to -m\n";
+                usage ();
+            }
+            break;
+        case 'C':
+            if (!parse_clean_params (optarg)) {
+                warn << "failed to parse -C arguments (<batch>:<time>)\n";
                 usage ();
             }
             break;
