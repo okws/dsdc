@@ -253,6 +253,7 @@ protected:
     const u_int _n_nodes;
     const size_t _maxsz;
     bool _cleaning;
+    bool _dirty;
 
 
     ihash<dsdc_key_t, dsdc_cache_obj_t, &dsdc_cache_obj_t::_key,

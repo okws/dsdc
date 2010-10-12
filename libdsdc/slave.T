@@ -115,47 +115,66 @@ dsdc_slave_t::clean_cache_T ()
         int nobj (0);
         dsdc_ring_node_t *nn;
         size_t batch_iters (0);
+        time_t delay_ns (0);
     }
 
-    if (!(_opts & SLAVE_NO_CLEAN) && !_cleaning) {
+    if (_opts & SLAVE_NO_CLEAN) { /* noop */ }
+    else if (_cleaning) { _dirty = true; }
+    else {
 
         _cleaning = true;
-
-        _lru.slow_reset ();
-
-        while ((p = _lru.slow_next ())) {
-
-            nn = _hash_ring.successor (p->_key);
-            if (!nn || !_khash[nn->_key]) {
-                
-                if (show_debug (DSDC_DBG_MED)) {
-                    warn ("CLEAN: removed object: %s\n",
-                          key_to_str (p->_key).cstr () );
-                }
-                
-                tot += lru_remove_obj (p, true, dsdc::AC_CLEAN);
-                nobj ++;
-            }
-
-            if (dsdcs_clean_batch && dsdcs_clean_wait_us &&
-                (batch_iters == dsdcs_clean_batch)) {
-                twait { delaycb (0, dsdcs_clean_wait_us * 1000, mkevent ()); }
-                if (show_debug (DSDC_DBG_MED)) {
-                    warn ("CLEAN: wait %dus (after %zu iterations)\n",
-                          int (dsdcs_clean_wait_us), batch_iters);
-                }
-                batch_iters = 0;
-            } else {
-                batch_iters++;
-            }
+        if (dsdcs_clean_batch && dsdcs_clean_wait_us) {
+            delay_ns = dsdcs_clean_wait_us * 1000;
         }
+        
+        do {
+            _dirty = false;
+
+            _lru.slow_reset ();
+            batch_iters = 0;
+
+            while (!_dirty && (p = _lru.slow_next ())) {
+                
+                nn = _hash_ring.successor (p->_key);
+                if (!nn || !_khash[nn->_key]) {
+                    
+                    if (show_debug (DSDC_DBG_MED)) {
+                        warn ("CLEAN: removed object: %s\n",
+                              key_to_str (p->_key).cstr () );
+                    }
+                    
+                    tot += lru_remove_obj (p, true, dsdc::AC_CLEAN);
+                    nobj ++;
+                }
+
+                if (delay_ns && (batch_iters == dsdcs_clean_batch)) {
+                    twait { delaycb (0, delay_ns, mkevent ()); }
+                    if (show_debug (DSDC_DBG_MED)) {
+                        warn ("CLEAN: wait %dus (after %zu iterations)\n",
+                              int (dsdcs_clean_wait_us), batch_iters);
+                    }
+                    batch_iters = 0;
+                } else {
+                    batch_iters++;
+                }
+            }
+
+            if (_dirty && show_debug (DSDC_DBG_MED)) {
+                warn ("CLEAN: retrying the cleaner after getting dirtied\n");
+            }
+            
+        } while (_dirty);
+        
         _n_updates_since_clean = 0;
-        if (show_debug (DSDC_DBG_LOW))
+
+        if (show_debug (DSDC_DBG_LOW)) {
             warn ("CLEAN: cleaned %d objects (%zu bytes in total)\n", 
                   nobj, tot);
+        }
 
         _cleaning = false;
     }
+
 }
 
 //-----------------------------------------------------------------------
@@ -758,6 +777,7 @@ dsdc_slave_t::startup_msg_v (strbuf *b) const
     }
 }
 
+//-----------------------------------------------------------------------
 
 dsdc_slave_t::dsdc_slave_t (u_int n, size_t s, int p, int o)
     : dsdc_slave_app_t (p, o),
@@ -765,16 +785,19 @@ dsdc_slave_t::dsdc_slave_t (u_int n, size_t s, int p, int o)
       _lrusz (0),
       _n_nodes (n ? n : dsdc_slave_nnodes),
       _maxsz (s ? s : dsdc_slave_maxsz),
-      _cleaning (false) {}
+      _cleaning (false),
+      _dirty (false) {}
+
+//-----------------------------------------------------------------------
 
 dsdc_slave_app_t::dsdc_slave_app_t (int p, int o)
-        : dsdc_app_t (),
-        _primary (false),
-        _port (p < 0 ? dsdc_slave_port : p),
-        _lfd (-1),
-        _opts (o),
-        _stats_mode (false),
-        _stats_mode2 (-1) {}
+    : dsdc_app_t (),
+      _primary (false),
+      _port (p < 0 ? dsdc_slave_port : p),
+      _lfd (-1),
+      _opts (o),
+      _stats_mode (false),
+      _stats_mode2 (-1) {}
 
 void
 dsdc_slave_app_t::get_xdr_repr (dsdcx_slave_t *x)
