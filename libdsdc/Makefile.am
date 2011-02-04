@@ -1,5 +1,6 @@
 
 -include $(SFS_LIB_MK)
+-include $(OKWS_LIB_MK)
 
 dsdclib_LTLIBRARIES = libdsdc.la
 
