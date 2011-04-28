@@ -623,6 +623,24 @@ dsdc_slave_t::lru_remove (const dsdc_key_t &k)
     return ret;
 }
 
+//-----------------------------------------------------------------------
+
+bool 
+is_empty_checksum (const dsdc_cksum_t &cksum)
+{
+    for (size_t i = 0; i < cksum.size (); i++) {
+        if (cksum[i] != 0) { return false; }
+    }
+    return true;
+}
+
+//-----------------------------------------------------------------------
+
+void make_empty_checksum (dsdc_cksum_t *out) 
+{ memset (out->base (), 0, out->size ()); }
+
+//-----------------------------------------------------------------------
+
 dsdc_res_t
 dsdc_slave_t::lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o,
                           dsdc::annotation::base_t *a,
@@ -645,7 +663,7 @@ dsdc_slave_t::lru_insert (const dsdc_key_t &k, const dsdc_obj_t &o,
             
             ret = DSDC_REPLACED;
         }
-    } else if (cksum) {
+    } else if (cksum && !is_empty_checksum (*cksum)) {
         ret = DSDC_DATA_DISAPPEARED;
     } else {
         co = New dsdc_cache_obj_t ();
