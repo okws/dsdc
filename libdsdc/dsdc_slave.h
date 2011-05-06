@@ -19,9 +19,6 @@
 #include "dsdc_stats.h"
 #include "litetime.h"
 
-bool is_empty_checksum (const dsdc_cksum_t &cksum);
-void make_empty_checksum (dsdc_cksum_t *out);
-
 struct dsdc_cache_obj_t {
     dsdc_cache_obj_t () : _timein (sfs_get_timenow ()), _annotation (NULL),
             _n_gets (0), _n_gets_in_epoch (0) {}

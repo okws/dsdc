@@ -68,3 +68,21 @@ dsdc_app_t::progname (const str &in, bool usepid) const
     return b;
 }
 
+//-----------------------------------------------------------------------
+
+bool 
+is_empty_checksum (const dsdc_cksum_t &cksum)
+{
+    for (size_t i = 0; i < cksum.size (); i++) {
+        if (cksum[i] != 0) { return false; }
+    }
+    return true;
+}
+
+//-----------------------------------------------------------------------
+
+void make_empty_checksum (dsdc_cksum_t *out) 
+{ memset (out->base (), 0, out->size ()); }
+
+//-----------------------------------------------------------------------
+

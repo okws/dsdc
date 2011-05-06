@@ -82,3 +82,6 @@ bool show_debug (int lev);
 str key_to_str (const dsdc_key_t &k);
 bool parse_hn (const str &in, str *host, int *port);
 
+bool is_empty_checksum (const dsdc_cksum_t &cksum);
+void make_empty_checksum (dsdc_cksum_t *out);
+
