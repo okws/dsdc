@@ -52,7 +52,7 @@ connect (str s, event<ptr<aclnt> >::ref ev)
         if (fd < 0) {
             warn << "Cannot connect to host: " << s << "\n";
         } else {
-            ptr<axprt> x = axprt_stream::alloc (fd);
+            ptr<axprt> x = axprt_stream::alloc (fd, dsdc_packet_sz);
             ret = aclnt::alloc (x, dsdc_prog_1);
         }
     }
