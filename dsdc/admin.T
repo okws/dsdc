@@ -1,6 +1,6 @@
-
-// -*-c++-*-
+// -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 /* $Id$ */
+//-----------------------------------------------------------------------
 
 #include "dsdc_admin.h"
 #include "dsdc_util.h"
@@ -10,23 +10,34 @@
 
 int columns;
 
+//-----------------------------------------------------------------------
+
 enum dsdc_adminmode_t {
     NONE = 0,
     STATS = 1,
     CLEAN = 2,
+    LIST = 3
 };
+
+//-----------------------------------------------------------------------
 
 static void
 usage ()
 {
     warnx << "usage: " << progname << " -S [-c<n-columns>] "
-    << "[-l<nbuck>] [-g<nbuck>] [-s<nbuck>] [-f<fmt>|-a] "
-    << "[-m<master>] [-b<stats-mode>] slave1 slave2 ...\n";
+          << "[-l<nbuck>] [-g<nbuck>] [-s<nbuck>] [-f<fmt>|-a] "
+          << "[-m<master>] [-b<stats-mode>] slave1 slave2 ...\n"
+          << "   - for statistics collection (more documentation needed)\n"
+          << "\n"
+          << "  " << progname << " -L -m <master>\n"
+          << "   - for dumping the active slaves\n";
     exit (2);
 }
 
+//-----------------------------------------------------------------------
+
 tamed static void
-connect (str s, callback<void, ptr<aclnt> >::ref cb)
+connect (str s, event<ptr<aclnt> >::ref ev)
 {
     tvars {
         int fd (-1);
@@ -45,11 +56,64 @@ connect (str s, callback<void, ptr<aclnt> >::ref cb)
             ret = aclnt::alloc (x, dsdc_prog_1);
         }
     }
-    DSDC_SIGNAL (cb, ret);
+    ev->trigger (ret);
 }
 
+//-----------------------------------------------------------------------
+
+static void
+dump_state (const dsdcx_state_t &state)
+{
+    vec<str> hold;
+    strbuf out;
+    for (size_t i = 0; i < state.slaves.size (); i++) {
+        const dsdcx_slave_t &slave = state.slaves[i];
+        strbuf b;
+        b << slave.hostname << ":" << slave.port << "\t" << slave.keys.size ();
+        str s = b;
+        hold.push_back (s);
+        out << s << "\n";
+    }
+    out.tosuio ()->output (1);
+}
+
+//-----------------------------------------------------------------------
+
 tamed static void
-get_stats (str m, const dsdc_get_stats_arg_t *arg, cbi cb)
+get_list (str m, evi_t ev)
+{
+    tvars {
+        ptr<aclnt> c;
+        int rc (0);
+        dsdc_key_t arg;
+		dsdc_getstate_res_t	res;
+        clnt_stat err;
+    }
+    twait { connect (m, mkevent (c)); }
+    if (!c) { 
+        rc = -1;
+    } else {
+        make_empty_checksum (&arg);
+        twait { 
+            RPC::dsdc_prog_1::dsdc_getstate (c, arg, &res, mkevent (err)); 
+        }
+        if (err) {
+            warn << "RPC error with " << m << ": " << err << "\n";
+            rc = -1;
+        } else if (!res.needupdate) {
+            warn << "Master reported no results!!!\n";
+            rc = -1;
+        } else {
+            dump_state (*res.state);
+        }
+    }
+    ev->trigger (rc);
+}
+
+//-----------------------------------------------------------------------
+
+tamed static void
+get_stats (str m, const dsdc_get_stats_arg_t *arg, evi_t ev)
 {
     tvars {
         ptr<aclnt> c;
@@ -74,11 +138,13 @@ get_stats (str m, const dsdc_get_stats_arg_t *arg, cbi cb)
             b.tosuio ()->output (0);
         }
     }
-    DSDC_SIGNAL (cb, rc);
+    ev->trigger (rc);
 }
 
+//-----------------------------------------------------------------------
+
 tamed static void
-get_stat_direct (str h, const dsdc_get_stats_single_arg_t *a, int *rc, cbv cb)
+get_stat_direct (str h, const dsdc_get_stats_single_arg_t *a, int *rc, evv_t ev)
 {
     tvars {
         ptr<aclnt> c;
@@ -102,16 +168,17 @@ get_stat_direct (str h, const dsdc_get_stats_single_arg_t *a, int *rc, cbv cb)
             b.tosuio ()->output (0);
         }
     }
-    DSDC_SIGNAL (cb);
-
+    ev->trigger ();
 }
+
+//-----------------------------------------------------------------------
 
 //
 // XXX try to fold this in with previous function, so only have to do it
 // once.
 //
 tamed static void
-set_stats_mode_single (str h, bool mode, int *rc, cbv cb)
+set_stats_mode_single (str h, bool mode, int *rc, evv_t ev)
 {
     tvars {
         ptr<aclnt> c;
@@ -129,15 +196,17 @@ set_stats_mode_single (str h, bool mode, int *rc, cbv cb)
             *rc = -1;
         }
     }
-    DSDC_SIGNAL (cb);
+    ev->trigger ();
 }
+
+//-----------------------------------------------------------------------
 
 //
 // XXX try to fold this in with get_stats_direct, so only have to do it
 // once.
 //
 tamed static void
-set_stats_mode (const vec<str> *s, int mode, cbi cb)
+set_stats_mode (const vec<str> *s, int mode, evi_t ev)
 {
     tvars {
         size_t i;
@@ -148,12 +217,14 @@ set_stats_mode (const vec<str> *s, int mode, cbi cb)
             set_stats_mode_single ((*s)[i], mode, &rc, mkevent ());
         }
     }
-    DSDC_SIGNAL (cb, rc);
+    ev->trigger (rc);
 }
+
+//-----------------------------------------------------------------------
 
 tamed static void
 get_stats_direct (const vec<str> *s, const dsdc_get_stats_single_arg_t *a,
-                  cbi cb)
+                  evi_t ev)
 {
     tvars {
         size_t i;
@@ -164,8 +235,10 @@ get_stats_direct (const vec<str> *s, const dsdc_get_stats_single_arg_t *a,
             get_stat_direct ((*s)[i], a, &rc, mkevent ());
         }
     }
-    DSDC_SIGNAL (cb, rc);
+    ev->trigger (rc);
 }
+
+//-----------------------------------------------------------------------
 
 
 tamed static void
@@ -191,7 +264,7 @@ main2 (int argc, char **argv)
             sarg.params.objsz_n_buckets = 5;
 
     setprogname (argv[0]);
-    while ((ch = getopt (argc, argv, "ab:f:c:l:g:s:ASRm:")) != -1) {
+    while ((ch = getopt (argc, argv, "ab:f:c:l:g:s:ALSRm:")) != -1) {
         switch (ch) {
         case 'a':
             output_opts.set_all_flags ();
@@ -221,6 +294,9 @@ main2 (int argc, char **argv)
             break;
         case 'S':
             mode = STATS;
+            break;
+        case 'L':
+            mode = LIST;
             break;
         case 'A':
             arg.hosts.set_typ (DSDC_SET_ALL);
@@ -269,8 +345,13 @@ main2 (int argc, char **argv)
         } else {
             usage ();
         }
+    } else if (mode == LIST) {
+        if (!master) {
+            usage ();
+        } else {
+            twait { get_list (master, mkevent (rc)); }
+        }
     }
-
     exit (rc);
 }
 

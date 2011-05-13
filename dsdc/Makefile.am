@@ -3,7 +3,7 @@
 $(PROGRAMS): $(LDEPS)
 
 noinst_HEADERS = dsdc_master.h 
-dsdcexecbin_PROGRAMS = dsdc dsdc-admin aiod2
+dsdcexecbin_PROGRAMS = dsdc dsdc_admin aiod2
 dsdc_SOURCES = master.C main.C
 dsdc_admin_SOURCES = admin.C output.C
 aiod2_SOURCES = aiod2.C
