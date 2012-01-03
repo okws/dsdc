@@ -424,6 +424,7 @@ void
 dsdc_slave_t::handle_get (svccb *sbp)
 {
     dsdc_obj_t *o;
+    bool expired = false;
 
     switch (sbp->proc ()) {
     case DSDC_GET2:
@@ -437,7 +438,7 @@ dsdc_slave_t::handle_get (svccb *sbp)
         dsdc_get3_arg_t *a = sbp->Xtmpl getarg<dsdc_get3_arg_t> ();
         dsdc::annotation::base_t *an;
         an = dsdc::stats::collector ()->alloc (a->annotation);
-        o = lru_lookup (a->key, a->time_to_expire, an);
+        o = lru_lookup (a->key, a->time_to_expire, an, &expired);
         break;
     }
     case DSDC_GET:
@@ -455,7 +456,10 @@ dsdc_slave_t::handle_get (svccb *sbp)
         res.set_status (DSDC_OK);
         *res.obj = *o;
     } else {
-        res.set_status (DSDC_NOTFOUND);
+        if (expired)
+            res.set_status (DSDC_EXPIRED);
+        else
+            res.set_status (DSDC_NOTFOUND);
     }
 
     sbp->replyref (res);
@@ -541,7 +545,7 @@ dsdc_slave_t::handle_put (const dsdc_key_t &k, const dsdc_obj_t &o,
 
 dsdc_obj_t *
 dsdc_slave_t::lru_lookup (const dsdc_key_t &k, const int expire,
-                          dsdc::annotation::base_t *a)
+                          dsdc::annotation::base_t *a, bool* expired)
 {
     dsdc_cache_obj_t *o = _objs[k];
     dsdc_obj_t *ret = NULL;
@@ -551,6 +555,9 @@ dsdc_slave_t::lru_lookup (const dsdc_key_t &k, const int expire,
     if (o) {
         if  (expire > 0 && (sfs_get_timenow () - expire >= o->_timein)) {
             code = dsdc::AC_EXPIRED;
+            lru_remove_obj(o, true, dsdc::AC_EXPIRED);
+            o = NULL;
+            if (expired) *expired = true;
         } else {
             code = dsdc::AC_HIT;
             o->inc_gets ();

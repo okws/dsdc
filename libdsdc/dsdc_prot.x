@@ -78,7 +78,8 @@ enum dsdc_res_t {
   DSDC_BAD_STATS = 12,          /* Error in statistics collection */
   DSDC_DATA_CHANGED = 13,       /* checksum commit precondition failed */
   DSDC_DATA_DISAPPEARED = 14,   /* as above, but data disappeared */
-  DSDC_TOO_BIG = 15             /* packet was too big; don't send */
+  DSDC_TOO_BIG = 15,            /* packet was too big; don't send */
+  DSDC_EXPIRED = 16             /* current entry is still in dsdc, but expired */
 };
 
 /*

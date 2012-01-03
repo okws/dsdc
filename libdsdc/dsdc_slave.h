@@ -237,7 +237,8 @@ protected:
     void genkeys ();
 
     dsdc_obj_t * lru_lookup (const dsdc_key_t &k, const int expire=-1,
-                             dsdc::annotation::base_t *a  = NULL);
+                             dsdc::annotation::base_t *a  = NULL,
+                             bool* expired = NULL);
 
     size_t lru_remove_obj (dsdc_cache_obj_t *o, bool del,
                            dsdc::action_code_t t);
