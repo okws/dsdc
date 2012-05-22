@@ -758,7 +758,11 @@ dsdc_slave_app_t::get_port ()
         if (show_debug (DSDC_DBG_LOW))
             warn ("found port = %d\n", _port);
         close_on_exec (_lfd);
-        listen (_lfd, 256);
+        if (listen (_lfd, 256) < 0) {
+            warn << "listen() failed, possible race to port, trying new one\n";
+            close(_lfd);
+            return get_port();
+        }
         fdcb (_lfd, selread, wrap (this, &dsdc_slave_t::new_connection));
         return true;
     } else {
