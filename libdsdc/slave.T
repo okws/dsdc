@@ -882,7 +882,7 @@ dsdc_slave_t::run_stats2_loop ()
                     o->collect_statistics (false);
                 }
 
-                warnobj wo (int (::warnobj::xflag));
+                warnobj wo ((int) ::warnobj::xflag);
                 c->output_to_log (wo);
             }
 

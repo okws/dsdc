@@ -96,7 +96,7 @@ namespace aiod2 {
     
     class mgr_t : public virtual refcount {
     public:
-        mgr_t (const fscache::cfg_t *cfg),
+        mgr_t (const fscache::cfg_t *cfg);
         ~mgr_t ();
         void kill ();
         void init (evb_t ev, CLOSURE);
