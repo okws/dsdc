@@ -106,6 +106,12 @@ protected:
     bool _orphaned;
 };
 
+class dsdci_retry_srv_t : public dsdci_srv_t {
+public:
+    dsdci_retry_srv_t(const str& h, int p) : dsdci_srv_t(h,p) { }
+    void eof_hook();
+    void retry_loop(CLOSURE);
+};
 
 //
 // dsci_master_t
@@ -113,12 +119,10 @@ protected:
 //   maintains a persistent connection to a master, periodically downloading
 //   the ring so that lookups and inserts are routed appropriately
 //
-class dsdci_master_t : public dsdci_srv_t {
+class dsdci_master_t : public dsdci_retry_srv_t {
 public:
-    dsdci_master_t (const str &h, int p) : dsdci_srv_t (h,p) {}
+    dsdci_master_t (const str &h, int p) : dsdci_retry_srv_t (h,p) {}
 
-    void eof_hook ();
-    void retry_loop (CLOSURE);
     str typ () const { return "master"; }
 
     tailq_entry<dsdci_master_t> _lnk;
@@ -136,6 +140,17 @@ public:
     dsdci_slave_t (const str &h, int p) : dsdci_srv_t (h, p) {}
     list_entry<dsdci_slave_t> _lnk;
     ihash_entry<dsdci_slave_t> _hlnk;
+};
+
+//
+// dsdci_proxy_t
+//
+//  keep persistent connection open to the dsdc proxy if it exists
+//
+class dsdci_proxy_t : public dsdci_retry_srv_t {
+public:
+    dsdci_proxy_t(const str& h, int p) : dsdci_retry_srv_t(h,p) { }
+    str typ() const { return "proxy"; }
 };
 
 template<> struct keyfn<dsdci_master_t, str> {
@@ -318,6 +333,10 @@ public:
     // a duplicate) and false otherwise.
     bool add_master (const str &hostname, int port);
 
+    // add a new dsdc proxy server, if this is specified, then all requests
+    // coming into this smart client will go through it 
+    bool add_proxy(const str& hostname, int port = -1);
+
     // initialize the smart client; get a callback with a "true" result
     // as soon as one master connection succeeds, or with a "false" result
     // after all connections fail.
@@ -485,6 +504,9 @@ protected:
     // trigger 0 for "OK", 1 for "first to complete" and -1 for "fail"
     void master_connect (dsdci_master_t *m, evi_t ev, CLOSURE);
 
+    void proxy_connect (dsdci_proxy_t *m, evi_t ev, CLOSURE);
+
+
     // On init, we want to return success to the caller after we have
     // successfully initialized the hash ring.
     evv_t::ptr _poke_after_refresh;
@@ -503,6 +525,8 @@ protected:
     list<dsdci_slave_t, &dsdci_slave_t::_lnk> _slaves;
     fhash<str, dsdci_slave_t, &dsdci_slave_t::_hlnk> _slaves_hash;
     bhash<str> _slaves_hash_tmp;
+
+    ptr<dsdci_proxy_t> _proxy;
 
     u_int _opts;
     u_int _timeout;
@@ -579,6 +603,9 @@ dsdc_smartcli_t::change_cache (ptr<cc_t<T> > cc, bool safe)
 {
     if (safe) {
         change_cache_cb_1 (cc, get_primary ());
+    } else if (_proxy) {
+        _proxy->get_aclnt(wrap(this, 
+                               &dsdc_smartcli_t::change_cache_cb_1<T>, cc));
     } else {
 
         dsdc_ring_node_t *n = _hash_ring.successor (cc->key);

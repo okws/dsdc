@@ -9,6 +9,7 @@ time_t dsdcm_timer_interval = 1;       // check all slaves every 1 second
 int dsdc_port = DSDC_DEFAULT_PORT;     // same as RPC progno!
 int dsdc_slave_port = 41000;           // slaves also need a port to listen on
 int dsdc_retry_wait_time = 10;         // time to wait before retrying
+int dsdc_proxy_port = 30003;
 
 u_int dsdc_slave_nnodes = 5;           // default number of nodes in key ring
 size_t dsdc_slave_maxsz = (0x10 << 20); // default max size in bytes (16MB)

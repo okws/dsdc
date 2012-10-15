@@ -44,7 +44,7 @@ dsdci_srv_t::hit_eof (ptr<bool> df)
 //-----------------------------------------------------------------------
 
 void
-dsdci_master_t::eof_hook ()
+dsdci_retry_srv_t::eof_hook ()
 {
     retry_loop ();
 }
@@ -78,6 +78,15 @@ dsdc_smartcli_t::add_master (const str &hostname, int port)
         ret = true;
     }
     return ret;
+}
+
+//-----------------------------------------------------------------------------
+
+bool 
+dsdc_smartcli_t::add_proxy(const str& hostname, int port) {
+    _proxy = New refcounted<dsdci_proxy_t>(hostname, 
+                                           (port < 0 ? dsdc_proxy_port : port));
+    return true;
 }
 
 //-----------------------------------------------------------------------
@@ -245,6 +254,8 @@ dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
 
     if (safe) {
         cli = get_primary ();
+    } else if (_proxy) {
+        twait { _proxy->get_aclnt(mkevent(cli)); }
     } else {
         if ((n = _hash_ring.successor (*k))) {
             tried = true;
@@ -512,6 +523,35 @@ dsdc_smartcli_t::master_connect (dsdci_master_t *m, evi_t ev)
 //-----------------------------------------------------------------------
 
 tamed void
+dsdc_smartcli_t::proxy_connect (dsdci_proxy_t *m, evi_t ev)
+{
+    tvars {
+        bool ok (false);
+        int rc (-1);
+    }
+
+    twait { m->connect (mkevent (ok)); }
+    
+    if (!ok) {
+
+        rc = -1;
+
+        // Keep attempting to retry in the background, so that eventually
+        // this thing might work...
+        if (_opts & DSDC_RETRY_ON_STARTUP) {
+            m->retry_loop ();
+        }
+
+    } else {
+        rc = 0;
+    }
+
+    ev->trigger (rc);
+}
+
+//-----------------------------------------------------------------------
+
+tamed void
 dsdc_smartcli_t::init (evb_t::ptr ev)
 {
     tvars {
@@ -520,6 +560,11 @@ dsdc_smartcli_t::init (evb_t::ptr ev)
         ptr<int> i;
         size_t count (0);
         bool success (false);
+        int pi;
+    }
+
+    if (_proxy) {
+        twait { proxy_connect(_proxy, mkevent(pi)); }
     }
 
     for (m = _masters.first; m; m = _masters.next (m)) {
@@ -653,13 +698,13 @@ dsdc_smartcli_t::lock_acquire (ptr<dsdc_lock_acquire_arg_t> arg,
 //
 
 tamed void
-dsdci_master_t::retry_loop ()
+dsdci_retry_srv_t::retry_loop ()
 {
     tvars {
         ptr<bool> df;
         bool first (true);
         bool ok (false);
-        ptr<dsdci_master_t> hold;
+        ptr<dsdci_retry_srv_t> hold;
     }
     hold = mkref (this);
 

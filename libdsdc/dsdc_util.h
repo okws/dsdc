@@ -62,7 +62,8 @@ private:
 typedef enum { DSDC_MODE_NONE = 0,
                DSDC_MODE_MASTER = 1,
                DSDC_MODE_SLAVE = 2,
-               DSDC_MODE_LOCKSERVER = 3
+               DSDC_MODE_LOCKSERVER = 3,
+               DSDC_MODE_PROXY = 4
              } dsdc_mode_t;
 
 /*

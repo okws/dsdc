@@ -11,6 +11,7 @@
 #include "dsdc_util.h"
 #include "dsdc_slave.h"
 #include "dsdc_master.h"
+#include "dsdc_proxy.h"
 #include "rxx.h"
 #include "dsdc.h"
 
@@ -175,7 +176,7 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
     int opts = 0;
     int stats_interval = -1;
 
-    while ((ch = getopt (argc, argv, "a:vd:h:LMn:p:P:qRSs:Z:DC:")) != -1) {
+    while ((ch = getopt (argc, argv, "a:vd:h:LMn:p:P:qRSs:Z:DC:X")) != -1) {
         switch (ch) {
         case 'a':
             if (!convertint (optarg, &stats_interval)) {
@@ -252,6 +253,13 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
             }
             mode = DSDC_MODE_SLAVE;
             break;
+        case 'X':
+            if (mode != DSDC_MODE_NONE) {
+                warn << "run mode supplied more than once.\n";
+                usage();
+            }
+            mode = DSDC_MODE_PROXY;
+            break;
         case 's':
             if (!parse_memsize (optarg, 'm', &maxsz)) {
                 warn << "invalid memory size given to -m\n";
@@ -279,6 +287,8 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
         implicit_mode = DSDC_MODE_MASTER;
     } else if (progname == "dsdc_lockserver") {
         implicit_mode = DSDC_MODE_LOCKSERVER;
+    } else if (progname == "dsdc_proxy") {
+        implicit_mode = DSDC_MODE_PROXY;
     }
 
     if (implicit_mode != DSDC_MODE_NONE) {
@@ -342,6 +352,28 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
         dsdc_master_t *m;
         m = New dsdc_master_t (port);
         *app = m;
+    }
+    break;
+    case DSDC_MODE_PROXY:
+    {
+        dsdc_proxy_t* proxy;
+        proxy = New dsdc_proxy_t (port);
+        *app = proxy;
+
+        bool added = false;
+        for (int i = optind; i < argc; i++) {
+            str mhost = "localhost";
+            int mport = dsdc_port;
+            if (!parse_hn (argv[i], &mhost, &mport)) {
+                warn << "bad master specification: " << argv[i] << "\n";
+                ret = false;
+            }
+            proxy->add_master (mhost, mport);
+            added = true;
+        }
+
+        if (!added)
+            proxy->add_master ("localhost", dsdc_port);
     }
     break;
     default:
