@@ -321,7 +321,7 @@ private:
 class dsdc_smartcli_t : public dsdc_system_state_cache_t {
 public:
     dsdc_smartcli_t (u_int o = 0, u_int to = dsdc_rpc_timeout)
-            : _curr_master (NULL), _opts (o), _timeout (to) {}
+            : _curr_master (NULL), _proxy(NULL), _opts (o), _timeout (to) {}
     ~dsdc_smartcli_t ();
 
     // adds a master from a string only, in the form
