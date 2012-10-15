@@ -106,7 +106,6 @@ dsdc_proxy_t::handle_get(svccb* sbp) {
         ptr<dsdc_get_res_t> res;
         dsdc_req_t* a2;
         dsdc_get3_arg_t* a3;
-        clnt_stat err;
         ptr<dsdc_key_t> key;
         dsdc::annotation::base_t *an;
         int time_to_expire;
