@@ -84,8 +84,8 @@ dsdc_smartcli_t::add_master (const str &hostname, int port)
 
 bool 
 dsdc_smartcli_t::add_proxy(const str& hostname, int port) {
-    _proxy = New refcounted<dsdci_proxy_t>(hostname, 
-                                           (port < 0 ? dsdc_proxy_port : port));
+    _proxies.push_back(New refcounted<dsdci_proxy_t>
+                       (hostname, (port < 0 ? dsdc_proxy_port : port)));
     return true;
 }
 
@@ -250,12 +250,13 @@ dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
         dsdc_get3_arg_t arg3;
         dsdc_req_t arg2;
         clnt_stat err;
+        ptr<dsdci_proxy_t> prx;
     }
 
     if (safe) {
         cli = get_primary ();
-    } else if (_proxy) {
-        twait { _proxy->get_aclnt(mkevent(cli)); }
+    } else if (_proxies.size() && (prx = get_proxy())) {
+        twait { prx->get_aclnt(mkevent(cli)); }
     } else {
         if ((n = _hash_ring.successor (*k))) {
             tried = true;
@@ -533,20 +534,37 @@ dsdc_smartcli_t::proxy_connect (dsdci_proxy_t *m, evi_t ev)
     twait { m->connect (mkevent (ok)); }
     
     if (!ok) {
+        if (show_debug(DSDC_DBG_MED)) {
+            warn << "connection to proxy: " << m->key() << " failed\n";
+        }
 
         rc = -1;
-
-        // Keep attempting to retry in the background, so that eventually
-        // this thing might work...
-        if (_opts & DSDC_RETRY_ON_STARTUP) {
-            m->retry_loop ();
-        }
+        m->retry_loop ();
 
     } else {
         rc = 0;
     }
 
     ev->trigger (rc);
+}
+
+//-----------------------------------------------------------------------------
+
+ptr<dsdci_proxy_t> 
+dsdc_smartcli_t::get_proxy() {
+    if (!_proxies.size()) return NULL;
+
+    ptr<dsdci_proxy_t> conn(NULL);
+    size_t index = rand() % _proxies.size();
+    size_t tries = 0;
+    while (_proxies[index]->is_dead() && tries < _proxies.size()) {
+        index = (index + 1) % _proxies.size();
+        tries++;
+    }
+    if (tries < _proxies.size())
+        conn = _proxies[index];
+
+    return conn;
 }
 
 //-----------------------------------------------------------------------
@@ -561,10 +579,12 @@ dsdc_smartcli_t::init (evb_t::ptr ev)
         size_t count (0);
         bool success (false);
         int pi;
+        size_t j;
     }
 
-    if (_proxy) {
-        twait { proxy_connect(_proxy, mkevent(pi)); }
+    twait {
+        for (j = 0; j < _proxies.size(); j++)
+            proxy_connect(_proxies[j], mkevent(pi));
     }
 
     for (m = _masters.first; m; m = _masters.next (m)) {
@@ -707,6 +727,10 @@ dsdci_retry_srv_t::retry_loop ()
         ptr<dsdci_retry_srv_t> hold;
     }
     hold = mkref (this);
+
+    if (show_debug(DSDC_DBG_HI)) {
+        warn << "starting retry loop: " << key() << "\n";
+    }
 
     df = _destroyed;
     while (!*df && !ok && !_orphaned) {

@@ -321,7 +321,7 @@ private:
 class dsdc_smartcli_t : public dsdc_system_state_cache_t {
 public:
     dsdc_smartcli_t (u_int o = 0, u_int to = dsdc_rpc_timeout)
-            : _curr_master (NULL), _proxy(NULL), _opts (o), _timeout (to) {}
+            : _curr_master (NULL), _opts (o), _timeout (to) {}
     ~dsdc_smartcli_t ();
 
     // adds a master from a string only, in the form
@@ -506,6 +506,7 @@ protected:
 
     void proxy_connect (dsdci_proxy_t *m, evi_t ev, CLOSURE);
 
+    ptr<dsdci_proxy_t> get_proxy();
 
     // On init, we want to return success to the caller after we have
     // successfully initialized the hash ring.
@@ -526,7 +527,7 @@ protected:
     fhash<str, dsdci_slave_t, &dsdci_slave_t::_hlnk> _slaves_hash;
     bhash<str> _slaves_hash_tmp;
 
-    ptr<dsdci_proxy_t> _proxy;
+    vec< ptr<dsdci_proxy_t> > _proxies;
 
     u_int _opts;
     u_int _timeout;
@@ -601,11 +602,12 @@ dsdc_smartcli_t::change_cache_cb_1 (ptr<cc_t<T> > cc, ptr<aclnt> cli)
 template<class T> void
 dsdc_smartcli_t::change_cache (ptr<cc_t<T> > cc, bool safe)
 {
+    ptr<dsdci_proxy_t> prx;
     if (safe) {
         change_cache_cb_1 (cc, get_primary ());
-    } else if (_proxy) {
-        _proxy->get_aclnt(wrap(this, 
-                               &dsdc_smartcli_t::change_cache_cb_1<T>, cc));
+    } else if (_proxies.size() && (prx = get_proxy())) {
+        prx->get_aclnt(wrap(this, 
+                            &dsdc_smartcli_t::change_cache_cb_1<T>, cc));
     } else {
 
         dsdc_ring_node_t *n = _hash_ring.successor (cc->key);
