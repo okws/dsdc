@@ -210,6 +210,34 @@ namespace fscache {
         bool set_write_delay (bool s);
         time_t oldest_dirty_file () const;
 
+        struct stats_t {
+            void reset() {
+                start = sfs_get_timenow();
+                end = 0;
+                stores = loads = 0;
+                store_hits = load_hits = 0;
+                store_cache_inserts = load_cache_inserts = 0;
+                disk_writes = disk_reads = 0;
+                removals = 0;
+            }
+            // when we started and finished collecting these stats
+            time_t start, end;
+            // configuration info
+            bool use_cache;
+            bool cache_on_load;
+            time_t write_delay;
+            size_t parallelism;
+            // stats
+            size_t stores, loads;
+            size_t store_hits, load_hits;
+            size_t store_cache_inserts, load_cache_inserts;
+            size_t disk_writes, disk_reads;
+            size_t removals;
+        };
+
+        void get_stats (stats_t *stats) const;
+        void reset_stats () { m_stats.reset(); }
+
         struct node_t {
             node_t (file_id_t fid, time_t t, str d, bool dirty);
             void store (engine_t *e, evv_t ev, CLOSURE);
@@ -239,6 +267,7 @@ namespace fscache {
         evv_t::ptr m_shutdown_ev, m_poke_ev;
         tame::lock_table_t<str> m_locks;
         bool m_enabled;
+        stats_t m_stats;
     };
 
     //-----------------------------------------------------------------------

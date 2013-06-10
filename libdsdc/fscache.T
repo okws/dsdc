@@ -1043,14 +1043,19 @@ namespace fscache {
 
         twait { lock (id, mkevent (lh)); }
 
+        m_stats.stores++;
+
         if ((n = m_tab[id.name ()])) {
             n->m_data = data;
             n->m_file_time = tm;
             n->mark_dirty ();
+            m_stats.store_hits++;
         } else if (use_cache ()) {
             insert (id, tm, data, true);
+            m_stats.store_cache_inserts++;
         } else {
             twait { engine_t::store (id, tm, data, mkevent (rc)); }
+            m_stats.disk_writes++;
         }
         
         lh = NULL;
@@ -1084,14 +1089,19 @@ namespace fscache {
 
         twait { lock (id, mkevent (lh)); }
 
+        m_stats.loads++;
+
         if ((n = m_tab[id.name ()])) {
             rc = 0;
             tm = n->m_file_time;
             data = n->m_data;
+            m_stats.load_hits++;
         } else {
             twait { engine_t::load (id, mkevent (rc, tm, data)); }
+            m_stats.disk_reads++;
             if (rc == 0 && data && use_cache () && _cfg->cache_on_load ()) {
                 insert (id, tm, data, false);
+                m_stats.load_cache_inserts++;
             }
         }
 
@@ -1115,6 +1125,7 @@ namespace fscache {
             delete n;
         }
         twait { engine_t::remove (id, mkevent (rc)); }
+        m_stats.removals++;
         ev->trigger (rc);
     }
 
@@ -1122,7 +1133,10 @@ namespace fscache {
 
     write_delay_engine_t::write_delay_engine_t (const cfg_t *c) 
         : engine_t (c),
-          m_enabled (true) {}
+          m_enabled (true)
+    {
+        m_stats.reset();
+    }
 
     //-----------------------------------------------------------------------
 
@@ -1185,6 +1199,20 @@ namespace fscache {
 
     //-----------------------------------------------------------------------
 
+    void
+    write_delay_engine_t::get_stats (write_delay_engine_t::stats_t *stats) const
+    {
+        assert(stats);
+        *stats = m_stats;
+        stats->use_cache = use_cache();
+        stats->cache_on_load = _cfg->cache_on_load();
+        stats->write_delay = _cfg->write_delay();
+        stats->parallelism = _cfg->write_delay_parallelism();
+        stats->end = sfs_get_timenow();
+    }
+
+    //-----------------------------------------------------------------------
+
     tamed void
     write_delay_engine_t::flush_loop ()
     {
@@ -1215,13 +1243,14 @@ namespace fscache {
                 delete n;
 
             } else if (n && window_has_room && diff >= timeout) {
-                
+
                 m_queue.remove (n);
                 m_tab.remove (n);
                 n_out++;
 
                 // Will call delete(n) after it's done!
                 n->store (this, mkevent (rv, true));
+                m_stats.disk_writes++;
 
             } else {
 
