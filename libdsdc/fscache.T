@@ -1209,6 +1209,7 @@ namespace fscache {
         stats->write_delay = _cfg->write_delay();
         stats->parallelism = _cfg->write_delay_parallelism();
         stats->end = sfs_get_timenow();
+        stats->cache_size = m_tab.size();
     }
 
     //-----------------------------------------------------------------------

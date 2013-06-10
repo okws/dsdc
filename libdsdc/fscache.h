@@ -219,6 +219,7 @@ namespace fscache {
                 store_cache_inserts = load_cache_inserts = 0;
                 disk_writes = disk_reads = 0;
                 removals = 0;
+                cache_size = 0;
             }
             // when we started and finished collecting these stats
             time_t start, end;
@@ -233,6 +234,7 @@ namespace fscache {
             size_t store_cache_inserts, load_cache_inserts;
             size_t disk_writes, disk_reads;
             size_t removals;
+            size_t cache_size;
         };
 
         void get_stats (stats_t *stats) const;
