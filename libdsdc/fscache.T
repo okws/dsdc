@@ -1182,8 +1182,8 @@ namespace fscache {
     tamed void
     write_delay_engine_t::shutdown_T (evv_t ev)
     {
-        m_poke_ev->trigger ();
         m_shutdown_ev = ev;
+        m_poke_ev->trigger ();
     }
 
     //-----------------------------------------------------------------------
