@@ -109,7 +109,7 @@ aiod_t::handle_str_to_file (svccb *sbp)
         // ask for truncation in all cases; makes no sense otherwise
         flags = O_WRONLY | O_CREAT | O_TRUNC;
     }
-    const char *fnc = fn;
+    const char *fnc = fn.cstr();
 
 
     int fd = open (fnc, flags, arg->mode);
