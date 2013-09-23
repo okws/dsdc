@@ -145,7 +145,7 @@ dsdc_proxy_t::handle_get(svccb* sbp) {
         res = New refcounted<dsdc_get_res_t>();
         res->set_status(DSDC_RPC_ERROR);
     }
-    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->prog(), ts_start);
+    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->proc(), ts_start);
 
     sbp->reply(res);
 }
@@ -176,7 +176,7 @@ dsdc_proxy_t::handle_remove(svccb* sbp) {
         break;
     };
 
-    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->prog(), ts_start);
+    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->proc(), ts_start);
     rc = dsdc_res_t(rc);
     sbp->replyref(res);    
 }
@@ -211,7 +211,7 @@ dsdc_proxy_t::handle_put(svccb* sbp) {
         break;
     };
 
-    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->prog(), ts_start);
+    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->proc(), ts_start);
     res = dsdc_res_t(rc);
     sbp->replyref(res);
 }
