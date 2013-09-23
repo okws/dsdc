@@ -1,6 +1,8 @@
 // -*- mode: c++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 
 #include "dsdc_proxy.h"
+#include "rpc_stats.h"
+#include "okconst.h"
 
 //-----------------------------------------------------------------------------
 
@@ -65,6 +67,10 @@ dsdc_proxy_t::init () {
     fdcb(m_lfd, selread, wrap (this, &dsdc_proxy_t::new_connection));
     m_cli->init(NULL);
 
+    get_rpc_stats()
+        .set_active(true)
+        .set_interval(ok_amt_rpc_stats_interval);
+
     return true;
 }
 
@@ -109,8 +115,10 @@ dsdc_proxy_t::handle_get(svccb* sbp) {
         ptr<dsdc_key_t> key;
         dsdc::annotation::base_t *an;
         int time_to_expire;
+        timespec ts_start;
     }
 
+    ts_start = sfs_get_tsnow ();
     switch (sbp->proc()) {
     case DSDC_GET:
         key = New refcounted<dsdc_key_t>(*(sbp->Xtmpl getarg<dsdc_get_arg_t>())); 
@@ -137,6 +145,7 @@ dsdc_proxy_t::handle_get(svccb* sbp) {
         res = New refcounted<dsdc_get_res_t>();
         res->set_status(DSDC_RPC_ERROR);
     }
+    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->prog(), ts_start);
 
     sbp->reply(res);
 }
@@ -151,8 +160,10 @@ dsdc_proxy_t::handle_remove(svccb* sbp) {
         ptr<dsdc_key_t> key;
         dsdc_res_t res;
         int rc;
+        timespec ts_start;
     }
 
+    ts_start = sfs_get_tsnow ();
     switch (sbp->proc()) {
     case DSDC_REMOVE:
         key = New refcounted<dsdc_key_t>(*(sbp->Xtmpl getarg<dsdc_key_t>()));
@@ -165,6 +176,7 @@ dsdc_proxy_t::handle_remove(svccb* sbp) {
         break;
     };
 
+    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->prog(), ts_start);
     rc = dsdc_res_t(rc);
     sbp->replyref(res);    
 }
@@ -180,8 +192,10 @@ dsdc_proxy_t::handle_put(svccb* sbp) {
         ptr<dsdc_put_arg_t> a1;
         ptr<dsdc_put4_arg_t> a4;
         ptr<dsdc_put3_arg_t> a3;
+        timespec ts_start;
     }
 
+    ts_start = sfs_get_tsnow ();
     switch (sbp->proc()) {
     case DSDC_PUT:
         a1 = New refcounted<dsdc_put_arg_t>(*(sbp->Xtmpl getarg<dsdc_put_arg_t>()));
@@ -197,6 +211,7 @@ dsdc_proxy_t::handle_put(svccb* sbp) {
         break;
     };
 
+    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->prog(), ts_start);
     res = dsdc_res_t(rc);
     sbp->replyref(res);
 }
