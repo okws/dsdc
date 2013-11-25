@@ -149,7 +149,7 @@ get (dsdc_smartcli_t *sc, tst_key_t k, bool safe)
     ptr<dsdc_key_t> outkey = New refcounted<dsdc_key_t> ();
     hash_key (k, outkey);
     strbuf key_str ("%d (%s)", k, key_to_str (*outkey).cstr ());
-    sc->get (outkey,  wrap (get_cb, strbuf (key_str)), safe);
+    sc->get (outkey,  wrap (get_cb, str(key_str)), safe);
 }
 
 static void
