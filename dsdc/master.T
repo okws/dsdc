@@ -5,6 +5,10 @@
 #include "tame.h"
 #include "dsdc_signal.h"
 
+extern "C" bool_t 
+pmap_set(const u_long program, const u_long version, int protocol, 
+         u_short port);
+
 //-----------------------------------------------------------------------
 
 bool
@@ -18,6 +22,8 @@ dsdc_master_t::init ()
     close_on_exec (_lfd);
     listen (_lfd, 256);
     fdcb (_lfd, selread, wrap (this, &dsdc_master_t::new_connection));
+
+    pmap_set(DSDC_PROG, DSDC_VERS, IPPROTO_TCP, _port);
 
     // check periodically that nothing died on us with a bad heart.
     watchdog_timer_loop ();
