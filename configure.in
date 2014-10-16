@@ -16,9 +16,9 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_HOST
 
 dnl Checks for programs.
-AC_PROG_CC
+AC_PROG_CC([clang gcc cc])
 AC_PROG_CPP
-AC_PROG_CXX
+AC_PROG_CXX([clang++ g++ c++])
 SFS_WFLAGS
 OKWS_EXPAT
 OKWS_SSL
@@ -57,6 +57,11 @@ CPPFLAG="$CPPFLAGS -DEXECDIR="'\"$(sfsexecdir)\"'
 AC_SUBST(sfsexecdir)
 
 SFS_CFLAGS
+
+dnl prefer c++11
+dnl
+SFS_CPP11_IF_POSSIBLE
+dnl
 
 CPPFLAGS="$CPPFLAGS -I"'$(top_srcdir)'
 
