@@ -69,7 +69,7 @@ protected:
  * of slaves start out as regular clients, but are promoted when a
  * a regsiter call is made.
  */
-class dsdcm_slave_base_t : public aclnt_wrap_t {
+class dsdcm_slave_base_t : public connection_wrap_t {
 public:
     dsdcm_slave_base_t (ptr<dsdcm_client_t> c, ptr<axprt> x);
     virtual ~dsdcm_slave_base_t () {}
@@ -77,7 +77,7 @@ public:
     void init (const dsdcx_slave_t &keys);
     void get_xdr_repr (dsdcx_slave_t *o) { *o = _xdr_repr; }
     const str &remote_peer_id () const { return _client->remote_peer_id (); }
-    ptr<aclnt> get_aclnt () { return _clnt_to_slave; }
+    ptr<connection_t> get_aclnt () { return _clnt_to_slave; }
     void handle_heartbeat () { _last_heartbeat = sfs_get_timenow (); }
 
     bool is_dead ();                    // if no heartbeat, assume dead
@@ -107,7 +107,7 @@ public:
 protected:
     dsdcx_slave_t _xdr_repr;           // XDR representation of us
     ptr<dsdcm_client_t> _client;       // associated client object
-    ptr<aclnt> _clnt_to_slave;         // RPC client for talking to slave
+    ptr<connection_t> _clnt_to_slave;         // RPC client for talking to slave
     vec<dsdc_ring_node_t *> _nodes;    // this slave's nodes in the ring
     time_t _last_heartbeat;            // last reported heartbeat
 };
@@ -184,7 +184,7 @@ public:
     // given a key, look in the consistent hash ring for a corresponding
     // node, and then get the ptr<aclnt> that corresponds to the remote
     // host
-    dsdc_res_t get_aclnt (const dsdc_key_t &k, ptr<aclnt> *cli);
+    dsdc_res_t get_connection (const dsdc_key_t &k, ptr<connection_t> *cli);
 
     void handle_get (svccb *b, CLOSURE);
     void handle_remove (svccb *b, CLOSURE);
