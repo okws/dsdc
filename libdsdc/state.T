@@ -7,7 +7,7 @@
 //-----------------------------------------------------------------------
 
 void
-dsdc_system_state_cache_t::change_lock_server_to (aclnt_wrap_t *nl)
+dsdc_system_state_cache_t::change_lock_server_to (connection_wrap_t *nl)
 {
     if (_lock_server) {
         if (show_debug (DSDC_DBG_LOW))
@@ -28,7 +28,7 @@ dsdc_system_state_cache_t::change_lock_server_to (aclnt_wrap_t *nl)
 void
 dsdc_system_state_cache_t::refresh_lock_server ()
 {
-    ptr<aclnt_wrap_t> nl;
+    ptr<connection_wrap_t> nl;
     if (_system_state.lock_server) {
         if ((nl = new_lockserver_wrap (_system_state.lock_server->hostname,
                                        _system_state.lock_server->port))) {
@@ -79,7 +79,7 @@ dsdc_system_state_cache_t::construct_tree ()
     _hash_ring.deleteall_correct ();
     for (size_t i = 0; i < _system_state.slaves.size (); i++) {
         const dsdcx_slave_t &sl = _system_state.slaves[i];
-        ptr<aclnt_wrap_t> w = new_wrap (sl.hostname, sl.port);
+        ptr<connection_wrap_t> w = new_wrap (sl.hostname, sl.port);
         for (size_t j = 0; j < sl.keys.size (); j++) {
             _hash_ring.insert (New dsdc_ring_node_t (w, sl.keys[j]));
         }
@@ -136,7 +136,7 @@ dsdc_system_state_cache_t::refresh (evv_t::ptr ev)
 {
     tvars {
         clnt_stat err;
-        ptr<aclnt> c;
+        ptr<connection_t> c;
         dsdc_getstate_res_t res;
         ptr<bool> df;
     }

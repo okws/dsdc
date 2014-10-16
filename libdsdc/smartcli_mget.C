@@ -6,15 +6,15 @@
 struct mget_state_t;
 
 struct mget_batch_t {
-  mget_batch_t (const str &s, ptr<aclnt_wrap_t> w, ptr<mget_state_t> h)
+  mget_batch_t (const str &s, ptr<connection_wrap_t> w, ptr<mget_state_t> h)
     : node (s), aclw (w), hold (h) {}
 
     void mget ();
-    void mget_cb1 (ptr<aclnt> c);
+    void mget_cb1 (ptr<connection_t> c);
     void mget_cb2 (dsdc_res_t res, clnt_stat err);
 
     str node;
-  ptr<aclnt_wrap_t> aclw;
+    ptr<connection_wrap_t> aclw;
 
     dsdc_mget_arg_t arg;    // argument to send to slave
     vec<u_int> positions;   // corresponding positions list
@@ -98,7 +98,7 @@ mget_batch_t::mget_cb2 (dsdc_res_t dsdc_err, clnt_stat rpc_err)
 }
 
 void
-mget_batch_t::mget_cb1 (ptr<aclnt> c)
+mget_batch_t::mget_cb1 (ptr<connection_t> c)
 {
     if (c)
         c->call (DSDC_MGET, &arg, &res, wrap (this, &mget_batch_t::mget_cb2,
@@ -111,7 +111,7 @@ mget_batch_t::mget_cb1 (ptr<aclnt> c)
 void
 mget_batch_t::mget ()
 {
-    aclw->get_aclnt (wrap (this, &mget_batch_t::mget_cb1));
+    aclw->get_connection (wrap (this, &mget_batch_t::mget_cb1));
 }
 
 void
@@ -136,7 +136,7 @@ mget_state_t::load_batches (const dsdc_hash_ring_t &r)
         if (!n) {
             (*res)[i].res.set_status (DSDC_NONODE);
         } else {
-	  ptr<aclnt_wrap_t> w = n->get_aclnt_wrap ();
+            ptr<connection_wrap_t> w = n->get_connection_wrap ();
             mget_batch_t *batch;
             str id = w->remote_peer_id ();
             if (!(batch = batches[id])) {

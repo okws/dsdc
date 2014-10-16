@@ -22,6 +22,7 @@
 #include "dsdc_const.h"
 #include "dsdc_stats.h"
 #include "dsdc_format.h"
+#include "dsdc_conn.h"
 
 typedef dsdc::annotation::base_t annotation_t;
 
@@ -31,7 +32,7 @@ typedef dsdc::annotation::base_t annotation_t;
  * this class is a base class for any hostname/port pair that
  * we will maintain for the smart client to connect to
  */
-class dsdci_srv_t : public aclnt_wrap_t, public virtual refcount {
+class dsdci_srv_t : public connection_wrap_t, public virtual refcount {
 public:
     dsdci_srv_t (const str &h, int p) ;
     virtual ~dsdci_srv_t ();
@@ -67,7 +68,7 @@ public:
      * @ret the RPC client, if one was active. NULL if not
      *
      */
-    ptr<aclnt> get_aclnt () { return _cli; }
+    ptr<connection_t> get_connection () { return _cli; }
 
     /**
      * call this function to get a new aclnt, so that you can make
@@ -75,7 +76,7 @@ public:
      *
      * @param cb callback to call with the resulting ptr<aclnt>, or NULL on err
      */
-    void get_aclnt (aclnt_cb_t cb, CLOSURE);
+    void get_connection (conn_cb_t cb, CLOSURE);
     bool is_dead () ;
 
     /**
@@ -98,7 +99,7 @@ private:
     int _fd;
 
     ptr<axprt> _x;
-    ptr<aclnt> _cli;
+    ptr<connection_t> _cli;
 protected:
     ptr<bool> _destroyed;
     conn_state_t _conn_state;
@@ -441,20 +442,20 @@ public:
 protected:
     // calls either with a timeout or no, depending on the value set
     // for '_timeout'
-    void rpc_call (ptr<aclnt> cli,
+    void rpc_call (ptr<connection_t> cli,
                    u_int32_t procno, const void *in, void *out, aclnt_cb cb);
 
     // fulfill the virtual interface of dsdc_system_cache_t
-    ptr<aclnt> get_primary ();
-    ptr<aclnt_wrap_t> new_wrap (const str &h, int p);
-    ptr<aclnt_wrap_t> new_lockserver_wrap (const str &h, int p);
+    ptr<connection_t> get_primary ();
+    ptr<connection_wrap_t> new_wrap (const str &h, int p);
+    ptr<connection_wrap_t> new_lockserver_wrap (const str &h, int p);
 
     void pre_construct ();
     void post_construct ();
 
     void acquire_cb_1 (ptr<dsdc_lock_acquire_arg_t> arg,
                        dsdc_lock_acquire_res_cb_t cb,
-                       ptr<aclnt> cli);
+                       ptr<connection_t> cli);
 
   
 
@@ -479,7 +480,7 @@ protected:
         ptr<T> arg;
         int proc;
         cbi::ptr cb;
-        ptr<aclnt> cli;
+        ptr<connection_t> cli;
         ptr<int> res;
     };
 
@@ -488,7 +489,8 @@ protected:
 
     template<class T> void change_cache (ptr<cc_t<T> > cc, bool safe);
     template<class T> void change_cache_cb_2 (ptr<cc_t<T> > cc, clnt_stat err);
-    template<class T> void change_cache_cb_1 (ptr<cc_t<T> > cc, ptr<aclnt> cli);
+    template<class T> void change_cache_cb_1 (ptr<cc_t<T> > cc, 
+                                              ptr<connection_t> cli);
 
     //
     // end change cache code
@@ -588,7 +590,7 @@ dsdc_smartcli_t::change_cache_cb_2 (ptr<cc_t<T> > cc, clnt_stat err)
 }
 
 template<class T> void
-dsdc_smartcli_t::change_cache_cb_1 (ptr<cc_t<T> > cc, ptr<aclnt> cli)
+dsdc_smartcli_t::change_cache_cb_1 (ptr<cc_t<T> > cc, ptr<connection_t> cli)
 {
     if (!cli) {
         cc->set_res (DSDC_NONODE);
@@ -606,7 +608,7 @@ dsdc_smartcli_t::change_cache (ptr<cc_t<T> > cc, bool safe)
     if (safe) {
         change_cache_cb_1 (cc, get_primary ());
     } else if (_proxies.size() && (prx = get_proxy())) {
-        prx->get_aclnt(wrap(this, 
+        prx->get_connection(wrap(this, 
                             &dsdc_smartcli_t::change_cache_cb_1<T>, cc));
     } else {
 
@@ -615,8 +617,9 @@ dsdc_smartcli_t::change_cache (ptr<cc_t<T> > cc, bool safe)
             cc->set_res (DSDC_NONODE);
             return;
         }
-        n->get_aclnt_wrap ()
-        ->get_aclnt (wrap (this, &dsdc_smartcli_t::change_cache_cb_1<T>, cc));
+        n->get_connection_wrap ()
+        ->get_connection(wrap(this, 
+                              &dsdc_smartcli_t::change_cache_cb_1<T>, cc));
     }
 }
 
