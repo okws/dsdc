@@ -22,14 +22,15 @@ protected:
     void construct_tree ();
     virtual void clean_cache () {}
     virtual ptr<connection_t> get_primary () = 0;
-    virtual ptr<connection_wrap_t> new_wrap (const str &h, int p) = 0;
+    virtual ptr<connection_wrap_t> new_wrap (const str &h, int p,
+                                             dsdc_slave_type_t slave_type) = 0;
     virtual ptr<connection_wrap_t> new_lockserver_wrap (const str &h, int p) = 0;
 
     virtual void pre_construct () {}
     virtual void post_construct () {}
     virtual bool clean_on_all_masters_dead () const = 0;
 
-    void handle_refresh (const dsdc_getstate_res_t &r);
+    void handle_refresh (const dsdc_getstate2_res_t &r);
     void refresh (evv_t::ptr ev = NULL, CLOSURE);
     void refresh_loop (bool try_first, CLOSURE);
 
@@ -38,7 +39,7 @@ protected:
     str fingerprint (str *in) const;
     void clear_all ();
 
-    dsdcx_state_t  _system_state;
+    dsdcx_state2_t  _system_state;
     dsdc_key_t _system_state_hash;
     u_int _n_updates_since_clean;
     dsdc_hash_ring_t _hash_ring;

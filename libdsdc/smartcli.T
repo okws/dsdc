@@ -149,6 +149,14 @@ dsdci_srv_t::is_dead ()
     return false;
 }
 
+//-----------------------------------------------------------------------------
+
+bool
+dsdci_redis_slave_t::is_dead() {
+    return !(m_redisconn &&
+             m_redisconn->is_connected());
+}   
+
 //-----------------------------------------------------------------------
 
 void
@@ -168,9 +176,17 @@ dsdc_smartcli_t::new_lockserver_wrap (const str &h, int p)
 //-----------------------------------------------------------------------
 
 ptr<connection_wrap_t>
-dsdc_smartcli_t::new_wrap (const str &h, int p)
+dsdc_smartcli_t::new_wrap (const str &h, int p, dsdc_slave_type_t slave_type)
 {
-    ptr<dsdci_slave_t> s = New refcounted<dsdci_slave_t> (h, p);
+    ptr<dsdci_slave_t> s;
+    switch (slave_type) {
+    case DSDC_REDIS_SLAVE:
+        s = New refcounted<dsdci_redis_slave_t>(h,p);
+        break;
+    default:
+        s = New refcounted<dsdci_slave_t> (h, p);
+    };
+
     ptr<dsdci_slave_t> ret = NULL;
     dsdci_slave_t *slave_p;
     if ((slave_p = _slaves_hash[s->key ()])) {
@@ -385,6 +401,46 @@ dsdci_srv_t::connect (cbb cb)
             acli = aclnt::alloc (_x, dsdc_prog_1);
             acli->seteofcb (wrap (this, &dsdci_srv_t::hit_eof, _destroyed));
             _cli = New refcounted<aclnt_connection_t>(acli);
+        }
+    }
+    (*cb) (ret);
+}
+
+//-----------------------------------------------------------------------------
+
+tamed void
+dsdci_redis_slave_t::connect(cbb cb) {
+
+    tvars { 
+        bool ret (true), ok;
+        ptr<bool> df;
+    }
+    
+    df = _destroyed;
+
+    if (!is_dead ()) { 
+        ret = true;
+    } else {
+
+        m_redisconn = New refcounted<redis_connection_t>();
+
+        twait { m_redisconn->connect(_hostname, _port, mkevent(ok)); }
+
+        if (*df) {
+            ret = false;
+        } else if (!ok) {
+            if (show_debug (DSDC_DBG_LOW)) {
+                warn << "connection to " << typ () << " failed: " 
+                     << key () << "\n";
+            }
+            ret = false;
+        } else {
+            if (show_debug (DSDC_DBG_MED)) {
+                warn << "connection to " << typ () << " succeeded: " 
+                     << key () << "\n";
+            }
+            
+            _cli = m_redisconn;
         }
     }
     (*cb) (ret);

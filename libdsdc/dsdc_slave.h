@@ -224,7 +224,8 @@ public:
 
     // implement virtual functions from the
     // dsdc_system_state_cache class
-    ptr<connection_wrap_t> new_wrap (const str &h, int p) { return NULL; }
+    ptr<connection_wrap_t> new_wrap (const str &h, int p,
+                                     dsdc_slave_type_t t) { return NULL; }
     ptr<connection_wrap_t> new_lockserver_wrap (const str &h, int p) { return NULL; }
     ptr<connection_t> get_primary () { return dsdc_slave_app_t::get_primary (); }
     void set_stats_mode2 (int i);

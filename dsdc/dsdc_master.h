@@ -51,6 +51,7 @@ protected:
     void init ();
     void handle_heartbeat (svccb *b);
     void handle_register (svccb *b);
+    void handle_register2 (svccb *b);
 
     // if this client has registered as a slave, then this pointer field
     // will be set.  we set up bidirectional pointers here.
@@ -74,8 +75,8 @@ public:
     dsdcm_slave_base_t (ptr<dsdcm_client_t> c, ptr<axprt> x);
     virtual ~dsdcm_slave_base_t () {}
     void release ();
-    void init (const dsdcx_slave_t &keys);
-    void get_xdr_repr (dsdcx_slave_t *o) { *o = _xdr_repr; }
+    void init (const dsdcx_slave2_t &keys);
+    void get_xdr_repr (dsdcx_slave2_t *o) { *o = _xdr_repr; }
     const str &remote_peer_id () const { return _client->remote_peer_id (); }
     ptr<connection_t> get_aclnt () { return _clnt_to_slave; }
     void handle_heartbeat () { _last_heartbeat = sfs_get_timenow (); }
@@ -105,7 +106,7 @@ public:
 
 
 protected:
-    dsdcx_slave_t _xdr_repr;           // XDR representation of us
+    dsdcx_slave2_t _xdr_repr;           // XDR representation of us
     ptr<dsdcm_client_t> _client;       // associated client object
     ptr<connection_t> _clnt_to_slave;         // RPC client for talking to slave
     vec<dsdc_ring_node_t *> _nodes;    // this slave's nodes in the ring
@@ -123,8 +124,28 @@ public:
     void insert_node (dsdc_master_t *m, dsdc_ring_node_t *n);
     list_entry<dsdcm_slave_t> _lnk;
     ihash_entry<dsdcm_slave_t> _hlnk;
+
 protected:
-    dsdcm_slave_t (ptr<dsdcm_client_t> c, ptr<axprt> x);
+    dsdcm_slave_t (ptr<dsdcm_client_t> c, ptr<axprt> x,
+                   str slave_type_str = "normal");
+};
+
+class dsdcm_redis_slave_t : public dsdcm_slave_t {
+public:
+
+    static ptr<dsdcm_redis_slave_t> alloc (ptr<dsdcm_client_t> c, 
+                                           ptr<axprt> x);
+
+    virtual bool is_dead() override;
+    virtual ptr<connection_t> get_connection() override;
+    virtual void get_connection(conn_cb_t cv, CLOSURE) override;
+
+protected:
+    dsdcm_redis_slave_t (ptr<dsdcm_client_t> c, ptr<axprt> x) :
+        dsdcm_slave_t(c,x,"redis") { }
+
+    ptr<redis_connection_t> m_redis = nullptr;
+    bool m_force_dead = false;
 };
 
 template<> struct keyfn<dsdcm_slave_t, str>
@@ -184,12 +205,14 @@ public:
     // given a key, look in the consistent hash ring for a corresponding
     // node, and then get the ptr<aclnt> that corresponds to the remote
     // host
-    dsdc_res_t get_connection (const dsdc_key_t &k, ptr<connection_t> *cli);
+    void get_connection (const dsdc_key_t &k, ptr<connection_t> *cli,
+                         event<dsdc_res_t>::ref ev, CLOSURE);
 
     void handle_get (svccb *b, CLOSURE);
     void handle_remove (svccb *b, CLOSURE);
     void handle_put (svccb *b, CLOSURE);
     void handle_getstate (svccb *b);
+    void handle_getstate2 (svccb *b);
     void handle_lock_release (svccb *b);
     void handle_lock_acquire (svccb *b);
     void handle_get_stats (svccb *b, CLOSURE);
@@ -211,11 +234,19 @@ public:
     }
     str progname_xtra () const { return "_master"; }
 
+    void downgrade_system_state(dsdcx_state_t& dstate,
+                                const dsdcx_state2_t& ustate);
+    void downgrade_slave(dsdcx_slave_t& dslave,
+                         const dsdcx_slave2_t& ustate);
+    void upgrade_slave(dsdcx_slave2_t& uslave,
+                       const dsdcx_slave_t& dslave);
+
 protected:
     void check_all_slaves ();
     void get_stats (dsdc_slave_statistic_t *out,
                     const dsdc_get_stats_single_arg_t *arg,
                     dsdcm_slave_t *sl, cbv cb, CLOSURE);
+
 private:
 
     void broadcast_deletes (const dsdc_key_t &k, dsdcm_slave_t *skip);
@@ -238,7 +269,7 @@ private:
     // nodes that the slave has, the more load it will bear.
     dsdc_hash_ring_t _hash_ring;
 
-    ptr<dsdcx_state_t> _system_state;       // system state in XDR format
+    ptr<dsdcx_state2_t> _system_state;       // system state in XDR format
     ptr<dsdc_key_t>    _system_state_hash;  // hash of the above
 
     // only the first is active, the rest are backups.

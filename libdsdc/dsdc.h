@@ -38,7 +38,7 @@ public:
     virtual ~dsdci_srv_t ();
 
     const str &key () const { return _key; }
-    void connect (cbb cb, CLOSURE);
+    virtual void connect (cbb cb, CLOSURE);
 
     void hold () { refcount_inc (); }
     void release () { _orphaned = true; refcount_dec (); }
@@ -77,7 +77,7 @@ public:
      * @param cb callback to call with the resulting ptr<aclnt>, or NULL on err
      */
     void get_connection (conn_cb_t cb, CLOSURE);
-    bool is_dead () ;
+    virtual bool is_dead () override;
 
     /**
      * a remote peer is identified by a <hostname>:<port>
@@ -93,7 +93,7 @@ protected:
 
 public:
     const str _key;
-private:
+protected:
     const str _hostname;
     const int _port;
     int _fd;
@@ -141,6 +141,20 @@ public:
     dsdci_slave_t (const str &h, int p) : dsdci_srv_t (h, p) {}
     list_entry<dsdci_slave_t> _lnk;
     ihash_entry<dsdci_slave_t> _hlnk;
+};
+
+class dsdci_redis_slave_t : public dsdci_slave_t {
+public:
+
+    dsdci_redis_slave_t (const str &h, int p) : dsdci_slave_t (h, p) {}
+
+    virtual void connect(cbb cb, CLOSURE) override;
+    virtual bool is_dead() override;
+
+protected:
+
+    ptr<redis_connection_t> m_redisconn;
+
 };
 
 //
@@ -447,7 +461,8 @@ protected:
 
     // fulfill the virtual interface of dsdc_system_cache_t
     ptr<connection_t> get_primary ();
-    ptr<connection_wrap_t> new_wrap (const str &h, int p);
+    ptr<connection_wrap_t> new_wrap (const str &h, int p,
+                                     dsdc_slave_type_t slave_type) override;
     ptr<connection_wrap_t> new_lockserver_wrap (const str &h, int p);
 
     void pre_construct ();

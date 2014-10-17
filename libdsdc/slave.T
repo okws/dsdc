@@ -28,11 +28,8 @@ dsdc_cache_obj_t::set (const dsdc_key_t &k, const dsdc_obj_t &o,
 }
 
 bool
-dsdc_cache_obj_t::match_checksum (const dsdc_cksum_t &cksum) const
-{
-    dsdc_cksum_t tmp;
-    return (sha1_hashxdr (tmp.base (), _obj) &&
-            memcmp (tmp.base (), cksum.base (), cksum.size()) == 0);
+dsdc_cache_obj_t::match_checksum (const dsdc_cksum_t &cksum) const {
+    return check_checksum(_obj, &cksum);
 }
 
 void
