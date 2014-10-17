@@ -271,15 +271,32 @@ struct dsdc_remove3_arg_t {
 	dsdc_annotation_t  annotation;
 };
 
+enum dsdc_slave_type_t {
+    DSDC_NORMAL_SLAVE = 0,
+    DSDC_REDIS_SLAVE = 1
+};
+
 struct dsdcx_slave_t {
  	dsdc_keyset_t keys;
 	string hostname<>;
 	int port;
 };
 
+struct dsdcx_slave2_t {
+    dsdc_keyset_t keys;
+	string hostname<>;
+	int port;
+    dsdc_slave_type_t slave_type;
+};
+
 struct dsdcx_state_t {
 	dsdcx_slave_t slaves<>;
 	dsdcx_slave_t *lock_server;
+};
+
+struct dsdcx_state2_t {
+    dsdcx_slave2_t slaves<>;
+    dsdcx_slave_t* lock_server;
 };
 
 struct dsdc_register_arg_t {
@@ -288,10 +305,22 @@ struct dsdc_register_arg_t {
 	bool lock_server;
 };
 
+struct dsdc_register2_arg_t {
+    dsdcx_slave2_t slave;
+    bool primary;
+    bool lock_server;
+};
 
 union dsdc_getstate_res_t switch (bool needupdate) {
 case true:
 	dsdcx_state_t state;
+case false:
+	void;
+};
+
+union dsdc_getstate2_res_t switch (bool needupdate) {
+case true:
+	dsdcx_state2_t state;
 case false:
 	void;
 };
@@ -533,6 +562,11 @@ program DSDC_PROG
 	 dsdc_res_t
 	 DSDC_PUT4(dsdc_put4_arg_t) = 21;
 
+     dsdc_res_t	
+     DSDC_REGISTER2 (dsdc_register2_arg_t) = 22;
+
+     dsdc_getstate2_res_t	
+     DSDC_GETSTATE2 (dsdc_key_t) = 23;
 
 	} = 1;
 } = 30002;
