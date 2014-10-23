@@ -44,7 +44,7 @@ protected:
 class redis_connection_t : public connection_t {
 public:
 
-    redis_connection_t() { }
+    redis_connection_t();
 
     void connect(str host, int port, evb_t ev, CLOSURE);
 
@@ -70,6 +70,11 @@ protected:
     void make_dict(pub3::obj_t outdict, pub3::obj_t list);
 
     RedisCli m_redis; 
+
+    static const char* m_lua_get;
+    static str m_lua_get_sha1;
+    static const char* m_lua_put;
+    static str m_lua_put_sha1;
 
 };
 
