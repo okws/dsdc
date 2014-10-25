@@ -286,7 +286,6 @@ redis_connection_t::handle_put(void* out, const dsdc_key_t& key,
             *dsdc_res = DSDC_DATA_DISAPPEARED;
             break;
         case 2:
-            warn << "DATA CHANGED: " << print_key(key) << "\n";
             *dsdc_res = DSDC_DATA_CHANGED;
             break;
         default:

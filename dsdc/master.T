@@ -4,6 +4,8 @@
 #include "crypt.h"
 #include "tame.h"
 #include "dsdc_signal.h"
+#include "rpc_stats.h"
+#include "okconst.h"
 
 extern "C" bool_t 
 pmap_set(const u_long program, const u_long version, int protocol, 
@@ -27,6 +29,12 @@ dsdc_master_t::init ()
 
     // check periodically that nothing died on us with a bad heart.
     watchdog_timer_loop ();
+
+    // log RPC stats
+    get_rpc_stats()
+        .set_active(true)
+        .set_interval(ok_amt_rpc_stats_interval);
+
     return true;
 }
 
@@ -351,6 +359,9 @@ dsdc_master_t::upgrade_slave(dsdcx_slave2_t& uslave,
 void
 dsdc_master_t::handle_getstate (svccb *sbp)
 {
+    timespec ts_start;
+    ts_start = sfs_get_tsnow ();
+
     dsdc_key_t *arg = sbp->Xtmpl getarg<dsdc_key_t> ();
     dsdc_getstate_res_t res (false);
     compute_system_state ();
@@ -359,6 +370,8 @@ dsdc_master_t::handle_getstate (svccb *sbp)
         res.set_needupdate (true);
         downgrade_system_state(*res.state, *_system_state);
     }
+
+    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->proc(), ts_start);
     sbp->replyref (res);
 }
 
@@ -367,6 +380,9 @@ dsdc_master_t::handle_getstate (svccb *sbp)
 void
 dsdc_master_t::handle_getstate2 (svccb *sbp)
 {
+    timespec ts_start;
+    ts_start = sfs_get_tsnow ();
+
     dsdc_key_t *arg = sbp->Xtmpl getarg<dsdc_key_t> ();
     dsdc_getstate2_res_t res (false);
     compute_system_state ();
@@ -375,6 +391,8 @@ dsdc_master_t::handle_getstate2 (svccb *sbp)
         res.set_needupdate (true);
         *res.state = *_system_state;
     }
+
+    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->proc(), ts_start);
     sbp->replyref (res);
 }
 
@@ -383,6 +401,9 @@ dsdc_master_t::handle_getstate2 (svccb *sbp)
 void
 dsdcm_client_t::handle_heartbeat (svccb *sbp)
 {
+
+    timespec ts_start;
+    ts_start = sfs_get_tsnow ();
     if (sbp->getsrv ()->xprt ()->ateof ())
         return;
 
@@ -391,6 +412,8 @@ dsdcm_client_t::handle_heartbeat (svccb *sbp)
         return;
     }
     _slave->handle_heartbeat ();
+
+    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->proc(), ts_start);
     sbp->replyref (DSDC_OK);
 }
 
@@ -460,7 +483,10 @@ svccb_to_ip (svccb *sbp)
 void
 dsdcm_client_t::handle_register (svccb *sbp)
 {
+    timespec ts_start;
     dsdc_register_arg_t *arg = sbp->Xtmpl getarg<dsdc_register_arg_t> ();
+
+    ts_start = sfs_get_tsnow ();
     if (_slave) {
         sbp->replyref (dsdc_res_t (DSDC_ALREADY_REGISTERED));
         return;
@@ -500,6 +526,7 @@ dsdcm_client_t::handle_register (svccb *sbp)
       _master->broadcast_newnode (arg->keys, _slave);
     */
 
+    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->proc(), ts_start);
     return;
 }
 
@@ -508,7 +535,10 @@ dsdcm_client_t::handle_register (svccb *sbp)
 void
 dsdcm_client_t::handle_register2(svccb* sbp) {
 
+    timespec ts_start;
     dsdc_register2_arg_t *arg = sbp->Xtmpl getarg<dsdc_register2_arg_t> ();
+
+    ts_start = sfs_get_tsnow ();
     if (_slave) {
         sbp->replyref (dsdc_res_t (DSDC_ALREADY_REGISTERED));
         return;
@@ -557,6 +587,8 @@ dsdcm_client_t::handle_register2(svccb* sbp) {
     if (arg->primary)
       _master->broadcast_newnode (arg->keys, _slave);
     */
+
+    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->proc(), ts_start);
 
     return;
 
