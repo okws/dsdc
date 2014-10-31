@@ -14,6 +14,7 @@
 #include "dsdc_proxy.h"
 #include "rxx.h"
 #include "dsdc.h"
+#include "okwsconf.h"
 
 str cmd_pidfile("");
 
@@ -210,7 +211,8 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
             warnx << "DSDC (Dirt-simple Distributed Cache)\n"
             << "  Version " DSDC_VERSION_STR "\n"
             << "  Compiled " __DATE__ " " __TIME__ "\n"
-            << "  w/ sfslite, Version " SFSLITE_PATCHLEVEL_STR "\n";
+            << "  w/ sfslite, Version " SFSLITE_PATCHLEVEL_STR "\n"
+            << "  w/ okws, Version " OKWS_PATCHLEVEL_STR "\n";
             exit (0);
             break;
         case 'L':

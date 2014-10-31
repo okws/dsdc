@@ -5,7 +5,7 @@ dnl
 
 AC_INIT(config.h.in)
 AC_CONFIG_AUX_DIR([.])
-AM_INIT_AUTOMAKE(dsdc, 0.26)
+AM_INIT_AUTOMAKE(dsdc, 2.0.0.0)
 AM_CONFIG_HEADER(config.h)
 
 DSDC_SET_VERSION
