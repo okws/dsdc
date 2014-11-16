@@ -68,7 +68,7 @@ public:
      * @ret the RPC client, if one was active. NULL if not
      *
      */
-    ptr<connection_t> get_connection () { return _cli; }
+    ptr<connection_t> get_connection () override { return _cli; }
 
     /**
      * call this function to get a new aclnt, so that you can make
@@ -76,13 +76,13 @@ public:
      *
      * @param cb callback to call with the resulting ptr<aclnt>, or NULL on err
      */
-    void get_connection (conn_cb_t cb, CLOSURE);
+    void get_connection (conn_cb_t cb, CLOSURE) override;
     virtual bool is_dead () override;
 
     /**
      * a remote peer is identified by a <hostname>:<port>
      */
-    const str &remote_peer_id () const { return _key; }
+    const str &remote_peer_id () const override { return _key; }
 
     typedef enum { CONN_NONE,
                    CONN_FAST,
@@ -361,7 +361,7 @@ public:
     // of the ring around.  NOTE that slaves do somethind else -- they
     // do keep around the old cached state, so that way they don't all
     // dump their data!
-    bool clean_on_all_masters_dead () const { return true; }
+    bool clean_on_all_masters_dead () const override { return true; }
 
     //
     // put/get/remove objects into the ring.
@@ -460,13 +460,13 @@ protected:
                    u_int32_t procno, const void *in, void *out, aclnt_cb cb);
 
     // fulfill the virtual interface of dsdc_system_cache_t
-    ptr<connection_t> get_primary ();
+    ptr<connection_t> get_primary () override;
     ptr<connection_wrap_t> new_wrap (const str &h, int p,
                                      dsdc_slave_type_t slave_type) override;
-    ptr<connection_wrap_t> new_lockserver_wrap (const str &h, int p);
+    ptr<connection_wrap_t> new_lockserver_wrap (const str &h, int p) override;
 
-    void pre_construct ();
-    void post_construct ();
+    void pre_construct () override;
+    void post_construct () override;
 
     void acquire_cb_1 (ptr<dsdc_lock_acquire_arg_t> arg,
                        dsdc_lock_acquire_res_cb_t cb,
