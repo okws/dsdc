@@ -4,6 +4,12 @@
 #include "crypt.h"
 #include "tame.h"
 #include "dsdc_signal.h"
+#include "rpc_stats.h"
+#include "okconst.h"
+
+extern "C" bool_t 
+pmap_set(const u_long program, const u_long version, int protocol, 
+         u_short port);
 
 //-----------------------------------------------------------------------
 
@@ -19,8 +25,16 @@ dsdc_master_t::init ()
     listen (_lfd, 256);
     fdcb (_lfd, selread, wrap (this, &dsdc_master_t::new_connection));
 
+    pmap_set(DSDC_PROG, DSDC_VERS, IPPROTO_TCP, _port);
+
     // check periodically that nothing died on us with a bad heart.
     watchdog_timer_loop ();
+
+    // log RPC stats
+    get_rpc_stats()
+        .set_active(true)
+        .set_interval(ok_amt_rpc_stats_interval);
+
     return true;
 }
 
@@ -80,8 +94,11 @@ dsdcm_client_t::alloc (dsdc_master_t *ma, int f, const str &h)
 //-----------------------------------------------------------------------
 
 dsdcm_slave_base_t::dsdcm_slave_base_t (ptr<dsdcm_client_t> c, ptr<axprt> x)
-    : _client (c), _clnt_to_slave (aclnt::alloc (x, dsdc_prog_1)) 
+    : _client (c)
 {
+    ptr<aclnt> acli = aclnt::alloc(x, dsdc_prog_1);
+    _clnt_to_slave = New refcounted<aclnt_connection_t>(acli);
+
     // start them up with a heartbeat so not deleted right away!
     handle_heartbeat ();
 }
@@ -97,11 +114,12 @@ dsdcm_slave_base_t::release ()
 
 //-----------------------------------------------------------------------
 
-dsdcm_slave_t::dsdcm_slave_t (ptr<dsdcm_client_t> c, ptr<axprt> x)
+dsdcm_slave_t::dsdcm_slave_t (ptr<dsdcm_client_t> c, ptr<axprt> x,
+                              str slave_type_str)
     : dsdcm_slave_base_t (c, x) 
 {
     if (show_debug (DSDC_DBG_HI)) {
-        warn ("New dsdcm_slave_t @ %p\n", this);
+        warn ("New dsdcm_slave_t (%s) @ %p\n", slave_type_str.cstr(), this);
     }
     _client->get_master ()->insert_slave (this);
 }
@@ -113,6 +131,58 @@ dsdcm_slave_t::alloc (ptr<dsdcm_client_t> c, ptr<axprt> x)
 {
     ptr<dsdcm_slave_t> s = New refcounted<dsdcm_slave_t> (c, x);
     return s;
+}
+
+//-----------------------------------------------------------------------------
+
+ptr<dsdcm_redis_slave_t>
+dsdcm_redis_slave_t::alloc(ptr<dsdcm_client_t> c, ptr<axprt> x) {
+    ptr<dsdcm_redis_slave_t> s = New refcounted<dsdcm_redis_slave_t>(c,x);
+    return s;
+}
+
+//-----------------------------------------------------------------------------
+
+ptr<connection_t>
+dsdcm_redis_slave_t::get_connection() {
+    return m_redis; 
+}
+
+//-----------------------------------------------------------------------------
+
+tamed void
+dsdcm_redis_slave_t::get_connection(conn_cb_t cb) {
+    
+    tvars {
+        str fullname, host;
+        int port;
+        vec<str> toks;
+        bool ok;
+    }
+
+    fullname = _client->remote_peer_id();
+    split(&toks, "\\:", fullname);
+
+    host = toks[0];
+    port = atoi(toks[1].cstr());
+
+    m_redis = New refcounted<redis_connection_t>();
+    twait {
+        m_redis->connect(host, port, mkevent(ok));
+    }
+
+    if (!ok) {
+        m_force_dead = true;
+    }
+
+    cb(m_redis);
+}
+
+//-----------------------------------------------------------------------------
+
+bool
+dsdcm_redis_slave_t::is_dead() {
+    return m_force_dead || dsdcm_slave_t::is_dead();
 }
 
 //-----------------------------------------------------------------------
@@ -219,11 +289,17 @@ dsdcm_client_t::dispatch (svccb *sbp)
     case DSDC_REGISTER:
         handle_register (sbp);
         break;
+    case DSDC_REGISTER2:
+        handle_register2(sbp);
+        break;
     case DSDC_HEARTBEAT:
         handle_heartbeat (sbp);
         break;
     case DSDC_GETSTATE:
         _master->handle_getstate (sbp);
+        break;
+    case DSDC_GETSTATE2:
+        _master->handle_getstate2(sbp);
         break;
     case DSDC_LOCK_ACQUIRE:
         _master->handle_lock_acquire (sbp);
@@ -240,19 +316,83 @@ dsdcm_client_t::dispatch (svccb *sbp)
     }
 }
 
+//-----------------------------------------------------------------------------
+
+void
+dsdc_master_t::downgrade_system_state(dsdcx_state_t& dstate,
+                                      const dsdcx_state2_t& ustate) {
+    dstate.lock_server = ustate.lock_server;
+    for (auto s : ustate.slaves) {
+        dsdcx_slave_t slave;
+
+        slave.keys = s.keys;
+        slave.hostname = s.hostname;
+        slave.port = s.port;
+
+        dstate.slaves.push_back(slave);
+    }
+}
+
+//-----------------------------------------------------------------------------
+
+void
+dsdc_master_t::downgrade_slave(dsdcx_slave_t& dslave,
+                               const dsdcx_slave2_t& ustate) {
+    dslave.keys = ustate.keys;
+    dslave.hostname = ustate.hostname;
+    dslave.port = ustate.port;
+}
+
+//-----------------------------------------------------------------------------
+
+void
+dsdc_master_t::upgrade_slave(dsdcx_slave2_t& uslave,
+                             const dsdcx_slave_t& dslave) {
+    uslave.keys = dslave.keys;
+    uslave.hostname = dslave.hostname;
+    uslave.port = dslave.port;
+    uslave.slave_type = DSDC_NORMAL_SLAVE;
+}
+
 //-----------------------------------------------------------------------
 
 void
 dsdc_master_t::handle_getstate (svccb *sbp)
 {
+    timespec ts_start;
+    ts_start = sfs_get_tsnow ();
+
     dsdc_key_t *arg = sbp->Xtmpl getarg<dsdc_key_t> ();
     dsdc_getstate_res_t res (false);
     compute_system_state ();
 
     if (dsdck_cmp (*arg, *_system_state_hash) != 0) {
         res.set_needupdate (true);
+        downgrade_system_state(*res.state, *_system_state);
+    }
+
+    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->proc(), ts_start);
+    sbp->replyref (res);
+}
+
+//-----------------------------------------------------------------------
+
+void
+dsdc_master_t::handle_getstate2 (svccb *sbp)
+{
+    timespec ts_start;
+    ts_start = sfs_get_tsnow ();
+
+    dsdc_key_t *arg = sbp->Xtmpl getarg<dsdc_key_t> ();
+    dsdc_getstate2_res_t res (false);
+    compute_system_state ();
+
+    if (dsdck_cmp (*arg, *_system_state_hash) != 0) {
+        res.set_needupdate (true);
         *res.state = *_system_state;
     }
+
+    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->proc(), ts_start);
     sbp->replyref (res);
 }
 
@@ -261,6 +401,9 @@ dsdc_master_t::handle_getstate (svccb *sbp)
 void
 dsdcm_client_t::handle_heartbeat (svccb *sbp)
 {
+
+    timespec ts_start;
+    ts_start = sfs_get_tsnow ();
     if (sbp->getsrv ()->xprt ()->ateof ())
         return;
 
@@ -269,6 +412,8 @@ dsdcm_client_t::handle_heartbeat (svccb *sbp)
         return;
     }
     _slave->handle_heartbeat ();
+
+    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->proc(), ts_start);
     sbp->replyref (DSDC_OK);
 }
 
@@ -293,9 +438,9 @@ dsdc_master_t::compute_system_state ()
     if (_system_state)
         return;
 
-    _system_state = New refcounted<dsdcx_state_t> ();
+    _system_state = New refcounted<dsdcx_state2_t> ();
 
-    dsdcx_slave_t slave;
+    dsdcx_slave2_t slave;
     for (dsdcm_slave_t *p = _slaves.first; p; p = _slaves.next (p)) {
         p->get_xdr_repr (&slave);
         _system_state->slaves.push_back (slave);
@@ -305,7 +450,7 @@ dsdc_master_t::compute_system_state ()
         if (!_system_state->lock_server)
             _system_state->lock_server.alloc ();
         _lock_servers.first->get_xdr_repr (&slave);
-        *_system_state->lock_server = slave;
+        downgrade_slave(*_system_state->lock_server, slave);
     }
 
     // also compute the hash
@@ -338,7 +483,10 @@ svccb_to_ip (svccb *sbp)
 void
 dsdcm_client_t::handle_register (svccb *sbp)
 {
+    timespec ts_start;
     dsdc_register_arg_t *arg = sbp->Xtmpl getarg<dsdc_register_arg_t> ();
+
+    ts_start = sfs_get_tsnow ();
     if (_slave) {
         sbp->replyref (dsdc_res_t (DSDC_ALREADY_REGISTERED));
         return;
@@ -357,7 +505,10 @@ dsdcm_client_t::handle_register (svccb *sbp)
         arg->slave.hostname = ip;
     }
 
-    _slave->init (arg->slave);
+    dsdcx_slave2_t uslave;
+
+    _master->upgrade_slave(uslave, arg->slave);
+    _slave->init (uslave);
 
     sbp->replyref (dsdc_res_t (DSDC_OK));
 
@@ -375,7 +526,72 @@ dsdcm_client_t::handle_register (svccb *sbp)
       _master->broadcast_newnode (arg->keys, _slave);
     */
 
+    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->proc(), ts_start);
     return;
+}
+
+//-----------------------------------------------------------------------------
+
+void
+dsdcm_client_t::handle_register2(svccb* sbp) {
+
+    timespec ts_start;
+    dsdc_register2_arg_t *arg = sbp->Xtmpl getarg<dsdc_register2_arg_t> ();
+
+    ts_start = sfs_get_tsnow ();
+    if (_slave) {
+        sbp->replyref (dsdc_res_t (DSDC_ALREADY_REGISTERED));
+        return;
+    }
+    if (arg->lock_server) {
+        _slave = dsdcm_lock_server_t::alloc (mkref (this), _x);
+    } else {
+        switch (arg->slave.slave_type) {
+        case DSDC_NORMAL_SLAVE:
+            _slave = dsdcm_slave_t::alloc (mkref (this), _x);
+            break;
+        case DSDC_REDIS_SLAVE:
+            _slave = dsdcm_redis_slave_t::alloc (mkref (this), _x);
+            break;
+        default:
+            warn << "dsdc_error: handle_register2(): unknown slave type: "
+                 << arg->slave.slave_type << "\n";
+            sbp->replyref(DSDC_NONODE);
+            return;
+        };
+
+    }
+
+    // Safer to use the IP that the kernel is giving us, and not the 
+    // random hostname that the node supplied. This solves especially
+    // bad behavior when the DNS mappings change midstream.
+    str ip = svccb_to_ip (sbp);
+    if (ip) { 
+        arg->slave.hostname = ip;
+    }
+
+    _slave->init(arg->slave);
+
+    sbp->replyref (dsdc_res_t (DSDC_OK));
+
+    // clear out the state fields since they are no longer correct
+    // as an optimization, we only do this on a node addition, and
+    // not on a node deletion.  inserting nodes is the problem, since
+    // that will cause our cached data to no longer be relevant
+    _master->reset_system_state ();
+
+    /*
+     * do not kick off the newnode protocol yet; we'll add this
+     * back in when there is data movement that we care about.
+     *
+    if (arg->primary)
+      _master->broadcast_newnode (arg->keys, _slave);
+    */
+
+    get_rpc_stats().end_call (sbp->prog(), sbp->vers(), sbp->proc(), ts_start);
+
+    return;
+
 }
 
 //-----------------------------------------------------------------------
@@ -436,7 +652,7 @@ dsdcm_slave_base_t::insert_nodes ()
 //-----------------------------------------------------------------------
 
 void
-dsdcm_slave_base_t::init (const dsdcx_slave_t &sl)
+dsdcm_slave_base_t::init (const dsdcx_slave2_t &sl)
 {
     _xdr_repr = sl;
     insert_nodes ();
@@ -480,24 +696,36 @@ dsdcm_slave_base_t::remove_nodes ()
 
 //-----------------------------------------------------------------------
 
-dsdc_res_t
-dsdc_master_t::get_aclnt (const dsdc_key_t &k, ptr<aclnt> *cli)
+tamed void
+dsdc_master_t::get_connection (const dsdc_key_t &k, ptr<connection_t> *cli,
+                               event<dsdc_res_t>::ref ev)
 {
-    dsdc_ring_node_t *node = _hash_ring.successor (k);
-    if (!node)
-        return DSDC_NONODE;
 
-    aclnt_wrap_t *w = node->get_aclnt_wrap ();
+    tvars {
+        dsdc_ring_node_t *node; 
+        connection_wrap_t* w;
+    }
+
+    node = _hash_ring.successor (k);
+    if (!node) {
+        ev->trigger(DSDC_NONODE);
+        return;
+    }
+
+    w = node->get_connection_wrap ();
     assert (w);
     if (show_debug (DSDC_DBG_MED))
         warn ("resolved mapping: %s -> %s (%p)\n",
               key_to_str (k).cstr (), w->remote_peer_id ().cstr (), w);
 
     if (w->is_dead ()) {
-        return DSDC_DEAD;
+        ev->trigger(DSDC_DEAD);
+        return;
     }
-    *cli = w->get_aclnt ();
-    return DSDC_OK;
+
+    twait { w->get_connection(mkevent(*cli)); }
+
+    ev->trigger(DSDC_OK);
 }
 
 //-----------------------------------------------------------------------
@@ -539,7 +767,7 @@ dsdc_master_t::handle_get (svccb *sbp)
         const dsdc_get3_arg_t *a3;
         const void *av (NULL);
         dsdc_get_res_t res;
-        ptr<aclnt> cli;
+        ptr<connection_t> cli;
         dsdc_res_t r;
         clnt_stat err;
         dsdc_key_t key;
@@ -566,7 +794,9 @@ dsdc_master_t::handle_get (svccb *sbp)
         break;
     }
 
-    if ((r = get_aclnt (key, &cli)) != DSDC_OK) {
+    twait { get_connection(key, &cli, mkevent(r)); }
+
+    if (r != DSDC_OK) {
         res.set_status (r);
     } else {
         twait { cli->call (sbp->proc (), av, &res, mkevent (err)); }
@@ -600,7 +830,7 @@ dsdc_master_t::handle_lock_release (svccb *sbp)
         sbp->replyref (DSDC_NONODE);
     } else {
         ptr<int> res = New refcounted<int> ();
-        lock_server ()->get_aclnt ()->
+        lock_server ()->get_connection ()->
         call (DSDC_LOCK_RELEASE,
               sbp->Xtmpl getarg<dsdc_lock_release_arg_t> (),
               res,
@@ -619,7 +849,7 @@ dsdc_master_t::handle_lock_acquire (svccb *sbp)
         res->set_status (DSDC_NONODE);
         sbp->reply (res);
     } else {
-        lock_server ()->get_aclnt ()->
+        lock_server ()->get_connection ()->
         call (DSDC_LOCK_ACQUIRE,
               sbp->Xtmpl getarg<dsdc_lock_acquire_arg_t> (),
               res, wrap (acquire_cb, sbp, res));
@@ -633,15 +863,15 @@ dsdc_master_t::handle_remove (svccb *sbp)
 {
     tvars {
         dsdc_key_t *k (sbp->Xtmpl getarg<dsdc_key_t> ());
-        ptr<aclnt> cli;
+        ptr<connection_t> cli;
         dsdc_res_t res;
         clnt_stat err;
     }
 
-    res = get_aclnt (*k, &cli);
+    twait { get_connection (*k, &cli, mkevent(res)); }
     if (res == DSDC_OK) {
         twait {
-            RPC::dsdc_prog_1::dsdc_remove (cli, k, &res, mkevent(err));
+            cli->call(DSDC_REMOVE, k, &res, mkevent(err));
         }
         if (err)
             res = DSDC_RPC_ERROR;
@@ -658,14 +888,14 @@ dsdc_master_t::handle_put (svccb *sbp)
 {
     tvars {
         dsdc_put_arg_t *arg (sbp->Xtmpl getarg<dsdc_put_arg_t> ());
-        ptr<aclnt> cli;
+        ptr<connection_t> cli;
         dsdc_res_t res;
         clnt_stat err;
     }
-    res = get_aclnt (arg->key, &cli);
+    twait { get_connection (arg->key, &cli, mkevent(res)); }
     if (res == DSDC_OK) {
         twait {
-            RPC::dsdc_prog_1::dsdc_put (cli, arg, &res, mkevent (err));
+            cli->call(DSDC_PUT, arg, &res, mkevent(err));
         }
         if (err)
             res = DSDC_RPC_ERROR;
@@ -760,10 +990,10 @@ dsdc_master_t::get_stats (dsdc_slave_statistic_t *out,
 {
     tvars {
         clnt_stat err;
-        ptr<aclnt> c;
+        ptr<connection_t> c;
     }
     out->host = sl->remote_peer_id ();
-    c = sl->get_aclnt ();
+    c = sl->get_connection ();
     if (!c) {
         out->stats.set_status (DSDC_DEAD);
     } else {

@@ -64,7 +64,7 @@ public:
 
     void connect ();
     void dispatch (svccb *b);
-    ptr<aclnt> cli () { return _cli; }
+    ptr<connection_t> cli () { return _cli; }
     dsdcs_master_status_t status () const { return _status; }
 
     list_entry<dsdcs_master_t> _lnk;
@@ -91,7 +91,7 @@ private:
 
     int _fd;
 
-    ptr<aclnt> _cli;
+    ptr<connection_t> _cli;
     ptr<axprt> _x;
     ptr<asrv> _srv;
     bool _primary;
@@ -149,7 +149,7 @@ protected:
      * return an aclnt for the master that's currently serving as the
      * master primary.
      */
-    ptr<aclnt> get_primary ();
+    ptr<connection_t> get_primary ();
 
     list<dsdcs_master_t, &dsdcs_master_t::_lnk> _masters;
 
@@ -224,9 +224,10 @@ public:
 
     // implement virtual functions from the
     // dsdc_system_state_cache class
-    ptr<aclnt_wrap_t> new_wrap (const str &h, int p) { return NULL; }
-    ptr<aclnt_wrap_t> new_lockserver_wrap (const str &h, int p) { return NULL; }
-    ptr<aclnt> get_primary () { return dsdc_slave_app_t::get_primary (); }
+    ptr<connection_wrap_t> new_wrap (const str &h, int p,
+                                     dsdc_slave_type_t t) { return NULL; }
+    ptr<connection_wrap_t> new_lockserver_wrap (const str &h, int p) { return NULL; }
+    ptr<connection_t> get_primary () { return dsdc_slave_app_t::get_primary (); }
     void set_stats_mode2 (int i);
 protected:
     void run_stats2_loop (CLOSURE);

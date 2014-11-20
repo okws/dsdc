@@ -110,7 +110,7 @@ dsdc_smartcli_t::~dsdc_smartcli_t ()
 
 //-----------------------------------------------------------------------
 
-ptr<aclnt>
+ptr<connection_t>
 dsdc_smartcli_t::get_primary ()
 {
     if (! _masters.first )
@@ -129,7 +129,7 @@ dsdc_smartcli_t::get_primary ()
             end = _curr_master;
 
         if (! _curr_master->is_dead ())
-            return _curr_master->get_aclnt ();
+            return _curr_master->get_connection ();
     }
     return NULL;
 }
@@ -149,6 +149,14 @@ dsdci_srv_t::is_dead ()
     return false;
 }
 
+//-----------------------------------------------------------------------------
+
+bool
+dsdci_redis_slave_t::is_dead() {
+    return !(m_redisconn &&
+             m_redisconn->is_connected());
+}   
+
 //-----------------------------------------------------------------------
 
 void
@@ -159,7 +167,7 @@ dsdc_smartcli_t::pre_construct ()
 
 //-----------------------------------------------------------------------
 
-ptr<aclnt_wrap_t>
+ptr<connection_wrap_t>
 dsdc_smartcli_t::new_lockserver_wrap (const str &h, int p)
 {
     return New refcounted<dsdci_slave_t> (h, p);
@@ -167,10 +175,18 @@ dsdc_smartcli_t::new_lockserver_wrap (const str &h, int p)
 
 //-----------------------------------------------------------------------
 
-ptr<aclnt_wrap_t>
-dsdc_smartcli_t::new_wrap (const str &h, int p)
+ptr<connection_wrap_t>
+dsdc_smartcli_t::new_wrap (const str &h, int p, dsdc_slave_type_t slave_type)
 {
-    ptr<dsdci_slave_t> s = New refcounted<dsdci_slave_t> (h, p);
+    ptr<dsdci_slave_t> s;
+    switch (slave_type) {
+    case DSDC_REDIS_SLAVE:
+        s = New refcounted<dsdci_redis_slave_t>(h,p);
+        break;
+    default:
+        s = New refcounted<dsdci_slave_t> (h, p);
+    };
+
     ptr<dsdci_slave_t> ret = NULL;
     dsdci_slave_t *slave_p;
     if ((slave_p = _slaves_hash[s->key ()])) {
@@ -228,8 +244,8 @@ dsdc_smartcli_t::which_slave (const dsdc_key_t &k)
 {
     dsdc_ring_node_t *n;
     str res;
-    aclnt_wrap_t *aw;
-    if ((n = _hash_ring.successor (k)) && (aw = n->get_aclnt_wrap ())) {
+    connection_wrap_t *aw;
+    if ((n = _hash_ring.successor (k)) && (aw = n->get_connection_wrap ())) {
         res = aw->remote_peer_id ();
     }
     return res;
@@ -243,7 +259,7 @@ dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
                       const annotation_t *a)
 {
     tvars {
-        ptr<aclnt> cli;
+        ptr<connection_t> cli;
         dsdc_ring_node_t *n;
         ptr<dsdc_get_res_t> res (New refcounted<dsdc_get_res_t> (DSDC_OK));
         bool tried (false);
@@ -256,11 +272,11 @@ dsdc_smartcli_t::get (ptr<dsdc_key_t> k, dsdc_get_res_cb_t cb,
     if (safe) {
         cli = get_primary ();
     } else if (_proxies.size() && (prx = get_proxy())) {
-        twait { prx->get_aclnt(mkevent(cli)); }
+        twait { prx->get_connection(mkevent(cli)); }
     } else {
         if ((n = _hash_ring.successor (*k))) {
             tried = true;
-            twait { n->get_aclnt_wrap ()->get_aclnt (mkevent (cli)); }
+            twait { n->get_connection_wrap ()->get_connection(mkevent (cli)); }
         }
     }
 
@@ -338,7 +354,7 @@ dsdc_smartcli_t::remove (ptr<dsdc_remove3_arg_t> arg, cbi::ptr cb, bool safe)
 //-----------------------------------------------------------------------
 
 void
-dsdc_smartcli_t::rpc_call (ptr<aclnt> cli,
+dsdc_smartcli_t::rpc_call (ptr<connection_t> cli,
                            u_int32_t procno, const void *in, void *out,
                            aclnt_cb cb)
 {
@@ -358,6 +374,7 @@ dsdci_srv_t::connect (cbb cb)
         bool ret (true);
         int f;
         ptr<bool> df;
+        ptr<aclnt> acli;
     }
     
     df = _destroyed;
@@ -381,8 +398,49 @@ dsdci_srv_t::connect (cbb cb)
                      << key () << "\n";
             }
             assert ((_x = axprt_stream::alloc (_fd, dsdc_packet_sz)));
-            _cli = aclnt::alloc (_x, dsdc_prog_1);
-            _cli->seteofcb (wrap (this, &dsdci_srv_t::hit_eof, _destroyed));
+            acli = aclnt::alloc (_x, dsdc_prog_1);
+            acli->seteofcb (wrap (this, &dsdci_srv_t::hit_eof, _destroyed));
+            _cli = New refcounted<aclnt_connection_t>(acli);
+        }
+    }
+    (*cb) (ret);
+}
+
+//-----------------------------------------------------------------------------
+
+tamed void
+dsdci_redis_slave_t::connect(cbb cb) {
+
+    tvars { 
+        bool ret (true), ok;
+        ptr<bool> df;
+    }
+    
+    df = _destroyed;
+
+    if (!is_dead ()) { 
+        ret = true;
+    } else {
+
+        m_redisconn = New refcounted<redis_connection_t>();
+
+        twait { m_redisconn->connect(_hostname, _port, mkevent(ok)); }
+
+        if (*df) {
+            ret = false;
+        } else if (!ok) {
+            if (show_debug (DSDC_DBG_LOW)) {
+                warn << "connection to " << typ () << " failed: " 
+                     << key () << "\n";
+            }
+            ret = false;
+        } else {
+            if (show_debug (DSDC_DBG_MED)) {
+                warn << "connection to " << typ () << " succeeded: " 
+                     << key () << "\n";
+            }
+            
+            _cli = m_redisconn;
         }
     }
     (*cb) (ret);
@@ -402,11 +460,11 @@ dsdci_srv_t::trigger_waiters ()
 //-----------------------------------------------------------------------
 
 tamed void
-dsdci_srv_t::get_aclnt (aclnt_cb_t cb)
+dsdci_srv_t::get_connection (conn_cb_t cb)
 {
     tvars {
         ptr<bool> df;
-        ptr<aclnt> ret;
+        ptr<connection_t> ret;
         bool triggered (false);
         rendezvous_t<bool> rv (__FILE__, __LINE__);
         timecb_t *tcb (NULL);
@@ -641,7 +699,7 @@ acquire_cb_2 (dsdc_lock_acquire_res_cb_t cb,
 void
 dsdc_smartcli_t::acquire_cb_1 (ptr<dsdc_lock_acquire_arg_t> arg,
                                dsdc_lock_acquire_res_cb_t cb,
-                               ptr<aclnt> cli)
+                               ptr<connection_t> cli)
 {
     if (!cli) {
         (*cb) (New refcounted<dsdc_lock_acquire_res_t> (DSDC_DEAD));
@@ -661,7 +719,7 @@ dsdc_smartcli_t::lock_release (ptr<dsdc_lock_release_arg_t> arg,
 {
     tvars {
         dsdc_res_t res (DSDC_OK);
-        ptr<aclnt> cli;
+        ptr<connection_t> cli;
         clnt_stat err;
     }
 
@@ -669,7 +727,7 @@ dsdc_smartcli_t::lock_release (ptr<dsdc_lock_release_arg_t> arg,
         if (!_lock_server) {
             res = DSDC_NONODE;
         } else {
-            twait { _lock_server->get_aclnt (mkevent (cli)); }
+            twait { _lock_server->get_connection (mkevent (cli)); }
         }
     } else {
         cli = get_primary ();
@@ -681,7 +739,7 @@ dsdc_smartcli_t::lock_release (ptr<dsdc_lock_release_arg_t> arg,
     } else {
         // No timeouts for now.
         twait {
-            RPC::dsdc_prog_1::dsdc_lock_release (cli, arg, &res, mkevent (err));
+            cli->call(DSDC_LOCK_RELEASE, arg, &res, mkevent(err));
         }
         if (err) {
             if (show_debug (DSDC_DBG_LOW)) {
@@ -703,8 +761,8 @@ dsdc_smartcli_t::lock_acquire (ptr<dsdc_lock_acquire_arg_t> arg,
     } else if (!_lock_server) {
         (*cb) (New refcounted<dsdc_lock_acquire_res_t> (DSDC_NONODE));
     } else {
-        _lock_server->get_aclnt (wrap (this, &dsdc_smartcli_t::acquire_cb_1,
-                                       arg, cb));
+        _lock_server->get_connection(wrap(this, &dsdc_smartcli_t::acquire_cb_1,
+                                          arg, cb));
     }
 }
 //
