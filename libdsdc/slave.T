@@ -28,8 +28,11 @@ dsdc_cache_obj_t::set (const dsdc_key_t &k, const dsdc_obj_t &o,
 }
 
 bool
-dsdc_cache_obj_t::match_checksum (const dsdc_cksum_t &cksum) const {
-    return check_checksum(_obj, &cksum);
+dsdc_cache_obj_t::match_checksum (const dsdc_cksum_t &cksum) const
+{
+    dsdc_cksum_t tmp;
+    return (sha1_hashxdr (tmp.base (), _obj) &&
+            memcmp (tmp.base (), cksum.base (), cksum.size()) == 0);
 }
 
 void
@@ -44,8 +47,7 @@ dsdcs_master_t::connect_cb (int f)
 
     _fd = f;
     assert ((_x = axprt_stream::alloc (_fd, dsdc_packet_sz)));
-    ptr<aclnt> acli = aclnt::alloc (_x, dsdc_prog_1);
-    _cli = New refcounted<aclnt_connection_t>(acli);
+    _cli = aclnt::alloc (_x, dsdc_prog_1);
     _srv = asrv::alloc (_x, dsdc_prog_1,
                         wrap (this, &dsdcs_master_t::dispatch));
     _status = MASTER_STATUS_UP;
@@ -92,7 +94,7 @@ dsdcs_master_t::schedule_heartbeat ()
              wrap (this, &dsdcs_master_t::heartbeat));
 }
 
-ptr<connection_t>
+ptr<aclnt>
 dsdc_slave_app_t::get_primary ()
 {
     for (dsdcs_master_t *m = _masters.first; m ; m = _masters.next (m)) {

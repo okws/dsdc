@@ -7,7 +7,7 @@
 //-----------------------------------------------------------------------
 
 void
-dsdc_system_state_cache_t::change_lock_server_to (connection_wrap_t *nl)
+dsdc_system_state_cache_t::change_lock_server_to (aclnt_wrap_t *nl)
 {
     if (_lock_server) {
         if (show_debug (DSDC_DBG_LOW))
@@ -28,7 +28,7 @@ dsdc_system_state_cache_t::change_lock_server_to (connection_wrap_t *nl)
 void
 dsdc_system_state_cache_t::refresh_lock_server ()
 {
-    ptr<connection_wrap_t> nl;
+    ptr<aclnt_wrap_t> nl;
     if (_system_state.lock_server) {
         if ((nl = new_lockserver_wrap (_system_state.lock_server->hostname,
                                        _system_state.lock_server->port))) {
@@ -48,7 +48,7 @@ void
 dsdc_system_state_cache_t::clear_all ()
 {
     if (_system_state.slaves.size ()) {
-        dsdc_getstate2_res_t res (true);
+        dsdc_getstate_res_t res (true);
         handle_refresh (res);
     }
 }
@@ -56,7 +56,7 @@ dsdc_system_state_cache_t::clear_all ()
 //-----------------------------------------------------------------------
 
 void
-dsdc_system_state_cache_t::handle_refresh (const dsdc_getstate2_res_t &res)
+dsdc_system_state_cache_t::handle_refresh (const dsdc_getstate_res_t &res)
 {
     if (res.needupdate) {
         _system_state = *res.state;
@@ -78,9 +78,8 @@ dsdc_system_state_cache_t::construct_tree ()
 {
     _hash_ring.deleteall_correct ();
     for (size_t i = 0; i < _system_state.slaves.size (); i++) {
-        const dsdcx_slave2_t &sl = _system_state.slaves[i];
-        ptr<connection_wrap_t> w = new_wrap (sl.hostname, sl.port, 
-                                             sl.slave_type);
+        const dsdcx_slave_t &sl = _system_state.slaves[i];
+        ptr<aclnt_wrap_t> w = new_wrap (sl.hostname, sl.port);
         for (size_t j = 0; j < sl.keys.size (); j++) {
             _hash_ring.insert (New dsdc_ring_node_t (w, sl.keys[j]));
         }
@@ -137,8 +136,8 @@ dsdc_system_state_cache_t::refresh (evv_t::ptr ev)
 {
     tvars {
         clnt_stat err;
-        ptr<connection_t> c;
-        dsdc_getstate2_res_t res;
+        ptr<aclnt> c;
+        dsdc_getstate_res_t res;
         ptr<bool> df;
     }
 
@@ -150,7 +149,7 @@ dsdc_system_state_cache_t::refresh (evv_t::ptr ev)
         }
     } else {
         twait { 
-            RPC::dsdc_prog_1::dsdc_getstate2
+            RPC::dsdc_prog_1::dsdc_getstate
                 (c, _system_state_hash, &res, mkevent (err));
         }
         if (err) {

@@ -85,7 +85,4 @@ bool parse_hn (const str &in, str *host, int *port);
 
 bool is_empty_checksum (const dsdc_cksum_t &cksum);
 void make_empty_checksum (dsdc_cksum_t *out);
-bool check_checksum(const dsdc_obj_t& obj,
-                    const dsdc_cksum_t* cksum);
-bool check_checksum(const void* obj, size_t len,
-                    const dsdc_cksum_t* cksum);                   
+

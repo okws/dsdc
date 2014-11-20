@@ -3,9 +3,8 @@
 #include "dsdc_ring.h"
 #include "crypt.h"
 
-dsdc_ring_node_t::dsdc_ring_node_t (ptr<connection_wrap_t> w, 
-                                    const dsdc_key_t &k)
-        :  _connection_wrap (w)
+dsdc_ring_node_t::dsdc_ring_node_t (ptr<aclnt_wrap_t> w, const dsdc_key_t &k)
+        :  _aclnt_wrap (w)
 {
     memcpy (_key.base (),  k.base (), k.size ());
 }
@@ -99,7 +98,7 @@ dsdc_hash_ring_t::fingerprint_long (vec<str> *vc) const
         nn = next (n);
         str k = armor32 (n->_key.base (), n->_key.size ());
         str v;
-        ptr<const connection_wrap_t> w = n->get_connection_wrap ();
+        ptr<const aclnt_wrap_t> w = n->get_aclnt_wrap ();
         if (w) { v = w->remote_peer_id (); }
         if (k && v) {
             strbuf b ("%s:%s", k.cstr (), v.cstr ());

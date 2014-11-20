@@ -30,7 +30,7 @@ get2_tame_helper<T>::fn (dsdc_smartcli_t *cli,
     } else if (!(obj = New refcounted<T> ()) || !bytes2xdr (*obj, *res->obj)) {
         status = DSDC_ERRDECODE;
     } else if (cksum) {
-        sha1_hash(cksum->base(), (*res->obj).base(), (*res->obj).size());
+        sha1_hashxdr<dsdc_obj_t> (cksum->base (), *res->obj);
     }
     (*cb) (status, obj);
 }

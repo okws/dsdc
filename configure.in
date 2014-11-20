@@ -5,7 +5,7 @@ dnl
 
 AC_INIT(config.h.in)
 AC_CONFIG_AUX_DIR([.])
-AM_INIT_AUTOMAKE(dsdc, 2.0.0.0)
+AM_INIT_AUTOMAKE(dsdc, 0.26)
 AM_CONFIG_HEADER(config.h)
 
 DSDC_SET_VERSION
@@ -17,9 +17,9 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_HOST
 
 dnl Checks for programs.
-AC_PROG_CC([clang gcc cc])
+AC_PROG_CC
 AC_PROG_CPP
-AC_PROG_CXX([clang++ g++ c++])
+AC_PROG_CXX
 SFS_WFLAGS
 OKWS_EXPAT
 OKWS_SSL
@@ -58,11 +58,6 @@ CPPFLAG="$CPPFLAGS -DEXECDIR="'\"$(sfsexecdir)\"'
 AC_SUBST(sfsexecdir)
 
 SFS_CFLAGS
-
-dnl prefer c++11
-dnl
-SFS_CPP11_IF_POSSIBLE
-dnl
 
 CPPFLAGS="$CPPFLAGS -I"'$(top_srcdir)'
 

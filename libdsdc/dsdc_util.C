@@ -3,7 +3,6 @@
 #include "rxx.h"
 #include "parseopt.h"
 #include "dsdc_util.h"
-#include "crypt.h"
 
 str dsdc_hostname;
 static int dsdc_debug_level = 0;
@@ -86,22 +85,4 @@ void make_empty_checksum (dsdc_cksum_t *out)
 { memset (out->base (), 0, out->size ()); }
 
 //-----------------------------------------------------------------------
-
-bool check_checksum(const dsdc_obj_t& obj,
-                    const dsdc_cksum_t* cksum) {
-    dsdc_cksum_t tmp;
-    return (sha1_hashxdr (tmp.base (), obj) &&
-            memcmp (tmp.base (), cksum->base (), cksum->size()) == 0);
-}
-
-//-----------------------------------------------------------------------------
-
-bool check_checksum(const void* obj, size_t len,
-                    const dsdc_cksum_t* cksum) {
-    dsdc_cksum_t tmp;
-    sha1_hash( (void*) tmp.base (), obj, len);
-    return (memcmp (tmp.base (), cksum->base (), cksum->size()) == 0);
-}
-
-//-----------------------------------------------------------------------------
 
