@@ -184,7 +184,7 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
     int opts = 0;
     int stats_interval = -1;
 
-    while ((ch = getopt (argc, argv, "a:vd:h:LMn:p:P:qRSs:Z:DC:X")) != -1) {
+    while ((ch = getopt(argc, argv, "a:vd:h:LMn:p:P:qRSs:Z:DC:Xu:b:")) != -1) {
         switch (ch) {
         case 'a':
             if (!convertint (optarg, &stats_interval)) {
@@ -282,6 +282,18 @@ parseargs (int argc, char *argv[], dsdc_app_t **app)
             break;
         case 'Z':
             cmd_pidfile = optarg;
+            break;
+        case 'u':
+            if (!convertint (optarg, &dsdcs_clean_wait_us)) {
+                warn << "optarg to -u must be type int.\n";
+                usage ();
+            }
+            break;
+        case 'b':
+            if (!convertint (optarg, &dsdcs_clean_batch)) {
+                warn << "optarg to -b must be type int.\n";
+                usage ();
+            }
             break;
         default:
             usage (false);
